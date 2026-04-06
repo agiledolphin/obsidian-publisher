@@ -1,99 +1,116 @@
-import {App, Editor, MarkdownView, Modal, Notice, Plugin} from 'obsidian';
-import {DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab} from "./settings";
+import { Plugin, Notice, TFile } from 'obsidian';
+import { DEFAULT_SETTINGS, PluginSettings } from './settings';
+import { ConvertController } from './convert-controller';
+import { PublisherSettingTab } from './ui/settings-tab';
+import { PreviewModal } from './ui/preview-modal';
+import { logger } from './utils/logger';
 
-// Remember to rename these classes and interfaces!
+export default class ObsidianPublisher extends Plugin {
+	settings: PluginSettings;
+	private controller: ConvertController;
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
-
-	async onload() {
+	async onload(): Promise<void> {
 		await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		this.addRibbonIcon('dice', 'Sample', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
+		logger.setDebug(this.settings.debugMode);
+
+		this.controller = new ConvertController(
+			this.app.vault,
+			this.app.metadataCache,
+			this.settings
+		);
+
+		// ── Commands ──────────────────────────────────────────────────
+
+		// Copy current file as WeChat-compatible rich text
+		this.addCommand({
+			id: 'copy-as-wechat',
+			name: '复制为公众号格式',
+			checkCallback: (checking) => {
+				const file = this.app.workspace.getActiveFile();
+				if (!file || file.extension !== 'md') return false;
+				if (!checking) this.doConvertAndCopy(file);
+				return true;
+			},
 		});
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status bar text');
-
-		// This adds a simple command that can be triggered anywhere
+		// Preview converted result in a modal
 		this.addCommand({
-			id: 'open-modal-simple',
-			name: 'Open modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
+			id: 'preview-wechat',
+			name: '预览公众号效果',
+			checkCallback: (checking) => {
+				const file = this.app.workspace.getActiveFile();
+				if (!file || file.extension !== 'md') return false;
+				if (!checking) this.doPreview(file);
+				return true;
+			},
+		});
+
+		// ── Ribbon icon ───────────────────────────────────────────────
+		this.addRibbonIcon('clipboard-copy', '复制为公众号格式', () => {
+			const file = this.app.workspace.getActiveFile();
+			if (file && file.extension === 'md') {
+				this.doConvertAndCopy(file);
+			} else {
+				new Notice('请先打开一个 Markdown 文件');
 			}
 		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'replace-selected',
-			name: 'Replace selected content',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				editor.replaceSelection('Sample editor command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-modal-complex',
-			name: 'Open modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
 
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
+		// ── Context menu ──────────────────────────────────────────────
+		this.registerEvent(
+			this.app.workspace.on('file-menu', (menu, file) => {
+				if (file instanceof TFile && file.extension === 'md') {
+					menu.addItem((item) =>
+						item
+							.setTitle('复制为公众号格式')
+							.setIcon('clipboard-copy')
+							.onClick(() => this.doConvertAndCopy(file))
+					);
+					menu.addItem((item) =>
+						item
+							.setTitle('预览公众号效果')
+							.setIcon('eye')
+							.onClick(() => this.doPreview(file))
+					);
 				}
-				return false;
-			}
-		});
+			})
+		);
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+		// ── Settings tab ──────────────────────────────────────────────
+		this.addSettingTab(new PublisherSettingTab(this.app, this));
 
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			new Notice("Click");
-		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
-
+		logger.info('Plugin loaded.');
 	}
 
-	onunload() {
+	onunload(): void {
+		logger.info('Plugin unloaded.');
 	}
 
-	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<MyPluginSettings>);
+	async loadSettings(): Promise<void> {
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<PluginSettings>);
 	}
 
-	async saveSettings() {
+	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
-	}
-}
-
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
+		this.controller?.updateSettings(this.settings);
 	}
 
-	onOpen() {
-		let {contentEl} = this;
-		contentEl.setText('Woah!');
+	private async doConvertAndCopy(file: TFile): Promise<void> {
+		try {
+			await this.controller.convertAndCopy(file);
+		} catch (e) {
+			logger.error('Conversion failed:', e);
+			new Notice(`❌ 转换失败：${(e as Error).message}`);
+		}
 	}
 
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
+	private async doPreview(file: TFile): Promise<void> {
+		try {
+			const html = await this.controller.convert(file);
+			new PreviewModal(this.app, html).open();
+		} catch (e) {
+			logger.error('Preview failed:', e);
+			new Notice(`❌ 预览失败：${(e as Error).message}`);
+		}
 	}
 }

@@ -1,90 +1,57 @@
-# Obsidian Sample Plugin
+# Obsidian Publisher
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+将 Obsidian 文档转换为微信公众号兼容的富文本格式，一键复制到剪贴板，粘贴后保留完整排版样式。
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+## 功能
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open modal (simple)" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+- **一键复制**：将当前 Markdown 文档转换为带内联样式的 HTML，写入剪贴板的 `text/html` 格式
+- **Obsidian 语法支持**：
+  - `[[WikiLink]]` → 纯文本
+  - `![[image.png]]` → 图片（自动 base64 嵌入本地图片）
+  - `![[note.md]]` → 内联展开被嵌入的笔记（最大递归深度 3）
+  - `> [!note]` Callout 块 → 带样式的 div
+  - `==高亮==` → `<mark>`
+  - `~~删除线~~` → `<del>`
+  - `- [x]` 任务列表 → ✅ 勾选样式
+  - 代码块 → 语法高亮（GitHub 风格配色，内联样式）
+  - Frontmatter → 自动移除
+- **多主题**：Obsidian Light（默认）、Obsidian Dark、简约
+- **预览弹窗**：模拟手机宽度（375px）预览效果
 
-## First time developing plugins?
+## 安装（开发模式）
 
-Quick starting guide for new plugin devs:
+```bash
+# 1. 克隆并安装依赖
+cd obsidian-publisher
+npm install
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+# 2. 构建（生产）
+npm run build
 
-## Releasing new releases
+# 3. 开发模式（自动监听修改）
+npm run dev
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
-
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
-
-## Adding your plugin to the community plugin list
-
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
-
-## How to use
-
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
-
-## Manually installing the plugin
-
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
-
-## Improve code quality with eslint
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- This project already has eslint preconfigured, you can invoke a check by running`npm run lint`
-- Together with a custom eslint [plugin](https://github.com/obsidianmd/eslint-plugin) for Obsidan specific code guidelines.
-- A GitHub action is preconfigured to automatically lint every commit on all branches.
-
-## Funding URL
-
-You can include funding URLs where people who use your plugin can financially support it.
-
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
-
-```json
-{
-    "fundingUrl": "https://buymeacoffee.com"
-}
+# 4. 软链接到你的测试 vault
+ln -s $(pwd) /path/to/your/vault/.obsidian/plugins/obsidian-publisher
 ```
 
-If you have multiple URLs, you can also do:
+然后在 Obsidian：**设置 → 第三方插件 → 关闭安全模式 → 启用 Obsidian Publisher**
 
-```json
-{
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
-}
-```
+## 使用
 
-## API Documentation
+1. 打开一篇 Markdown 文档
+2. `Ctrl/Cmd + P` → 搜索"复制为公众号格式"，或点击左侧 ribbon 图标
+3. 打开微信公众号编辑器，`Ctrl+V` 粘贴
+4. 可选：先用"预览公众号效果"命令在弹窗中检查样式
 
-See https://docs.obsidian.md
+## 支持的语言高亮
+
+JavaScript/TypeScript、Python、Java、Go、Rust、C++、CSS、HTML/XML、Bash、SQL、JSON、YAML
+
+## 开发路线图
+
+- [x] 阶段一：Markdown 转换 + 剪贴板复制
+- [ ] 阶段二：微信公众号 API 自动发布（草稿上传）
+- [ ] 数学公式（KaTeX → SVG/PNG）
+- [ ] Mermaid 图表（离屏渲染 → PNG）
+- [ ] 图床上传（SM.MS / 阿里云 OSS 等）
