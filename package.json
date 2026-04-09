@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-publisher",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "将 Obsidian 文档转换为微信公众号兼容的富文本格式并复制到剪贴板。",
 	"main": "main.js",
 	"type": "module",

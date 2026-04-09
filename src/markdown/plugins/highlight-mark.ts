@@ -1,4 +1,5 @@
 import type MarkdownIt from 'markdown-it';
+import { splitTokensByRegex } from './utils';
 
 /**
  * Converts ==highlighted text== to <mark> with inline style.
@@ -10,54 +11,18 @@ export function obsidianHighlightPlugin(md: MarkdownIt): void {
 		for (const token of state.tokens) {
 			if (token.type !== 'inline' || !token.children) continue;
 
-			const result: typeof token.children = [];
-			const regex = /==([^=\n]+)==/g;
-
-			for (const child of token.children) {
-				if (child.type !== 'text') {
-					result.push(child);
-					continue;
-				}
-
-				const text = child.content;
-				let lastIndex = 0;
-				let match: RegExpExecArray | null;
-				let hasMatch = false;
-				regex.lastIndex = 0;
-
-				while ((match = regex.exec(text)) !== null) {
-					hasMatch = true;
-					if (match.index > lastIndex) {
-						const t = new Token('text', '', 0);
-						t.content = text.slice(lastIndex, match.index);
-						result.push(t);
-					}
-
+			token.children = splitTokensByRegex(
+				token.children, Token, /==([^=\n]+)==/g,
+				(match) => {
 					const open = new Token('html_inline', '', 0);
-					open.content = '<mark style="background-color: #fff3b0; padding: 2px 4px; border-radius: 2px;">';
-					result.push(open);
-
+					open.content = '<mark style="background-color: #fff3b1; padding: 2px 4px; border-radius: 2px;">';
 					const content = new Token('text', '', 0);
 					content.content = match[1] ?? '';
-					result.push(content);
-
 					const close = new Token('html_inline', '', 0);
 					close.content = '</mark>';
-					result.push(close);
-
-					lastIndex = match.index + match[0].length;
-				}
-
-				if (!hasMatch) {
-					result.push(child);
-				} else if (lastIndex < text.length) {
-					const t = new Token('text', '', 0);
-					t.content = text.slice(lastIndex);
-					result.push(t);
-				}
-			}
-
-			token.children = result;
+					return [open, content, close];
+				},
+			);
 		}
 		return false;
 	});

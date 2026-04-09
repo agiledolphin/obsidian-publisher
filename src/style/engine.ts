@@ -7,9 +7,15 @@ export interface ObsidianVars {
 	bgPrimary:   string;
 	bgSecondary: string;
 	bgBorder:    string;
-	textNormal:  string;
-	textMuted:   string;
-	textFaint:   string;
+	textNormal:      string;
+	textItalic:      string;
+	textMuted:       string;
+	textFaint:       string;
+	checklistDoneColor: string;
+	checklistDoneDeco:  string; // 'line-through' | 'none'
+	textHighlightBg:     string; // --text-highlight-bg
+	checkboxRadius:      string; // --checkbox-radius (e.g. '3px' or '50%')
+	checkboxBorderWidth: string; // --checkbox-border-width (e.g. '1px' or '2px')
 	accent:      string;
 	linkColor:   string;
 	fontText:    string;
@@ -57,34 +63,65 @@ export interface ObsidianVars {
 // regular CSS property (color / background-color), then read the COMPUTED
 // value. The browser resolves the entire variable chain for us.
 
-function readComputedColor(varName: string, fallback: string): string {
+/** Appends a temporary <div> to document.body, reads a value, then removes it (even on error). */
+function withEl<T>(cssText: string, read: (el: HTMLDivElement) => T): T {
 	const el = document.createElement('div');
-	el.style.cssText =
-		`color: var(${varName}); position: fixed; left: -9999px; pointer-events: none; opacity: 0;`;
+	el.style.cssText = cssText;
 	document.body.appendChild(el);
-	const raw = getComputedStyle(el).color;
-	document.body.removeChild(el);
-	return cssColorToHex(raw) ?? fallback;
+	try {
+		return read(el);
+	} finally {
+		document.body.removeChild(el);
+	}
+}
+
+function readComputedColor(varName: string, fallback: string): string {
+	return withEl(
+		`color: var(${varName}); position: fixed; left: -9999px; pointer-events: none; opacity: 0;`,
+		el => cssColorToHex(getComputedStyle(el).color) ?? fallback,
+	);
 }
 
 function readComputedBg(varName: string, fallback: string): string {
-	const el = document.createElement('div');
-	el.style.cssText =
-		`background-color: var(${varName}); position: fixed; left: -9999px; pointer-events: none; opacity: 0;`;
-	document.body.appendChild(el);
-	const raw = getComputedStyle(el).backgroundColor;
-	document.body.removeChild(el);
-	return cssColorToHex(raw) ?? fallback;
+	return withEl(
+		`background-color: var(${varName}); position: fixed; left: -9999px; pointer-events: none; opacity: 0;`,
+		el => cssColorToHex(getComputedStyle(el).backgroundColor) ?? fallback,
+	);
 }
 
 function readComputedFont(varName: string, fallback: string): string {
-	const el = document.createElement('div');
-	el.style.cssText =
-		`font-family: var(${varName}); position: fixed; left: -9999px; pointer-events: none; opacity: 0;`;
-	document.body.appendChild(el);
-	const raw = getComputedStyle(el).fontFamily;
-	document.body.removeChild(el);
-	return raw.trim() || fallback;
+	return withEl(
+		`font-family: var(${varName}); position: fixed; left: -9999px; pointer-events: none; opacity: 0;`,
+		el => getComputedStyle(el).fontFamily.trim() || fallback,
+	);
+}
+
+/**
+ * Reads --checkbox-radius via element injection so nested var() chains are
+ * fully resolved. Falls back to `fallback` if the variable is not defined.
+ * Uses a 16×16 element so percentage values (e.g. 50%) compute to a px value
+ * that, when applied to the 15×15 checkbox, still produces a circular shape.
+ */
+function readCheckboxRadius(fallback: string): string {
+	if (!getComputedStyle(document.body).getPropertyValue('--checkbox-radius').trim()) return fallback;
+	return withEl(
+		'border-radius: var(--checkbox-radius); width: 16px; height: 16px; ' +
+		'position: fixed; left: -9999px; pointer-events: none; opacity: 0;',
+		el => getComputedStyle(el).borderTopLeftRadius.trim() || fallback,
+	);
+}
+
+/**
+ * Reads --checkbox-border-width via element injection so nested var() chains
+ * are fully resolved. Falls back to `fallback` if the variable is not defined.
+ */
+function readCheckboxBorderWidth(fallback: string): string {
+	if (!getComputedStyle(document.body).getPropertyValue('--checkbox-border-width').trim()) return fallback;
+	return withEl(
+		'border-width: var(--checkbox-border-width); border-style: solid; ' +
+		'position: fixed; left: -9999px; pointer-events: none; opacity: 0;',
+		el => getComputedStyle(el).borderTopWidth.trim() || fallback,
+	);
 }
 
 /** Converts a computed CSS color string (rgb / rgba / hex) to lowercase hex. */
@@ -125,15 +162,17 @@ function readCalloutAccent(type: string, fallback: string): string {
 	el.setAttribute('data-callout', type);
 	el.style.cssText = 'position: fixed; left: -9999px; pointer-events: none; opacity: 0;';
 	document.body.appendChild(el);
-	const raw = getComputedStyle(el).getPropertyValue('--callout-color').trim();
-	document.body.removeChild(el);
-
-	// Format: "r, g, b"
-	const parts = raw.split(',').map(s => parseInt(s.trim(), 10));
-	if (parts.length === 3 && parts.every(n => !isNaN(n))) {
-		return toHex6(String(parts[0]), String(parts[1]), String(parts[2]));
+	try {
+		const raw = getComputedStyle(el).getPropertyValue('--callout-color').trim();
+		// Format: "r, g, b"
+		const parts = raw.split(',').map(s => parseInt(s.trim(), 10));
+		if (parts.length === 3 && parts.every(n => !isNaN(n))) {
+			return toHex6(String(parts[0]), String(parts[1]), String(parts[2]));
+		}
+		return fallback;
+	} finally {
+		document.body.removeChild(el);
 	}
-	return fallback;
 }
 
 /** Reads --callout-blend-factor (typically 0.1 in Obsidian). */
@@ -142,61 +181,79 @@ function readCalloutBlendFactor(): number {
 	el.className = 'callout';
 	el.style.cssText = 'position: fixed; left: -9999px; pointer-events: none; opacity: 0;';
 	document.body.appendChild(el);
-	const raw = getComputedStyle(el).getPropertyValue('--callout-blend-factor').trim();
-	document.body.removeChild(el);
-	const n = parseFloat(raw);
-	return isNaN(n) ? 0.1 : n;
+	try {
+		const raw = getComputedStyle(el).getPropertyValue('--callout-blend-factor').trim();
+		const n = parseFloat(raw);
+		return isNaN(n) ? 0.1 : n;
+	} finally {
+		document.body.removeChild(el);
+	}
 }
 
+
+
 /**
- * Reads a code syntax token color using two strategies:
- *
- * Strategy 1 — Reading view (Prism.js classes, most accurate):
- *   Obsidian's reading view renders code with Prism token classes like
- *   "token function", "token string", "token comment".
- *   Injects a span with those classes inside `.markdown-preview-view pre code`.
- *
- * Strategy 2 — Editor view fallback (CodeMirror compound classes):
- *   Injects a span with "cmClass cm-hmd-codeblock" inside the deepest
- *   available CM ancestor.
+ * Reads the done-checklist item color and text-decoration.
+ * - Color: resolved via CSS variable trick (reliable across themes).
+ * - Decoration: injected element inside the preview (reads actual computed value,
+ *   catching theme overrides that contradict the variable definition).
  */
-function readCodeTokenColor(prismClass: string, cmClass: string, fallback: string): string {
-	const hidden = 'position: absolute; left: -9999px; pointer-events: none; opacity: 0;';
-
-	// Strategy 1: reading-view Prism tokens.
-	// Prefer code.is-loaded — Obsidian adds this class after Prism highlights the
-	// block, and some theme rules are scoped to .is-loaded .token.xxx.
-	const previewCode =
-		document.querySelector('.markdown-preview-view pre code.is-loaded') ??
-		document.querySelector('.markdown-preview-view pre code');
-	if (previewCode) {
-		const el = document.createElement('span');
-		if (prismClass) el.className = prismClass;
-		el.style.cssText = hidden;
-		previewCode.appendChild(el);
-		const raw = getComputedStyle(el).color;
-		previewCode.removeChild(el);
-		const hex = cssColorToHex(raw);
-		if (hex) return hex;
+function readChecklistDoneStyle(): { color: string; decoration: string } {
+	// Color: resolve --checklist-done-color via inline style so var() is computed.
+	const colorEl = document.createElement('span');
+	colorEl.style.cssText = 'position:absolute;left:-9999px;color:var(--checklist-done-color,#888888)';
+	document.body.appendChild(colorEl);
+	let color: string;
+	try {
+		color = cssColorToHex(getComputedStyle(colorEl).color) ?? '#888888';
+	} finally {
+		document.body.removeChild(colorEl);
 	}
 
-	// Strategy 2: editor view with CM compound class
-	const scope =
-		document.querySelector('.cm-editor .cm-content .cm-line') ??
-		document.querySelector('.cm-editor .cm-content') ??
-		document.querySelector('.cm-editor');
-	if (scope) {
-		const el = document.createElement('span');
-		el.className = cmClass ? `${cmClass} cm-hmd-codeblock` : 'cm-hmd-codeblock';
-		el.style.cssText = hidden;
-		scope.appendChild(el);
-		const raw = getComputedStyle(el).color;
-		scope.removeChild(el);
-		const hex = cssColorToHex(raw);
-		if (hex) return hex;
+	// Decoration: inject a complete ul > li.task-list-item.is-checked[data-task="x"] > p
+	// structure (matching Obsidian's actual DOM) so all theme selectors can match.
+	const preview = document.querySelector('.markdown-preview-view') ?? document.body;
+	const ul = document.createElement('ul');
+	ul.style.cssText = 'position:absolute;left:-9999px;list-style:none;';
+	const li = document.createElement('li');
+	li.className = 'task-list-item is-checked';
+	li.setAttribute('data-task', 'x');
+	const p = document.createElement('p');
+	p.textContent = 'x';
+	li.appendChild(p);
+	ul.appendChild(li);
+	preview.appendChild(ul);
+	let decoration: string;
+	try {
+		// Read from both li and p — some themes apply decoration to li, others to children.
+		const liDeco = getComputedStyle(li).textDecorationLine || getComputedStyle(li).textDecoration;
+		const pDeco  = getComputedStyle(p).textDecorationLine  || getComputedStyle(p).textDecoration;
+		decoration = (liDeco + ' ' + pDeco).includes('line-through') ? 'line-through' : 'none';
+	} finally {
+		preview.removeChild(ul);
 	}
 
-	return fallback;
+	return { color, decoration };
+}
+
+/** Reads the italic (em) text color from the reading view. */
+function readItalicColor(fallback: string): string {
+	const preview = document.querySelector('.markdown-preview-view');
+	if (preview) {
+		const p = document.createElement('p');
+		const em = document.createElement('em');
+		em.textContent = 'x';
+		p.style.cssText = 'position: absolute; left: -9999px; pointer-events: none; opacity: 0;';
+		p.appendChild(em);
+		preview.appendChild(p);
+		try {
+			const hex = cssColorToHex(getComputedStyle(em).color);
+			if (hex) return hex;
+		} finally {
+			preview.removeChild(p);
+		}
+	}
+	return readComputedColor('--italic-color', fallback);
 }
 
 /**
@@ -218,12 +275,51 @@ function readInlineCodeColor(fallback: string): string {
 		p.style.cssText = 'position: absolute; left: -9999px; pointer-events: none; opacity: 0;';
 		p.appendChild(code);
 		preview.appendChild(p);
-		const hex = cssColorToHex(getComputedStyle(code).color);
-		preview.removeChild(p);
-		if (hex) return hex;
+		try {
+			const hex = cssColorToHex(getComputedStyle(code).color);
+			if (hex) return hex;
+		} finally {
+			preview.removeChild(p);
+		}
 	}
 	return fallback;
 }
+
+// ── Code syntax color palettes ───────────────────────────────────────────────
+//
+// Instead of reading individual token colors from Obsidian's DOM (which varies
+// by theme and highlighter engine), we define two complete, coherent palettes:
+//   • Light — GitHub Light (industry standard, readable on white backgrounds)
+//   • Dark  — One Dark Pro (widely used, full token coverage)
+//
+// codeBackground and codeInline are still read from Obsidian (single-value
+// reads that are stable across themes).
+
+// Tokyo Night Day (light)
+const LIGHT_CODE_PALETTE = {
+	normal:   '#3760bf',
+	comment:  '#848cb8',
+	keyword:  '#9854f1',
+	function: '#2e7de9',
+	string:   '#587539',
+	value:    '#b15c00',
+	tag:      '#f52a65',
+	property: '#007197',
+	variable: '#c64343',
+};
+
+// Tokyo Night Storm (dark)
+const DARK_CODE_PALETTE = {
+	normal:   '#c0caf5',
+	comment:  '#565f89',
+	keyword:  '#bb9af7',
+	function: '#7aa2f7',
+	string:   '#9ece6a',
+	value:    '#ff9e64',
+	tag:      '#f7768e',
+	property: '#73daca',
+	variable: '#e0af68',
+};
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
@@ -232,13 +328,54 @@ export function readObsidianVars(): ObsidianVars {
 	const FALLBACK_FONT =
 		"-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif";
 
+	// Dark mode detection: Obsidian adds .theme-dark to body when dark mode is active.
+	// This is more reliable than reading background-color (all elements are transparent).
+	const isDark = document.body.classList.contains('theme-dark');
+	const codePalette = isDark ? DARK_CODE_PALETTE : LIGHT_CODE_PALETTE;
+	logger.debug('readObsidianVars: isDark =', isDark, '| palette =', isDark ? 'dark' : 'light');
+	const checklistDone = readChecklistDoneStyle();
+
 	const vars: ObsidianVars = {
-		bgPrimary:   readComputedBg('--background-primary',         '#ffffff'),
+		bgPrimary:   readComputedBg('--background-primary', '#ffffff'),
 		bgSecondary: readComputedBg('--background-secondary',       '#f6f8fa'),
 		bgBorder:    readComputedColor('--background-modifier-border', '#e5e5e5'),
 		textNormal:  readComputedColor('--text-normal',              '#333333'),
+		textItalic:  readItalicColor('#4a5568'),
 		textMuted:   readComputedColor('--text-muted',               '#666666'),
+		checklistDoneColor: checklistDone.color,
+		checklistDoneDeco:  checklistDone.decoration,
+		checkboxRadius:      readCheckboxRadius('1px'),
+		checkboxBorderWidth: readCheckboxBorderWidth('1px'),
 		textFaint:   readComputedColor('--text-faint',               '#999999'),
+		textHighlightBg: (() => {
+			// Try progressively deeper containers so theme selectors like
+			// .markdown-rendered mark { } can match.
+			const parent =
+				document.querySelector('.markdown-preview-view .markdown-rendered') ??
+				document.querySelector('.markdown-preview-section') ??
+				document.querySelector('.markdown-preview-view') ??
+				document.body;
+			const p = document.createElement('p');
+			p.style.cssText = 'position:absolute;left:-9999px;';
+			const mark = document.createElement('mark');
+			mark.textContent = 'x';
+			p.appendChild(mark);
+			parent.appendChild(p);
+			let bg: string;
+			try {
+				bg = getComputedStyle(mark).backgroundColor;
+			} finally {
+				parent.removeChild(p);
+			}
+			// If transparent (selector didn't match), fall back to CSS variable resolution.
+			if (!bg || bg === 'rgba(0, 0, 0, 0)') {
+				return withEl(
+					'position:absolute;left:-9999px;background-color:var(--text-highlight-bg,#fff3b1)',
+					el => getComputedStyle(el).backgroundColor || '#fff3b1',
+				);
+			}
+			return bg;
+		})(),
 		accent:      readComputedColor('--interactive-accent',       '#7c3aed'),
 		linkColor:   readComputedColor('--link-color',               '#576b95'),
 		fontText:    readComputedFont('--font-text',                 FALLBACK_FONT),
@@ -247,21 +384,18 @@ export function readObsidianVars(): ObsidianVars {
 		h3Color:     readComputedColor('--h3-color',                 '#1a1a1a'),
 		h4Color:     readComputedColor('--h4-color',                 '#1a1a1a'),
 		h5Color:     readComputedColor('--h5-color',                 '#1a1a1a'),
-		// Code syntax colors: read from CM editor using compound classes.
-		// Blue Topaz scopes token colors to e.g. ".cm-builtin.cm-hmd-codeblock"
-		// so both classes must be present and the span must be inside .cm-editor.
-		// Strategy 1 (reading view): Prism token classes, e.g. "token comment"
-		// Strategy 2 (editor view): CM compound class, e.g. "cm-comment cm-hmd-codeblock"
-		codeBackground: readComputedBg('--code-background',                    '#f6f8fa'),
-		codeNormal:     readCodeTokenColor('',              '',                 '#24292f'),
-		codeComment:    readCodeTokenColor('token comment', 'cm-comment',      '#6e7781'),
-		codeKeyword:    readCodeTokenColor('token keyword', 'cm-keyword',      '#cf222e'),
-		codeFunction:   readCodeTokenColor('token builtin', 'cm-builtin',      '#8250df'),
-		codeString:     readCodeTokenColor('token string',  'cm-string',       '#0a3069'),
-		codeValue:      readCodeTokenColor('token number',  'cm-number',       '#0550ae'),
-		codeTag:        readCodeTokenColor('token tag',     'cm-tag',          '#116329'),
-		codeProperty:   readCodeTokenColor('token attr-name',          'cm-property', '#953800'),
-		codeVariable:   readCodeTokenColor('token parameter variable', 'cm-variable', '#b45309'),
+		// Code syntax colors: predefined palette (light=GitHub Light, dark=One Dark Pro)
+		// selected by background luminance. codeBackground/codeInline still read from Obsidian.
+		codeBackground: readComputedBg('--code-background', '#f6f8fa'),
+		codeNormal:     codePalette.normal,
+		codeComment:    codePalette.comment,
+		codeKeyword:    codePalette.keyword,
+		codeFunction:   codePalette.function,
+		codeString:     codePalette.string,
+		codeValue:      codePalette.value,
+		codeTag:        codePalette.tag,
+		codeProperty:   codePalette.property,
+		codeVariable:   codePalette.variable,
 		codeInline:     readInlineCodeColor('#c7254e'),
 		// Callout accent colors from Obsidian's --callout-color per type
 		calloutNote:    readCalloutAccent('note',     '#448aff'),
@@ -375,6 +509,11 @@ export class StyleEngine {
 			// via color alone; the hardcoded borders look wrong in custom themes.
 			[/; border-bottom: 2px solid #7c3aed; padding-bottom: 0\.3em/g, ''],
 			[/; border-bottom: 1px solid #e5e5e5; padding-bottom: 0\.2em/g, ''],
+			// ── Checklist done ─────────────────────────────────────────────────
+			[/color: #808080/g,                   `color: ${v.checklistDoneColor}`],
+			[/text-decoration: line-through/g,    `text-decoration: ${v.checklistDoneDeco}`],
+			// ── Italic ─────────────────────────────────────────────────────────
+			[/color: #4a5568/g,                   `color: ${v.textItalic}`],
 			// ── Text ───────────────────────────────────────────────────────────
 			[/color: #1a1a1a/g,                   `color: ${v.textNormal}`],  // catch-all
 			[/color: #333333/g,                   `color: ${v.textNormal}`],
@@ -384,9 +523,13 @@ export class StyleEngine {
 			[/color: #666(?![0-9a-f])/gi,         `color: ${v.textMuted}`],
 			[/color: #999(?![0-9a-f])/gi,         `color: ${v.textFaint}`],
 			// ── Accent ─────────────────────────────────────────────────────────
+			[/border-radius: 3\.14px/g,            `border-radius: ${v.checkboxRadius}`],
+			[/border: 1\.618px solid/g,            `border: ${v.checkboxBorderWidth} solid`],
 			[/color: #7c3aed/g,                   `color: ${v.accent}`],
+			[/background-color: #7c3aed/g,        `background-color: ${v.accent}`],
 			[/border-left: 4px solid #7c3aed/g,   `border-left: 4px solid ${v.accent}`],
 			[/background-color: #f9f5ff/g,        `background-color: ${adjustBrightness(v.bgPrimary, -8)}`],
+			[/background-color: #fff3b1/g,        `background-color: ${v.textHighlightBg}`],
 			// ── Links ──────────────────────────────────────────────────────────
 			[/color: #576b95/g,                   `color: ${v.linkColor}`],
 			// ── Code block background ──────────────────────────────────────────
@@ -427,6 +570,7 @@ export class StyleEngine {
 
 const MINIMAL_MAP: [RegExp, string][] = [
 	[/color: #7c3aed/g,                   'color: #222222'],
+	[/background-color: #7c3aed/g,        'background-color: #222222'],
 	[/border-bottom: 2px solid #7c3aed/g, 'border-bottom: 2px solid #222222'],
 	[/border-left: 4px solid #7c3aed/g,   'border-left: 4px solid #cccccc'],
 	[/background-color: #f9f5ff/g,        'background-color: #f8f8f8'],

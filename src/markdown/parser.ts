@@ -122,6 +122,7 @@ function applyHljsTheme(html: string): string {
 
 export class MarkdownParser {
 	private md: MarkdownIt;
+	private insideDoneTask = false;
 
 	constructor() {
 		this.md = new MarkdownIt({
@@ -180,6 +181,9 @@ export class MarkdownParser {
 
 		md.renderer.rules['paragraph_open'] = (tokens, idx) => {
 			if (isEmptyInline(tokens, idx)) return '';
+			if (this.insideDoneTask) {
+				return `<p style="font-size: 16px; color: #808080; text-decoration: line-through; line-height: 1.75; margin: 0 0 1em 0;">`;
+			}
 			return `<p style="font-size: 16px; color: #333; line-height: 1.75; margin: 0 0 1em 0;">`;
 		};
 
@@ -266,17 +270,23 @@ export class MarkdownParser {
 
 		md.renderer.rules['list_item_open'] = (tokens, idx) => {
 			const task = tokens[idx]?.attrGet('data-task');
+			// Flex layout: icon (flex-shrink:0) + content div (flex:1).
+			// Prevents the paragraph inside from wrapping below the icon.
+			const liBase = `font-size: 16px; line-height: 1.75; margin: 0.3em 0; list-style: none; margin-left: -1.5em; display: flex; align-items: flex-start;`;
+			const boxBase = `flex-shrink: 0; display: inline-block; width: 15px; height: 15px; border-radius: 3.14px; margin-right: 8px; margin-top: 4px; box-sizing: border-box;`;
 			if (task === 'done') {
+				this.insideDoneTask = true;
 				return (
-					`<li style="font-size: 16px; line-height: 1.75; margin: 0.3em 0; list-style: none; margin-left: -1.5em;">` +
-					`<span style="margin-right: 6px;">✅</span>` +
-					`<span style="text-decoration: line-through; color: #999;">`
+					`<li style="${liBase}">` +
+					`<span style="${boxBase} background-color: #7c3aed; text-align: center; line-height: 15px; color: #ffffff; font-size: 11px; font-weight: bold;">✓</span>` +
+					`<div style="flex: 1; min-width: 0; color: #808080; text-decoration: line-through;">`
 				);
 			}
 			if (task === 'todo') {
 				return (
-					`<li style="font-size: 16px; line-height: 1.75; margin: 0.3em 0; list-style: none; margin-left: -1.5em;">` +
-					`<span style="margin-right: 6px;">☐</span>`
+					`<li style="${liBase}">` +
+					`<span style="${boxBase} border: 1.618px solid #c8ccd0;"></span>` +
+					`<div style="flex: 1; min-width: 0;">`
 				);
 			}
 			return `<li style="font-size: 16px; line-height: 1.75; margin: 0.3em 0;">`;
@@ -290,7 +300,9 @@ export class MarkdownParser {
 				if (t.type === 'list_item_close') depth++;
 				if (t.type === 'list_item_open') {
 					if (depth === 0) {
-						return t.attrGet('data-task') === 'done' ? '</span></li>' : '</li>';
+						const task = t.attrGet('data-task');
+						if (task === 'done') this.insideDoneTask = false;
+						return task === 'done' || task === 'todo' ? '</div></li>' : '</li>';
 					}
 					depth--;
 				}
@@ -300,7 +312,7 @@ export class MarkdownParser {
 
 		// ── Emphasis / strong ─────────────────────────────────────────
 		md.renderer.rules['strong_open'] = () => `<strong style="font-weight: 700;">`;
-		md.renderer.rules['em_open']     = () => `<em style="font-style: italic;">`;
+		md.renderer.rules['em_open']     = () => `<em style="font-style: italic; color: #4a5568;">`;
 	}
 
 	render(markdown: string): string {

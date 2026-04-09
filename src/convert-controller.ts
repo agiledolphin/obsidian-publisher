@@ -4,7 +4,7 @@ import { ImageEmbedder } from './image/embedder';
 import { StyleEngine, readObsidianVars, ObsidianVars } from './style/engine';
 import { copyRichText } from './clipboard/writer';
 import { parseFrontmatter } from './markdown/frontmatter';
-import { preprocessEmbeds, removeTags } from './markdown/preprocessor';
+import { preprocessEmbeds, removeTags, processFootnotes } from './markdown/preprocessor';
 import { logger } from './utils/logger';
 import type { PluginSettings } from './settings';
 
@@ -67,9 +67,12 @@ export class ConvertController {
 			markdown = removeTags(markdown);
 		}
 
+		// 5. Process footnotes: [^label] refs → superscripts, definitions → bottom section
+		markdown = processFootnotes(markdown);
+
 		logger.debug('Preprocessed markdown, rendering HTML…');
 
-		// 5. Markdown → HTML (inline styles applied by parser rules)
+		// 6. Markdown → HTML (inline styles applied by parser rules)
 		let html = this.parser.render(markdown);
 
 		logger.debug('HTML rendered, embedding images…');

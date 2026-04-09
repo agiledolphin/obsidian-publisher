@@ -50,18 +50,29 @@ export async function preprocessEmbeds(
 
 		if (IMAGE_EXTS.has(ext)) {
 			// ── Image embed ──────────────────────────────────────────
-			const altText = displayPart?.trim() || stripExtension(cleanPath.split('/').pop() ?? cleanPath);
+			// Resolve via MetadataCache so Obsidian's link logic is respected.
+			// Always emit <img> directly (not markdown syntax) to avoid URL-encoding
+			// issues with spaces in filenames like "Pasted image 2024.png".
+			const resolvedImgFile = metadataCache.getFirstLinkpathDest(cleanPath, sourcePath);
+			const resolvedSrc = resolvedImgFile instanceof TFile ? resolvedImgFile.path : cleanPath;
+
 			const widthNum = displayPart ? parseInt(displayPart, 10) : NaN;
+			const altText  = isNaN(widthNum)
+				? (displayPart?.trim() || stripExtension(cleanPath.split('/').pop() ?? cleanPath))
+				: stripExtension(cleanPath.split('/').pop() ?? cleanPath);
+
+			// Escape double quotes to prevent breaking the HTML attribute.
+			const escapedSrc = resolvedSrc.replace(/"/g, '&quot;');
+			const escapedAlt = altText.replace(/"/g, '&quot;');
 
 			if (!isNaN(widthNum)) {
-				// ![[image.png|300]] → constrained-width inline img
-				result = result.replace(
-					full,
-					`<img src="${cleanPath}" alt="${altText}" style="max-width: ${widthNum}px; display: block; margin: 1em auto; border-radius: 4px;">`
-				);
+				// ![[image.png|300]] → width-constrained image
+				const imgTag = `<img src="${escapedSrc}" alt="${escapedAlt}" style="max-width: ${widthNum}px; display: block; margin: 1em auto; border-radius: 4px;">`;
+				result = result.replace(full, () => imgTag);
 			} else {
-				// ![[image.png]] or ![[image.png|alt]] → standard markdown image
-				result = result.replace(full, `![${altText}](${cleanPath})`);
+				// ![[image.png]] or ![[image.png|alt text]]
+				const imgTag = `<img src="${escapedSrc}" alt="${escapedAlt}" style="max-width: 100%; border-radius: 4px; margin: 1em auto; display: block;">`;
+				result = result.replace(full, () => imgTag);
 			}
 		} else {
 			// ── Note embed ───────────────────────────────────────────
@@ -84,11 +95,13 @@ export async function preprocessEmbeds(
 					depth + 1
 				);
 
-				// Wrap in a horizontal-rule-separated block
-				result = result.replace(full, `\n\n---\n\n${noteContent}\n\n---\n\n`);
+				// Inline the embedded note seamlessly — matches Obsidian reading view behavior.
+				// Use function form of replace() to prevent '$' in noteContent being
+				// interpreted as replacement pattern references ($&, $`, $' etc.).
+				result = result.replace(full, () => `\n\n${noteContent}\n\n`);
 			} else {
 				logger.warn(`Embed not found: ${cleanPath} (referenced from ${sourcePath})`);
-				result = result.replace(full, `*(嵌入内容未找到：${cleanPath})*`);
+				result = result.replace(full, () => `*(嵌入内容未找到：${cleanPath})*`);
 			}
 		}
 	}
@@ -148,6 +161,89 @@ function removeInlineTags(line: string): string {
 		// Remove #tag patterns preceded by space, start-of-string, or open paren
 		return part.replace(/(^|[\s(])#([\w\u4e00-\u9fa5][\w\u4e00-\u9fa5/_-]*)/g, '$1');
 	}).join('');
+}
+
+// ── Footnotes ──────────────────────────────────────────────────────────────
+
+/**
+ * Processes Obsidian/Pandoc-style footnotes for WeChat-compatible output.
+ *
+ * WeChat does not support anchor links, so footnote references are rendered
+ * as plain styled superscripts and definitions are collected into a section
+ * at the bottom of the document.
+ *
+ * Syntax supported:
+ *   [^label]        — inline reference
+ *   [^label]: text  — definition, optionally followed by continuation lines
+ *                     (non-empty lines that don't start a new [^label]:)
+ */
+export function processFootnotes(markdown: string): string {
+	if (!/\[\^[^\]]+\]/.test(markdown)) return markdown;
+
+	// Step 1: parse line by line to collect multi-line definitions.
+	const definitions = new Map<string, string>(); // label → full text
+	const bodyLines: string[] = [];
+	const srcLines = markdown.split('\n');
+	const defStart = /^\[\^([^\]]+)\]:\s*(.*)$/;
+
+	let i = 0;
+	while (i < srcLines.length) {
+		const line = srcLines[i] ?? '';
+		const m = line.match(defStart);
+		if (m) {
+			const label = (m[1] ?? '').trim();
+			const textParts: string[] = [(m[2] ?? '').trim()];
+			i++;
+			// Collect continuation lines: non-empty and not starting a new definition.
+			while (i < srcLines.length) {
+				const next = srcLines[i] ?? '';
+				if (next === '' || /^\[\^/.test(next)) break;
+				textParts.push(next);
+				i++;
+			}
+			definitions.set(label, textParts.filter(Boolean).join('\n'));
+			bodyLines.push(''); // placeholder blank line where definition was
+		} else {
+			bodyLines.push(line);
+			i++;
+		}
+	}
+
+	if (definitions.size === 0) return markdown;
+
+	let body = bodyLines.join('\n');
+
+	// Step 2: assign sequential numbers by first appearance of references.
+	const labelToNumber = new Map<string, number>();
+	let counter = 0;
+	body.replace(/\[\^([^\]]+)\]/g, (_: string, label: string) => {
+		if (!labelToNumber.has(label.trim())) labelToNumber.set(label.trim(), ++counter);
+		return '';
+	});
+
+	if (labelToNumber.size === 0) return markdown;
+
+	// Step 3: replace references with styled superscripts (no links for WeChat).
+	body = body.replace(/\[\^([^\]]+)\]/g, (_: string, label: string) => {
+		const n = labelToNumber.get(label.trim());
+		if (n === undefined) return `[^${label}]`;
+		return `<sup style="color: #576b95; font-size: 0.75em; line-height: 1; vertical-align: super;">[${n}]</sup>`;
+	});
+
+	// Collapse extra blank lines left by removed definition blocks.
+	body = body.replace(/\n{3,}/g, '\n\n').trimEnd();
+
+	// Step 4: append footnote section.
+	const items: string[] = [];
+	for (const [label, n] of labelToNumber) {
+		const raw = definitions.get(label) ?? '*(definition missing)*';
+		// Replace newlines within multi-line definitions with <br> so line breaks
+		// are preserved in the rendered output (markdown single \n is ignored).
+		const text = raw.replace(/\n/g, '<br>&nbsp;&nbsp;&nbsp;&nbsp;');
+		items.push(`**[${n}]** ${text}`);
+	}
+	const section = '\n\n---\n\n' + items.join('\n\n');
+	return body + section;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────

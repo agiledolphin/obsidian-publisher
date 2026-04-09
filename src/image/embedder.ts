@@ -60,8 +60,15 @@ export class ImageEmbedder {
 
 		// Last resort: search vault by filename only
 		const fileName = src.split('/').pop() ?? src;
-		const found = this.vault.getFiles().find(f => f.name === fileName);
-		if (found) return this.fileToBase64(found);
+		const matches = this.vault.getFiles().filter(f => f.name === fileName);
+		if (matches.length === 1) return this.fileToBase64(matches[0]!);
+		if (matches.length > 1) {
+			logger.warn(
+				`Ambiguous image "${fileName}": ${matches.length} files found, using first match. ` +
+				`Use full path or ![[path/to/image]] to disambiguate.`
+			);
+			return this.fileToBase64(matches[0]!);
+		}
 
 		logger.warn(`Could not resolve image: ${src}`);
 		return null;
