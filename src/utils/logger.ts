@@ -10,7 +10,7 @@ export class Logger {
 	}
 
 	info(...args: unknown[]): void {
-		console.log('[ObsidianPublisher]', ...args);
+		console.debug('[ObsidianPublisher]', ...args);
 	}
 
 	warn(...args: unknown[]): void {

@@ -110,6 +110,23 @@
 	border-color: var(--text-muted);
 }
 
+/* ── Source modal pre element ────────────────────────────── */
+.publisher-source-pre {
+	max-height: 60vh;
+	overflow: auto;
+	background: var(--background-secondary);
+	padding: 12px;
+	border-radius: 4px;
+	font-size: 12px;
+	white-space: pre-wrap;
+	word-break: break-all;
+}
+
+/* ── Toolbar close button (pushed to left via margin-right: auto) ── */
+.publisher-btn-close {
+	margin-right: auto;
+}
+
 /* ── Off-screen measurement elements ────────────────────── */
 /* Used by engine.ts to inject temporary elements for CSS variable resolution
    without triggering the obsidianmd ESLint rule on style.setProperty. */

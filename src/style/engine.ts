@@ -228,7 +228,7 @@ function readChecklistDoneStyle(): { color: string; decoration: string } {
 	li.className = 'task-list-item is-checked';
 	li.setAttribute('data-task', 'x');
 	const p = document.createElement('p');
-	p.textContent = 'x';
+	p.textContent = 'X';
 	li.appendChild(p);
 	ul.appendChild(li);
 	preview.appendChild(ul);
@@ -251,7 +251,7 @@ function readItalicColor(fallback: string): string {
 	if (preview) {
 		const p = document.createElement('p');
 		const em = document.createElement('em');
-		em.textContent = 'x';
+		em.textContent = 'X';
 		p.classList.add('publisher-offscreen');
 		p.appendChild(em);
 		preview.appendChild(p);
@@ -367,7 +367,7 @@ export function readObsidianVars(): ObsidianVars {
 			const p = document.createElement('p');
 			p.classList.add('publisher-offscreen');
 			const mark = document.createElement('mark');
-			mark.textContent = 'x';
+			mark.textContent = 'X';
 			p.appendChild(mark);
 			parent.appendChild(p);
 			let bg: string;

@@ -1,4 +1,4 @@
-import { App, Modal, Notice } from 'obsidian';
+import { App, Modal, Notice, sanitizeHTMLToDom } from 'obsidian';
 import { copyRichText } from '../clipboard/writer';
 
 /** Shows the raw HTML source so users can diagnose WeChat compatibility issues. */
@@ -12,17 +12,15 @@ class SourceModal extends Modal {
 		contentEl.empty();
 		contentEl.createEl('h2', { text: 'HTML 源码' });
 
-		const pre = contentEl.createEl('pre');
-		pre.style.cssText =
-			'max-height: 60vh; overflow: auto; background: var(--background-secondary); ' +
-			'padding: 12px; border-radius: 4px; font-size: 12px; white-space: pre-wrap; word-break: break-all;';
+		const pre = contentEl.createEl('pre', { cls: 'publisher-source-pre' });
 		pre.textContent = this.html;
 
 		const bar = contentEl.createDiv({ cls: 'publisher-preview-toolbar' });
 		const copyBtn = bar.createEl('button', { text: '复制源码', cls: 'publisher-btn-primary' });
-		copyBtn.addEventListener('click', async () => {
-			await navigator.clipboard.writeText(this.html);
-			new Notice('源码已复制');
+		copyBtn.addEventListener('click', () => {
+			navigator.clipboard.writeText(this.html)
+				.then(() => new Notice('源码已复制'))
+				.catch(() => new Notice('复制失败'));
 		});
 		bar.createEl('button', { text: '关闭', cls: 'publisher-btn-secondary' })
 			.addEventListener('click', () => this.close());
@@ -45,16 +43,15 @@ export class PreviewModal extends Modal {
 
 		// Phone-width preview container
 		const preview = contentEl.createDiv({ cls: 'publisher-preview-phone' });
-		preview.innerHTML = this.html;
+		preview.appendChild(sanitizeHTMLToDom(this.html));
 
 		// Toolbar — close on the left, actions on the right
 		const toolbar = contentEl.createDiv({ cls: 'publisher-preview-toolbar' });
 
 		const closeBtn = toolbar.createEl('button', {
 			text: '关闭',
-			cls: 'publisher-btn-secondary',
+			cls: 'publisher-btn-secondary publisher-btn-close',
 		});
-		closeBtn.style.marginRight = 'auto';
 		closeBtn.addEventListener('click', () => this.close());
 
 		const sourceBtn = toolbar.createEl('button', {

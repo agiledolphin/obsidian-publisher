@@ -11,18 +11,16 @@ export class PublisherSettingTab extends PluginSettingTab {
 		containerEl.empty();
 		containerEl.addClass('obsidian-publisher-settings');
 
-		containerEl.createEl('h2', { text: 'Obsidian Publisher 设置' });
-
 		// ── 样式设置 ──────────────────────────────────────────────────
-		containerEl.createEl('h3', { text: '样式设置' });
+		new Setting(containerEl).setName('样式设置').setHeading();
 
 		new Setting(containerEl)
 			.setName('主题')
-			.setDesc('选择公众号文章的显示主题。"使用当前 Obsidian 主题"会在转换时自动读取你 Obsidian 正在使用的主题颜色（支持 Blue Topaz 等所有社区主题）。')
+			.setDesc('选择公众号文章的显示主题。使用当前 Obsidian 主题时，会在转换时自动读取你 Obsidian 正在使用的主题颜色，支持所有社区主题。')
 			.addDropdown((drop) =>
 				drop
 					.addOption('obsidian', '使用当前 Obsidian 主题（推荐）')
-					.addOption('light', 'Obsidian Light')
+					.addOption('light', 'Obsidian light')
 					.addOption('minimal', '简约')
 					.setValue(this.plugin.settings.theme)
 					.onChange(async (value) => {
@@ -45,7 +43,7 @@ export class PublisherSettingTab extends PluginSettingTab {
 			);
 
 		// ── 图片设置 ──────────────────────────────────────────────────
-		containerEl.createEl('h3', { text: '图片设置' });
+		new Setting(containerEl).setName('图片设置').setHeading();
 
 		new Setting(containerEl)
 			.setName('图片处理方式')
@@ -55,7 +53,7 @@ export class PublisherSettingTab extends PluginSettingTab {
 			)
 			.addDropdown((drop) =>
 				drop
-					.addOption('base64', 'base64 嵌入（推荐）')
+					.addOption('base64', 'Base64 嵌入（推荐）')
 					.addOption('skip', '跳过，保留原路径')
 					.setValue(this.plugin.settings.imageMode)
 					.onChange(async (value) => {
@@ -65,10 +63,10 @@ export class PublisherSettingTab extends PluginSettingTab {
 			);
 
 		// ── 转换选项 ──────────────────────────────────────────────────
-		containerEl.createEl('h3', { text: '转换选项' });
+		new Setting(containerEl).setName('转换选项').setHeading();
 
 		new Setting(containerEl)
-			.setName('移除 Frontmatter')
+			.setName('移除 frontmatter')
 			.setDesc('转换时去掉文档开头的 --- 元数据块')
 			.addToggle((toggle) =>
 				toggle
@@ -92,7 +90,7 @@ export class PublisherSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('WikiLink 处理')
+			.setName('Wikilink 处理')
 			.setDesc('[[链接]] 的处理方式')
 			.addDropdown((drop) =>
 				drop
@@ -106,7 +104,7 @@ export class PublisherSettingTab extends PluginSettingTab {
 			);
 
 		// ── 高级选项 ──────────────────────────────────────────────────
-		containerEl.createEl('h3', { text: '高级选项' });
+		new Setting(containerEl).setName('高级选项').setHeading();
 
 		new Setting(containerEl)
 			.setName('调试模式')
