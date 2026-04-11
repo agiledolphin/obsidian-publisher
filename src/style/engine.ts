@@ -63,10 +63,20 @@ export interface ObsidianVars {
 // regular CSS property (color / background-color), then read the COMPUTED
 // value. The browser resolves the entire variable chain for us.
 
+/** CSS properties shared by all off-screen measurement elements. */
+const HIDDEN_STYLE: Record<string, string> = {
+	position: 'fixed',
+	left: '-9999px',
+	'pointer-events': 'none',
+	opacity: '0',
+};
+
 /** Appends a temporary <div> to document.body, reads a value, then removes it (even on error). */
-function withEl<T>(cssText: string, read: (el: HTMLDivElement) => T): T {
+function withEl<T>(styles: Record<string, string>, read: (el: HTMLDivElement) => T): T {
 	const el = document.createElement('div');
-	el.style.cssText = cssText;
+	for (const [prop, value] of Object.entries(styles)) {
+		el.style.setProperty(prop, value);
+	}
 	document.body.appendChild(el);
 	try {
 		return read(el);
@@ -77,21 +87,21 @@ function withEl<T>(cssText: string, read: (el: HTMLDivElement) => T): T {
 
 function readComputedColor(varName: string, fallback: string): string {
 	return withEl(
-		`color: var(${varName}); position: fixed; left: -9999px; pointer-events: none; opacity: 0;`,
+		{ color: `var(${varName})`, ...HIDDEN_STYLE },
 		el => cssColorToHex(getComputedStyle(el).color) ?? fallback,
 	);
 }
 
 function readComputedBg(varName: string, fallback: string): string {
 	return withEl(
-		`background-color: var(${varName}); position: fixed; left: -9999px; pointer-events: none; opacity: 0;`,
+		{ 'background-color': `var(${varName})`, ...HIDDEN_STYLE },
 		el => cssColorToHex(getComputedStyle(el).backgroundColor) ?? fallback,
 	);
 }
 
 function readComputedFont(varName: string, fallback: string): string {
 	return withEl(
-		`font-family: var(${varName}); position: fixed; left: -9999px; pointer-events: none; opacity: 0;`,
+		{ 'font-family': `var(${varName})`, ...HIDDEN_STYLE },
 		el => getComputedStyle(el).fontFamily.trim() || fallback,
 	);
 }
@@ -105,8 +115,7 @@ function readComputedFont(varName: string, fallback: string): string {
 function readCheckboxRadius(fallback: string): string {
 	if (!getComputedStyle(document.body).getPropertyValue('--checkbox-radius').trim()) return fallback;
 	return withEl(
-		'border-radius: var(--checkbox-radius); width: 16px; height: 16px; ' +
-		'position: fixed; left: -9999px; pointer-events: none; opacity: 0;',
+		{ 'border-radius': 'var(--checkbox-radius)', width: '16px', height: '16px', ...HIDDEN_STYLE },
 		el => getComputedStyle(el).borderTopLeftRadius.trim() || fallback,
 	);
 }
@@ -118,8 +127,7 @@ function readCheckboxRadius(fallback: string): string {
 function readCheckboxBorderWidth(fallback: string): string {
 	if (!getComputedStyle(document.body).getPropertyValue('--checkbox-border-width').trim()) return fallback;
 	return withEl(
-		'border-width: var(--checkbox-border-width); border-style: solid; ' +
-		'position: fixed; left: -9999px; pointer-events: none; opacity: 0;',
+		{ 'border-width': 'var(--checkbox-border-width)', 'border-style': 'solid', ...HIDDEN_STYLE },
 		el => getComputedStyle(el).borderTopWidth.trim() || fallback,
 	);
 }
@@ -160,7 +168,10 @@ function readCalloutAccent(type: string, fallback: string): string {
 	const el = document.createElement('div');
 	el.className = 'callout';
 	el.setAttribute('data-callout', type);
-	el.style.cssText = 'position: fixed; left: -9999px; pointer-events: none; opacity: 0;';
+	el.style.setProperty('position', 'fixed');
+	el.style.setProperty('left', '-9999px');
+	el.style.setProperty('pointer-events', 'none');
+	el.style.setProperty('opacity', '0');
 	document.body.appendChild(el);
 	try {
 		const raw = getComputedStyle(el).getPropertyValue('--callout-color').trim();
@@ -179,7 +190,10 @@ function readCalloutAccent(type: string, fallback: string): string {
 function readCalloutBlendFactor(): number {
 	const el = document.createElement('div');
 	el.className = 'callout';
-	el.style.cssText = 'position: fixed; left: -9999px; pointer-events: none; opacity: 0;';
+	el.style.setProperty('position', 'fixed');
+	el.style.setProperty('left', '-9999px');
+	el.style.setProperty('pointer-events', 'none');
+	el.style.setProperty('opacity', '0');
 	document.body.appendChild(el);
 	try {
 		const raw = getComputedStyle(el).getPropertyValue('--callout-blend-factor').trim();
@@ -201,7 +215,9 @@ function readCalloutBlendFactor(): number {
 function readChecklistDoneStyle(): { color: string; decoration: string } {
 	// Color: resolve --checklist-done-color via inline style so var() is computed.
 	const colorEl = document.createElement('span');
-	colorEl.style.cssText = 'position:absolute;left:-9999px;color:var(--checklist-done-color,#888888)';
+	colorEl.style.setProperty('position', 'absolute');
+	colorEl.style.setProperty('left', '-9999px');
+	colorEl.style.setProperty('color', 'var(--checklist-done-color,#888888)');
 	document.body.appendChild(colorEl);
 	let color: string;
 	try {
@@ -214,7 +230,9 @@ function readChecklistDoneStyle(): { color: string; decoration: string } {
 	// structure (matching Obsidian's actual DOM) so all theme selectors can match.
 	const preview = document.querySelector('.markdown-preview-view') ?? document.body;
 	const ul = document.createElement('ul');
-	ul.style.cssText = 'position:absolute;left:-9999px;list-style:none;';
+	ul.style.setProperty('position', 'absolute');
+	ul.style.setProperty('left', '-9999px');
+	ul.style.setProperty('list-style', 'none');
 	const li = document.createElement('li');
 	li.className = 'task-list-item is-checked';
 	li.setAttribute('data-task', 'x');
@@ -243,7 +261,10 @@ function readItalicColor(fallback: string): string {
 		const p = document.createElement('p');
 		const em = document.createElement('em');
 		em.textContent = 'x';
-		p.style.cssText = 'position: absolute; left: -9999px; pointer-events: none; opacity: 0;';
+		p.style.setProperty('position', 'absolute');
+		p.style.setProperty('left', '-9999px');
+		p.style.setProperty('pointer-events', 'none');
+		p.style.setProperty('opacity', '0');
 		p.appendChild(em);
 		preview.appendChild(p);
 		try {
@@ -272,7 +293,10 @@ function readInlineCodeColor(fallback: string): string {
 	if (preview) {
 		const p = document.createElement('p');
 		const code = document.createElement('code');
-		p.style.cssText = 'position: absolute; left: -9999px; pointer-events: none; opacity: 0;';
+		p.style.setProperty('position', 'absolute');
+		p.style.setProperty('left', '-9999px');
+		p.style.setProperty('pointer-events', 'none');
+		p.style.setProperty('opacity', '0');
 		p.appendChild(code);
 		preview.appendChild(p);
 		try {
@@ -356,7 +380,8 @@ export function readObsidianVars(): ObsidianVars {
 				document.querySelector('.markdown-preview-view') ??
 				document.body;
 			const p = document.createElement('p');
-			p.style.cssText = 'position:absolute;left:-9999px;';
+			p.style.setProperty('position', 'absolute');
+			p.style.setProperty('left', '-9999px');
 			const mark = document.createElement('mark');
 			mark.textContent = 'x';
 			p.appendChild(mark);
@@ -370,7 +395,7 @@ export function readObsidianVars(): ObsidianVars {
 			// If transparent (selector didn't match), fall back to CSS variable resolution.
 			if (!bg || bg === 'rgba(0, 0, 0, 0)') {
 				return withEl(
-					'position:absolute;left:-9999px;background-color:var(--text-highlight-bg,#fff3b1)',
+					{ 'background-color': 'var(--text-highlight-bg,#fff3b1)', position: 'absolute', left: '-9999px' },
 					el => getComputedStyle(el).backgroundColor || '#fff3b1',
 				);
 			}
@@ -459,11 +484,6 @@ export class StyleEngine {
 	}
 
 	private applyObsidianOverrides(html: string, v: ObsidianVars): string {
-		// Derive a secondary background (for code blocks / table headers).
-		const codeBg = v.bgSecondary !== v.bgPrimary
-			? v.bgSecondary
-			: adjustBrightness(v.bgPrimary, -12);
-
 		// Callout backgrounds: blend bgPrimary with theme-read callout accent color
 		// using the theme's own --callout-blend-factor (typically 0.1).
 		const f = v.calloutBlend;
@@ -577,16 +597,6 @@ const MINIMAL_MAP: [RegExp, string][] = [
 ];
 
 // ── Color utilities ─────────────────────────────────────────────────────────
-
-/** Returns true when the hex color is perceived as dark (luminance < 0.5). */
-function isColorDark(hex: string): boolean {
-	const m = hex.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
-	if (!m) return false;
-	const r = parseInt(m[1] ?? '00', 16) / 255;
-	const g = parseInt(m[2] ?? '00', 16) / 255;
-	const b = parseInt(m[3] ?? '00', 16) / 255;
-	return 0.299 * r + 0.587 * g + 0.114 * b < 0.5;
-}
 
 /** Mixes two hex colors: fraction=0 → full hex1, fraction=1 → full hex2. */
 function mixColors(hex1: string, hex2: string, fraction: number): string {

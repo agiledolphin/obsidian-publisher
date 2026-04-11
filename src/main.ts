@@ -29,7 +29,7 @@ export default class ObsidianPublisher extends Plugin {
 			checkCallback: (checking) => {
 				const file = this.app.workspace.getActiveFile();
 				if (!file || file.extension !== 'md') return false;
-				if (!checking) this.doConvertAndCopy(file);
+				if (!checking) void this.doConvertAndCopy(file);
 				return true;
 			},
 		});
@@ -41,7 +41,7 @@ export default class ObsidianPublisher extends Plugin {
 			checkCallback: (checking) => {
 				const file = this.app.workspace.getActiveFile();
 				if (!file || file.extension !== 'md') return false;
-				if (!checking) this.doPreview(file);
+				if (!checking) void this.doPreview(file);
 				return true;
 			},
 		});
@@ -50,7 +50,7 @@ export default class ObsidianPublisher extends Plugin {
 		this.addRibbonIcon('clipboard-copy', '复制为公众号格式', () => {
 			const file = this.app.workspace.getActiveFile();
 			if (file && file.extension === 'md') {
-				this.doConvertAndCopy(file);
+				void this.doConvertAndCopy(file);
 			} else {
 				new Notice('请先打开一个 Markdown 文件');
 			}
