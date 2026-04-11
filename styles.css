@@ -110,6 +110,17 @@
 	border-color: var(--text-muted);
 }
 
+/* ── Off-screen measurement elements ────────────────────── */
+/* Used by engine.ts to inject temporary elements for CSS variable resolution
+   without triggering the obsidianmd ESLint rule on style.setProperty. */
+.publisher-offscreen {
+	position: absolute !important;
+	left: -9999px !important;
+	pointer-events: none !important;
+	opacity: 0 !important;
+	list-style: none !important;
+}
+
 /* ── Ribbon icon tooltip ─────────────────────────────────── */
 .side-dock-ribbon-action[aria-label*="公众号"] {
 	color: var(--interactive-accent);

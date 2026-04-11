@@ -71,9 +71,17 @@ const HIDDEN_STYLE: Record<string, string> = {
 	opacity: '0',
 };
 
-/** Appends a temporary <div> to document.body, reads a value, then removes it (even on error). */
-function withEl<T>(styles: Record<string, string>, read: (el: HTMLDivElement) => T): T {
+/**
+ * Appends a temporary <div> to document.body, reads a value, then removes it (even on error).
+ * Optional `setup` runs before styles are applied — use it for className / setAttribute.
+ */
+function withEl<T>(
+	styles: Record<string, string>,
+	read: (el: HTMLDivElement) => T,
+	setup?: (el: HTMLDivElement) => void,
+): T {
 	const el = document.createElement('div');
+	setup?.(el);
 	for (const [prop, value] of Object.entries(styles)) {
 		el.style.setProperty(prop, value);
 	}
@@ -165,43 +173,35 @@ function toHex6(r?: string, g?: string, b?: string): string {
  * Returns a #rrggbb hex string.
  */
 function readCalloutAccent(type: string, fallback: string): string {
-	const el = document.createElement('div');
-	el.className = 'callout';
-	el.setAttribute('data-callout', type);
-	el.style.setProperty('position', 'fixed');
-	el.style.setProperty('left', '-9999px');
-	el.style.setProperty('pointer-events', 'none');
-	el.style.setProperty('opacity', '0');
-	document.body.appendChild(el);
-	try {
-		const raw = getComputedStyle(el).getPropertyValue('--callout-color').trim();
-		// Format: "r, g, b"
-		const parts = raw.split(',').map(s => parseInt(s.trim(), 10));
-		if (parts.length === 3 && parts.every(n => !isNaN(n))) {
-			return toHex6(String(parts[0]), String(parts[1]), String(parts[2]));
-		}
-		return fallback;
-	} finally {
-		document.body.removeChild(el);
-	}
+	return withEl(
+		HIDDEN_STYLE,
+		el => {
+			const raw = getComputedStyle(el).getPropertyValue('--callout-color').trim();
+			// Format: "r, g, b"
+			const parts = raw.split(',').map(s => parseInt(s.trim(), 10));
+			if (parts.length === 3 && parts.every(n => !isNaN(n))) {
+				return toHex6(String(parts[0]), String(parts[1]), String(parts[2]));
+			}
+			return fallback;
+		},
+		el => {
+			el.className = 'callout';
+			el.setAttribute('data-callout', type);
+		},
+	);
 }
 
 /** Reads --callout-blend-factor (typically 0.1 in Obsidian). */
 function readCalloutBlendFactor(): number {
-	const el = document.createElement('div');
-	el.className = 'callout';
-	el.style.setProperty('position', 'fixed');
-	el.style.setProperty('left', '-9999px');
-	el.style.setProperty('pointer-events', 'none');
-	el.style.setProperty('opacity', '0');
-	document.body.appendChild(el);
-	try {
-		const raw = getComputedStyle(el).getPropertyValue('--callout-blend-factor').trim();
-		const n = parseFloat(raw);
-		return isNaN(n) ? 0.1 : n;
-	} finally {
-		document.body.removeChild(el);
-	}
+	return withEl(
+		HIDDEN_STYLE,
+		el => {
+			const raw = getComputedStyle(el).getPropertyValue('--callout-blend-factor').trim();
+			const n = parseFloat(raw);
+			return isNaN(n) ? 0.1 : n;
+		},
+		el => { el.className = 'callout'; },
+	);
 }
 
 
@@ -213,26 +213,17 @@ function readCalloutBlendFactor(): number {
  *   catching theme overrides that contradict the variable definition).
  */
 function readChecklistDoneStyle(): { color: string; decoration: string } {
-	// Color: resolve --checklist-done-color via inline style so var() is computed.
-	const colorEl = document.createElement('span');
-	colorEl.style.setProperty('position', 'absolute');
-	colorEl.style.setProperty('left', '-9999px');
-	colorEl.style.setProperty('color', 'var(--checklist-done-color,#888888)');
-	document.body.appendChild(colorEl);
-	let color: string;
-	try {
-		color = cssColorToHex(getComputedStyle(colorEl).color) ?? '#888888';
-	} finally {
-		document.body.removeChild(colorEl);
-	}
+	// Color: resolve --checklist-done-color via element injection so var() is computed.
+	const color = withEl(
+		{ color: 'var(--checklist-done-color,#888888)', ...HIDDEN_STYLE },
+		el => cssColorToHex(getComputedStyle(el).color) ?? '#888888',
+	);
 
 	// Decoration: inject a complete ul > li.task-list-item.is-checked[data-task="x"] > p
 	// structure (matching Obsidian's actual DOM) so all theme selectors can match.
 	const preview = document.querySelector('.markdown-preview-view') ?? document.body;
 	const ul = document.createElement('ul');
-	ul.style.setProperty('position', 'absolute');
-	ul.style.setProperty('left', '-9999px');
-	ul.style.setProperty('list-style', 'none');
+	ul.classList.add('publisher-offscreen');
 	const li = document.createElement('li');
 	li.className = 'task-list-item is-checked';
 	li.setAttribute('data-task', 'x');
@@ -261,10 +252,7 @@ function readItalicColor(fallback: string): string {
 		const p = document.createElement('p');
 		const em = document.createElement('em');
 		em.textContent = 'x';
-		p.style.setProperty('position', 'absolute');
-		p.style.setProperty('left', '-9999px');
-		p.style.setProperty('pointer-events', 'none');
-		p.style.setProperty('opacity', '0');
+		p.classList.add('publisher-offscreen');
 		p.appendChild(em);
 		preview.appendChild(p);
 		try {
@@ -293,10 +281,7 @@ function readInlineCodeColor(fallback: string): string {
 	if (preview) {
 		const p = document.createElement('p');
 		const code = document.createElement('code');
-		p.style.setProperty('position', 'absolute');
-		p.style.setProperty('left', '-9999px');
-		p.style.setProperty('pointer-events', 'none');
-		p.style.setProperty('opacity', '0');
+		p.classList.add('publisher-offscreen');
 		p.appendChild(code);
 		preview.appendChild(p);
 		try {
@@ -380,8 +365,7 @@ export function readObsidianVars(): ObsidianVars {
 				document.querySelector('.markdown-preview-view') ??
 				document.body;
 			const p = document.createElement('p');
-			p.style.setProperty('position', 'absolute');
-			p.style.setProperty('left', '-9999px');
+			p.classList.add('publisher-offscreen');
 			const mark = document.createElement('mark');
 			mark.textContent = 'x';
 			p.appendChild(mark);
@@ -395,7 +379,7 @@ export function readObsidianVars(): ObsidianVars {
 			// If transparent (selector didn't match), fall back to CSS variable resolution.
 			if (!bg || bg === 'rgba(0, 0, 0, 0)') {
 				return withEl(
-					{ 'background-color': 'var(--text-highlight-bg,#fff3b1)', position: 'absolute', left: '-9999px' },
+					{ 'background-color': 'var(--text-highlight-bg,#fff3b1)', ...HIDDEN_STYLE },
 					el => getComputedStyle(el).backgroundColor || '#fff3b1',
 				);
 			}
