@@ -1,8 +1,8 @@
 # Obsidian WeChat Publisher 插件架构设计文档
 
-> **版本**：v2.0  
-> **日期**：2026-04-05  
-> **目标平台**：微信公众号  
+> **版本**：v3.0（对应插件 v0.2.0）
+> **日期**：2026-04-11
+> **目标平台**：微信公众号
 > **开发策略**：分阶段交付——先实现转换与复制，再实现 API 发布
 
 ---
@@ -15,21 +15,16 @@
 
 ### 1.2 分阶段策略
 
-| 阶段 | 目标 | 用户操作 |
-|------|------|----------|
-| **阶段一（当前）** | 转换 + 复制 | 插件转换 → 复制到剪贴板 → 用户手动粘贴到公众号编辑器 |
-| **阶段二（未来）** | API 自动发布 | 插件转换 → 自动上传图片 → 创建草稿 → 用户在后台确认发布 |
+| 阶段 | 目标 | 状态 |
+|------|------|------|
+| **阶段一** | 转换 + 复制 | ✅ **已完成（v0.2.0）** |
+| **阶段二** | API 自动发布（草稿上传） | 待开始 |
 
 **阶段一的优势**：
 - 零配置即可使用，无需 AppID/AppSecret
 - 无需处理 IP 白名单、Token 管理等复杂逻辑
 - 用户可以在粘贴后手动微调排版
-- 开发周期短，快速验证核心转换效果
 - 图片通过公众号编辑器自动上传，无需调用素材 API
-
-### 1.3 现有参考
-
-社区中已有类似插件 `obsidian-wechat-public-platform`，该插件使用 `juice` 库做样式内联。本项目将在其基础上进行更完善的架构设计，重点改进样式还原度和用户体验。
 
 ---
 
@@ -47,15 +42,15 @@
 | `manifest.json` | 插件元信息（名称、版本、最低 Obsidian 版本等） |
 | `styles.css` | 插件自身 UI 的样式（可选） |
 
-插件代码使用 TypeScript 编写，通过 esbuild 或 Rollup 打包。官方提供了模板仓库 `obsidian-sample-plugin`，建议直接 fork 使用。
+插件代码使用 TypeScript 编写，通过 esbuild 打包。
 
 ### 2.2 核心 API
 
 Obsidian 通过 `this.app` 暴露核心接口：
 
-- **`Vault`**：读写 vault 中的文件和文件夹。通过 `vault.read(file)` 获取文件内容，`vault.readBinary(file)` 读取二进制文件（图片），`vault.getAbstractFileByPath()` 定位文件。
+- **`Vault`**：读写 vault 中的文件和文件夹。通过 `vault.read(file)` 获取文件内容，`vault.readBinary(file)` 读取二进制文件（图片）。
 - **`Workspace`**：管理编辑器面板。通过 `workspace.getActiveFile()` 获取当前打开的文件。
-- **`MetadataCache`**：缓存的 Markdown 元数据（标题、链接、嵌入、标签等），可用于解析 frontmatter。
+- **`MetadataCache`**：缓存的 Markdown 元数据，提供 `getFirstLinkpathDest(linkpath, sourcePath)` 用于解析 Obsidian 风格的链接（支持短路径、无扩展名等）。
 - **`Plugin`** 基类：提供 `loadData()` / `saveData()` 用于持久化插件配置，`addCommand()` 注册命令，`addSettingTab()` 注册设置页面。
 
 ### 2.3 插件生命周期
@@ -63,25 +58,6 @@ Obsidian 通过 `this.app` 暴露核心接口：
 ```
 onload()    → 插件启用时调用，注册命令、事件、设置页
 onunload()  → 插件禁用时调用，清理资源
-```
-
-### 2.4 开发环境搭建
-
-```bash
-# 1. 克隆官方模板
-git clone https://github.com/obsidianmd/obsidian-sample-plugin.git obsidian-wechat-publisher
-cd obsidian-wechat-publisher
-
-# 2. 安装依赖
-npm install
-
-# 3. 开发模式（自动编译）
-npm run dev
-
-# 4. 将插件目录软链接到你的测试 vault
-ln -s $(pwd) /path/to/vault/.obsidian/plugins/obsidian-wechat-publisher
-
-# 5. 在 Obsidian 中启用插件（设置 → 第三方插件 → 启用）
 ```
 
 ---
@@ -103,26 +79,14 @@ ln -s $(pwd) /path/to/vault/.obsidian/plugins/obsidian-wechat-publisher
 | 外部样式表 | 不支持 |
 | CSS 伪类 | `:hover`、`:focus` 等不支持 |
 | CSS 动画 | `@keyframes`、`transition` 不支持 |
-| `%` 单位 | 在 `transform`、`margin-top` 等属性中失效 |
 
 ### 3.2 支持的 HTML 标签
 
-`<p>`、`<h1>`~`<h6>`、`<strong>`/`<b>`、`<em>`/`<i>`、`<u>`、`<br>`、`<hr>`、`<img>`、`<a>`、`<table>`/`<tr>`/`<td>`/`<th>`、`<ul>`/`<ol>`/`<li>`、`<blockquote>`、`<pre>`/`<code>`、`<span>`、`<div>`/`<section>`、`<sub>`/`<sup>`、`<svg>`（部分支持）
+`<p>`、`<h1>`~`<h6>`、`<strong>`/`<b>`、`<em>`/`<i>`、`<u>`、`<br>`、`<hr>`、`<img>`、`<a>`、`<table>`/`<tr>`/`<td>`/`<th>`、`<ul>`/`<ol>`/`<li>`、`<blockquote>`、`<pre>`/`<code>`、`<span>`、`<div>`/`<section>`、`<sub>`/`<sup>`、`<mark>`、`<del>`
 
-### 3.3 支持的内联 CSS 属性
+### 3.3 富文本粘贴机制
 
-`color`、`font-size`、`font-family`、`font-weight`、`font-style`、`line-height`、`letter-spacing`、`text-align`、`text-indent`、`text-decoration`、`margin`（各方向）、`padding`（各方向）、`border`（各方向及 border-radius）、`background-color`、`background-image`（有限支持）、`box-shadow`、`max-width`、`width`/`height`、`display`（block/inline/inline-block/flex）、`overflow-x`（用于代码块横向滚动）、`white-space`、`word-break`、`vertical-align`、`list-style-type`
-
-### 3.4 图片约束
-
-- 外部图片链接会被微信过滤，粘贴到编辑器后微信会自动尝试抓取并转存到微信服务器
-- 大部分 HTTPS 图片链接在粘贴时可被微信成功抓取
-- base64 内嵌图片在粘贴时**可能不被支持**（行为不稳定）
-- 最可靠的方式：在阶段一中将本地图片转为 base64 嵌入 HTML，粘贴后让微信编辑器自行处理；或提供图床上传支持
-
-### 3.5 富文本粘贴机制
-
-微信公众号编辑器支持从网页复制富文本粘贴。其原理是：当从网页上复制内容时，剪贴板中包含 `text/html` 格式的富文本数据，粘贴到公众号编辑器时会保留内联样式的格式信息。
+微信公众号编辑器支持从网页复制富文本粘贴。当剪贴板中包含 `text/html` 格式的数据时，粘贴到公众号编辑器会保留内联样式的格式信息。
 
 **这是阶段一的核心交互方式**：我们将带有内联样式的 HTML 写入剪贴板的 `text/html` 格式，用户粘贴到公众号编辑器即可保留样式。
 
@@ -136,7 +100,7 @@ ln -s $(pwd) /path/to/vault/.obsidian/plugins/obsidian-wechat-publisher
 ┌────────────────────────────────────────────────────────────┐
 │                    Obsidian Plugin Layer                    │
 │  ┌──────────┐  ┌──────────────┐  ┌──────────────────────┐  │
-│  │ Commands │  │ Settings Tab │  │ Notice / StatusBar   │  │
+│  │ Commands │  │ Settings Tab │  │ Ribbon / Notice       │  │
 │  └────┬─────┘  └──────┬───────┘  └──────────┬───────────┘  │
 │       │               │                     │              │
 │  ┌────▼───────────────▼─────────────────────▼───────────┐  │
@@ -144,516 +108,258 @@ ln -s $(pwd) /path/to/vault/.obsidian/plugins/obsidian-wechat-publisher
 │  │         （转换流程编排 / 错误处理）                      │  │
 │  └──┬──────────┬──────────────┬──────────────┬──────────┘  │
 │     │          │              │              │             │
-│  ┌──▼───┐  ┌──▼──────┐  ┌───▼────────┐  ┌──▼──────────┐  │
-│  │ Mark │  │  Image  │  │   Style    │  │  Clipboard  │  │
-│  │ down │  │  Embed- │  │   Engine   │  │  Writer     │  │
-│  │ Pars │  │  der    │  │            │  │             │  │
-│  │ er   │  │         │  │            │  │             │  │
-│  └──┬───┘  └────┬────┘  └─────┬──────┘  └──────┬──────┘  │
-│     │           │             │                 │          │
-│     ▼           ▼             ▼                 ▼          │
-│  Markdown   本地图片      CSS 主题         系统剪贴板      │
-│  → HTML     → base64     → 内联样式       (text/html)     │
+│  ┌──▼──────┐  ┌▼──────────┐  ┌▼───────────┐  ┌▼─────────┐  │
+│  │ Markdown│  │ Image     │  │ Style      │  │Clipboard │  │
+│  │ Parser  │  │ Embedder  │  │ Engine     │  │ Writer   │  │
+│  └──┬──────┘  └────┬──────┘  └─────┬──────┘  └──────────┘  │
+│     │              │               │                        │
+│  preprocessor   base64 encode  theme overrides +            │
+│  + plugins      via vault      WeChat sanitize              │
 └────────────────────────────────────────────────────────────┘
 ```
 
-**与 v1 架构的核心差异**：
-- 去掉了 `WeChatApiClient` 模块（移至阶段二）
-- `ImageProcessor` 改为 `ImageEmbedder`（不上传微信，改为 base64 嵌入）
-- `PublishController` 改为 `ConvertController`（不发布，改为复制到剪贴板）
-- 新增 `ClipboardWriter` 模块（富文本写入剪贴板）
-- 设置页无需 AppID/AppSecret 配置
-
-### 4.2 模块详细设计
-
-#### 模块 1：MarkdownParser（Markdown 解析器）
-
-**职责**：将 Obsidian 的 Markdown 内容转换为带语义 class 的标准 HTML
-
-**输入**：Obsidian Markdown 原文（含 frontmatter）
-
-**输出**：结构化 HTML（带 class 标记，尚未内联样式）
-
-**需处理的 Obsidian 特殊语法**：
-
-| 语法 | 示例 | 处理方式 |
-|------|------|----------|
-| Frontmatter | `---\ntitle: ...\n---` | 提取元数据，不输出到 HTML |
-| Wiki Links | `[[页面名]]` | 转为纯文本（不可点击）或移除双括号 |
-| 嵌入文件 | `![[image.png]]` | 解析为 `<img>` 标签，src 指向 vault 内路径 |
-| 嵌入笔记 | `![[note]]` | 展开被嵌入笔记的内容（递归处理） |
-| Callout | `> [!note] 标题` | 转为 `<div class="callout callout-note">` |
-| 代码块 | ` ```js ... ``` ` | 使用 highlight.js 做语法高亮 |
-| 行内代码 | `` `code` `` | 转为 `<code>` 标签 |
-| 数学公式 | `$E=mc^2$` / `$$...$$` | 渲染为 SVG/PNG 图片 |
-| Mermaid | ` ```mermaid ... ``` ` | 渲染为 SVG/PNG 图片 |
-| 标签 | `#tag` | 移除或转为纯文本 |
-| 高亮 | `==高亮文本==` | 转为 `<mark>` 标签 |
-| 删除线 | `~~删除线~~` | 转为 `<del>` 标签 |
-| 脚注 | `[^1]` | 转为文末注释 |
-| 任务列表 | `- [x] 已完成` | 转为带 checkbox 样式的列表 |
-
-**技术选型**：使用 `markdown-it` 作为基础解析器，通过自定义插件扩展 Obsidian 语法。
+### 4.2 转换流程
 
 ```typescript
-import MarkdownIt from 'markdown-it';
-import hljs from 'highlight.js';
-
-const md = new MarkdownIt({
-  html: true,
-  linkify: true,
-  highlight: (str, lang) => {
-    if (lang && hljs.getLanguage(lang)) {
-      const highlighted = hljs.highlight(str, { language: lang }).value;
-      return `<pre class="code-block"><code class="language-${lang}">${highlighted}</code></pre>`;
-    }
-    return `<pre class="code-block"><code>${md.utils.escapeHtml(str)}</code></pre>`;
-  }
-});
-
-// 注册自定义插件
-md.use(obsidianCalloutPlugin);   // > [!type] 语法
-md.use(obsidianWikiLinkPlugin);  // [[link]] 语法
-md.use(obsidianHighlightPlugin); // ==highlight== 语法
-md.use(obsidianEmbedPlugin);     // ![[embed]] 语法
+// ConvertController.convert(file)
+1. vault.read(file)                         // 读取原始文件
+2. parseFrontmatter(raw).body               // 移除 frontmatter（可配置）
+3. preprocessEmbeds(markdown, ...)          // 展开 ![[image]] 和 ![[note.md]]
+4. removeTags(markdown)                     // 移除 #tag（可配置）
+5. processFootnotes(markdown)               // 脚注转上标 + 底部引用区
+6. markdownParser.render(markdown)          // markdown-it → 带内联样式的 HTML
+7. imageEmbedder.embedImages(html, ...)     // 本地图片 → base64 data URL
+8. styleEngine.process(html, vars)          // 主题覆盖 + WeChat 清理 + 外层 div
 ```
 
-#### 模块 2：ImageEmbedder（图片嵌入器）
+### 4.3 模块详细设计
 
-**职责**：将 HTML 中引用的本地图片转换为可在粘贴时被公众号编辑器处理的格式
+#### 模块 1：Preprocessor（预处理器）
 
-**阶段一策略**：
+**文件**：`src/markdown/preprocessor.ts`
 
-由于不调用微信 API，图片有以下几种处理方案（按优先级排列）：
+**职责**：在 markdown-it 解析前处理 Obsidian 特有语法，包括嵌入文件展开、标签移除、脚注处理。
 
-| 方案 | 原理 | 优点 | 缺点 |
-|------|------|------|------|
-| **A. base64 嵌入** | 将图片转为 `data:image/png;base64,...` 嵌入 `<img>` | 实现简单，单一 HTML | 微信编辑器对 base64 图片支持不稳定 |
-| **B. 图床上传** | 上传到 SM.MS / imgur 等免费图床 | 兼容性好 | 需额外配置图床账号 |
-| **C. 本地服务器** | 启动临时 HTTP 服务器托管图片 | 无需外部服务 | 复制后需保持服务器运行 |
-| **D. 手动处理** | HTML 中标注图片位置，用户手动插入 | 最简单 | 用户体验差 |
+**关键函数**：
 
-**推荐方案**：默认使用 **方案 A（base64）**，同时提供 **方案 B（图床）** 作为可选配置。如果 base64 在微信编辑器中无法显示，用户可切换到图床模式。
+| 函数 | 说明 |
+|------|------|
+| `preprocessEmbeds()` | 展开 `![[image.png]]` 和 `![[note.md]]`，使用 MetadataCache 解析链接路径 |
+| `removeTags()` | 移除 `#tag` 标签，保留代码块和标题内的标签 |
+| `processFootnotes()` | 将 `[^label]` 脚注转为微信兼容格式（上标引用 + 底部定义区，无锚链接） |
+
+**设计要点**：
+
+- 图片嵌入直接生成 `<img>` HTML 标签，而非 markdown 语法，以避免文件名含空格时 markdown-it 进行 URL 编码导致路径失效
+- note 展开使用 `replace(full, () => content)` 函数形式，防止内容中的 `$` 字符被 String.replace 解释为反向引用
+- 递归嵌入最大深度为 3 层，超出时记录警告
 
 ```typescript
-class ImageEmbedder {
-  /**
-   * 扫描 HTML 中的所有本地图片，转换为 base64
-   */
-  async embedImages(html: string, basePath: string): Promise<string> {
-    const imgRegex = /<img\s+[^>]*src="([^"]+)"[^>]*>/g;
-    let result = html;
-    
-    for (const match of html.matchAll(imgRegex)) {
-      const src = match[1];
-      if (this.isLocalPath(src)) {
-        const base64 = await this.readAsBase64(src, basePath);
-        result = result.replace(src, base64);
-      }
-    }
-    return result;
-  }
-  
-  private async readAsBase64(path: string, basePath: string): Promise<string> {
-    const file = this.vault.getAbstractFileByPath(
-      normalizePath(`${basePath}/${path}`)
-    );
-    if (file instanceof TFile) {
-      const buffer = await this.vault.readBinary(file);
-      const base64 = arrayBufferToBase64(buffer);
-      const mime = this.getMimeType(file.extension);
-      return `data:${mime};base64,${base64}`;
-    }
-    return path; // 无法处理的路径保持原样
-  }
-}
+// 图片 embed → 直接 <img> 标签（而非 markdown 语法）
+const resolvedFile = metadataCache.getFirstLinkpathDest(cleanPath, sourcePath);
+const resolvedSrc  = resolvedFile instanceof TFile ? resolvedFile.path : cleanPath;
+const imgTag = `<img src="${escapedSrc}" alt="${escapedAlt}" style="...">`;
+result = result.replace(full, () => imgTag);
+
+// note embed → 内联展开
+const noteContent = await vault.read(resolvedFile);
+const { body } = parseFrontmatter(noteContent);
+const expanded  = await preprocessEmbeds(body, resolvedFile.path, vault, metadataCache, depth + 1);
+result = result.replace(full, () => `\n\n${expanded}\n\n`);
 ```
 
-#### 模块 3：StyleEngine（样式引擎）
+#### 模块 2：MarkdownParser（Markdown 解析器）
 
-**职责**：将 CSS 样式内联到 HTML 元素上，确保粘贴到微信后保留格式
+**文件**：`src/markdown/parser.ts`
 
-**工作流程**：
+**职责**：使用 markdown-it 将 Markdown 转换为带内联样式的 HTML。所有样式直接内联（不使用 `juice` 库），通过 renderer rules 和自定义插件实现。
 
-```
-1. 加载 CSS 样式表（按优先级叠加）
-   ├── base.css        — 基础重置样式
-   ├── theme.css       — 当前主题（亮色 / 暗色 / 自定义）
-   ├── code.css        — 代码高亮主题（基于 highlight.js）
-   └── custom.css      — 用户自定义样式（最高优先级）
-       
-2. 使用 juice 库将 CSS 内联到 HTML
-   juice.inlineContent(html, combinedCSS, {
-     preserveMediaQueries: false,
-     removeStyleTags: true,
-     insertPreservedExtraCss: false
-   })
-
-3. 后处理：微信兼容性清理（sanitizer）
-   - 移除 position 相关属性
-   - 移除残留的 class / id 属性
-   - 将 % 单位替换为 px / vw（在必要属性上）
-   - 移除空的 style 属性
-   - 移除 data-* 自定义属性
-```
-
-**预设主题样式**（模拟 Obsidian 默认风格）：
-
-```css
-/* ============================================
-   base.css — 基础重置
-   ============================================ */
-.wechat-article {
-  max-width: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
-               "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
-               sans-serif;
-  font-size: 16px;
-  color: #333333;
-  line-height: 1.75;
-  letter-spacing: 0.5px;
-  word-break: break-word;
-}
-
-/* ============================================
-   theme-light.css — 亮色主题
-   ============================================ */
-
-/* --- 段落 --- */
-p { font-size: 16px; color: #333; line-height: 1.75; margin: 0 0 1em 0; }
-
-/* --- 标题 --- */
-h1 { font-size: 24px; color: #1a1a1a; font-weight: 700; line-height: 1.3;
-     margin: 1.5em 0 0.8em 0; border-bottom: 1px solid #e5e5e5; padding-bottom: 0.3em; }
-h2 { font-size: 20px; color: #1a1a1a; font-weight: 600; line-height: 1.3;
-     margin: 1.3em 0 0.6em 0; }
-h3 { font-size: 18px; color: #1a1a1a; font-weight: 600; line-height: 1.3;
-     margin: 1.2em 0 0.5em 0; }
-
-/* --- 代码块 --- */
-pre.code-block {
-  background-color: #f6f8fa; border-radius: 6px; padding: 16px;
-  overflow-x: auto; font-size: 14px; line-height: 1.6; margin: 1em 0;
-}
-pre.code-block code {
-  font-family: "SF Mono", "Monaco", "Menlo", "Consolas", "Courier New", monospace;
-  font-size: 14px; background: none; padding: 0;
-}
-
-/* --- 行内代码 --- */
-code {
-  background-color: #f0f0f0; padding: 2px 6px; border-radius: 3px;
-  font-size: 14px; color: #c7254e;
-  font-family: "SF Mono", "Monaco", "Menlo", "Consolas", "Courier New", monospace;
-}
-
-/* --- 引用块 --- */
-blockquote {
-  border-left: 4px solid #7c3aed; padding: 12px 16px; margin: 1em 0;
-  background-color: #f9f5ff; color: #555; font-size: 15px;
-}
-blockquote p { margin: 0.5em 0; }
-
-/* --- Callout 块 --- */
-.callout { padding: 12px 16px; margin: 1em 0; border-radius: 4px; border-left: 4px solid; }
-.callout-title { font-weight: 600; margin-bottom: 0.5em; font-size: 16px; }
-.callout-note    { border-left-color: #448aff; background-color: #e8f0fe; }
-.callout-tip     { border-left-color: #00c853; background-color: #e8f5e9; }
-.callout-warning { border-left-color: #ff9800; background-color: #fff8e1; }
-.callout-danger  { border-left-color: #f44336; background-color: #ffebee; }
-.callout-info    { border-left-color: #2196f3; background-color: #e3f2fd; }
-.callout-example { border-left-color: #9c27b0; background-color: #f3e5f5; }
-
-/* --- 表格 --- */
-table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 15px; }
-th { background-color: #f2f2f2; font-weight: 600; text-align: left;
-     padding: 10px 12px; border: 1px solid #ddd; }
-td { padding: 10px 12px; border: 1px solid #ddd; }
-
-/* --- 图片 --- */
-img { max-width: 100%; border-radius: 4px; margin: 1em auto; display: block; }
-
-/* --- 链接 --- */
-a { color: #576b95; text-decoration: none; }
-
-/* --- 列表 --- */
-ul, ol { padding-left: 2em; margin: 0.5em 0; }
-li { font-size: 16px; line-height: 1.75; margin: 0.3em 0; }
-
-/* --- 高亮 --- */
-mark { background-color: #fff3b0; padding: 2px 4px; border-radius: 2px; }
-
-/* --- 分割线 --- */
-hr { border: none; border-top: 1px solid #e5e5e5; margin: 2em 0; }
-
-/* --- 任务列表 --- */
-.task-done { text-decoration: line-through; color: #999; }
-
-/* --- 脚注 --- */
-.footnotes { margin-top: 2em; padding-top: 1em;
-             border-top: 1px solid #e5e5e5; font-size: 14px; color: #666; }
-```
-
-**微信兼容性清理器（Sanitizer）**：
+**markdown-it 配置**：
 
 ```typescript
-function sanitizeForWeChat(html: string): string {
-  html = html.replace(/position\s*:\s*\w+\s*;?/gi, '');
-  html = html.replace(/\s+class="[^"]*"/gi, '');
-  html = html.replace(/\s+id="[^"]*"/gi, '');
-  html = html.replace(/\s+style=""/gi, '');
-  html = html.replace(/\s+data-\w+="[^"]*"/gi, '');
-  return html;
-}
+new MarkdownIt({
+  html: true,      // 允许原始 HTML（preprocessor 输出的 <img> 标签）
+  linkify: true,   // 自动识别 URL
+  typographer: false,
+  highlight: (str, lang) => { /* highlight.js + 内联主题样式 */ }
+})
 ```
 
-#### 模块 4：ClipboardWriter（剪贴板写入器）
+**注册的插件**：
 
-**职责**：将最终的 HTML 以富文本格式写入系统剪贴板
+| 插件 | 文件 | 功能 |
+|------|------|------|
+| `obsidianCalloutPlugin` | `plugins/callout.ts` | `> [!type]` → 带样式 div |
+| `obsidianWikiLinkPlugin` | `plugins/wikilink.ts` | `[[link]]` → 纯文本 |
+| `obsidianHighlightPlugin` | `plugins/highlight-mark.ts` | `==text==` → `<mark>` |
+| `obsidianStrikethroughPlugin` | `plugins/strikethrough.ts` | `~~text~~` → `<del>` |
+| `obsidianTaskListPlugin` | `plugins/task-list.ts` | `- [ ]` / `- [x]` → 带图标列表项 |
 
-**核心原理**：利用浏览器的选区复制机制——创建一个临时 DOM 节点，将 HTML 插入其中，选中后执行 `copy` 命令。这样剪贴板中就包含了 `text/html` 格式的数据，粘贴到公众号编辑器时会保留内联样式。
+所有插件共享 `src/markdown/plugins/utils.ts` 中的 `splitTokensByRegex()` 辅助函数，用于在内联 token 流中进行正则切割。
+
+**代码高亮**：使用 `highlight.js` 静态内联语法颜色（GitHub Light 配色），通过 `applyHljsTheme()` 将 class 名直接替换为 `style` 属性，避免输出任何 `class` 属性。
+
+**支持的代码语言**：JavaScript / TypeScript、Python、Java、Go、Rust、C++、CSS、HTML/XML、Bash、SQL、JSON、YAML、plaintext
+
+#### 模块 3：ImageEmbedder（图片嵌入器）
+
+**文件**：`src/image/embedder.ts`
+
+**职责**：扫描 HTML 中的本地图片路径（由 preprocessor 生成的 vault 相对路径），通过 `vault.readBinary()` 读取二进制内容，转换为 `data:image/...;base64,...` data URL。
+
+**解析策略**（按优先级）：
+1. 精确路径匹配（vault 绝对路径）
+2. 相对于当前文档的路径
+3. 按文件名在 vault 全局搜索（发现多个同名文件时记录警告，推荐使用完整路径）
+
+#### 模块 4：StyleEngine（样式引擎）
+
+**文件**：`src/style/engine.ts`
+
+**职责**：将基于亮色主题硬编码的 HTML 中的颜色/样式，根据当前主题配置进行替换（字符串 regex 批量替换），然后做 WeChat 兼容性清理，最后包装外层 `<div>` 容器。
+
+**三种主题模式**：
+
+| 主题 | 说明 |
+|------|------|
+| `light` | 默认亮色主题，保持 parser 输出不变（GitHub 风格） |
+| `minimal` | 简约黑白，将所有紫色 accent 替换为深灰色 |
+| `obsidian` | 从当前 Obsidian 实例读取活跃主题的 CSS 变量，动态适配 |
+
+**Obsidian 主题变量读取**（`readObsidianVars()`）：
+
+Obsidian 主题使用深度嵌套的 CSS 变量（如 `--background-primary: var(--color-base-00)`），`getPropertyValue()` 只返回原始字符串而非计算值。解决方案：注入临时 DOM 元素，通过 `getComputedStyle()` 获取浏览器解析后的实际值。
 
 ```typescript
-function copyRichText(html: string): void {
-  // 1. 创建临时容器
-  const container = document.createElement('div');
-  container.innerHTML = html;
-  container.style.position = 'fixed';
-  container.style.left = '-9999px';
-  container.style.top = '0';
-  document.body.appendChild(container);
-  
-  // 2. 选中容器内容
-  const range = document.createRange();
-  range.selectNodeContents(container);
-  const selection = window.getSelection();
-  selection?.removeAllRanges();
-  selection?.addRange(range);
-  
-  // 3. 执行复制
-  document.execCommand('copy');
-  
-  // 4. 清理
-  selection?.removeAllRanges();
-  document.body.removeChild(container);
+// withEl: 通用的临时元素注入 + 自动清理（try/finally 保证安全）
+function withEl<T>(cssText: string, read: (el: HTMLDivElement) => T): T {
+  const el = document.createElement('div');
+  el.style.cssText = cssText;
+  document.body.appendChild(el);
+  try { return read(el); }
+  finally { document.body.removeChild(el); }
 }
+
+// 示例：读取背景色（正确解析 var() 嵌套链）
+readComputedBg('--background-primary', '#ffffff')
+// → withEl('background-color: var(--background-primary); ...', el => cssColorToHex(getComputedStyle(el).backgroundColor))
 ```
 
-**为什么用 DOM copy 而不用 Electron clipboard API**：
-- 兼容性最好，与"从网页复制"的行为一致
-- 微信编辑器能正确识别这种方式产生的富文本
-- 无需处理 Electron 模块引用的打包问题
-- 在 Obsidian 移动端也可能兼容（待验证）
+读取的变量包括：背景色、文字颜色、强调色、链接色、字体、各级标题色、代码块背景、内联代码色、callout 配色（通过 `--callout-color` 读取每种类型的 RGB 值）、checkbox 圆角和边框宽度、任务完成态颜色和划线样式、高亮背景色、斜体颜色。
 
-#### 模块 5：ConvertController（转换流程控制器）
+**代码语法配色方案**：
 
-**职责**：编排整个转换流程，协调各模块协作
+使用两套静态配色，根据 `document.body.classList.contains('theme-dark')` 选择：
+- 亮色：Tokyo Night Day
+- 暗色：Tokyo Night Storm
 
-**流程状态机**：
+`applyObsidianOverrides` 将 parser 输出的 GitHub Light 颜色逐一替换为当前主题对应的颜色。
 
-```
-IDLE → PARSING → EMBEDDING_IMAGES → INLINING_STYLES → SANITIZING → COPYING → DONE
-                                                                              ↗
-                               任何阶段出错 ──→ ERROR ──→ IDLE
-```
-
-**完整转换流程**：
+**WeChat 兼容性清理**（`src/style/sanitizer.ts`）：
 
 ```typescript
-async function convertAndCopy(file: TFile): Promise<void> {
-  try {
-    // 1. 读取文件内容
-    const markdown = await this.vault.read(file);
-    
-    // 2. 提取 frontmatter 元数据，移除 frontmatter 块
-    const { metadata, body } = parseFrontmatter(markdown);
-    
-    // 3. Markdown → HTML（带 class 标记）
-    const rawHtml = this.markdownParser.render(body);
-    
-    // 4. 处理图片（本地图片 → base64 嵌入）
-    const htmlWithImages = await this.imageEmbedder.embedImages(
-      rawHtml, 
-      file.parent?.path || ''
-    );
-    
-    // 5. 样式内联化
-    const styledHtml = this.styleEngine.inlineStyles(htmlWithImages);
-    
-    // 6. 微信兼容性清理
-    const cleanHtml = sanitizeForWeChat(styledHtml);
-    
-    // 7. 包装完整 HTML
-    const finalHtml = `<div>${cleanHtml}</div>`;
-    
-    // 8. 写入剪贴板
-    copyRichText(finalHtml);
-    
-    // 9. 通知用户
-    new Notice('已复制到剪贴板！请到公众号编辑器中粘贴。');
-    
-  } catch (error) {
-    new Notice(`转换失败：${error.message}`);
-    console.error('WeChat Publisher:', error);
-  }
+// 移除微信不支持的属性
+html.replace(/position\s*:\s*\w+\s*;?/gi, '')
+html.replace(/\s+class="[^"]*"/gi, '')
+html.replace(/\s+id="[^"]*"/gi, '')
+html.replace(/\s+data-\w+(?:-\w+)*="[^"]*"/gi, '')
+html.replace(/\s+style=""/gi, '')
+```
+
+#### 模块 5：ClipboardWriter（剪贴板写入器）
+
+**文件**：`src/clipboard/writer.ts`
+
+**职责**：将最终 HTML 以富文本格式写入系统剪贴板。
+
+**实现**：使用 `ClipboardItem` API（现代浏览器标准）：
+
+```typescript
+async function copyRichText(html: string): Promise<void> {
+  const blob = new Blob([html], { type: 'text/html' });
+  await navigator.clipboard.write([new ClipboardItem({ 'text/html': blob })]);
 }
 ```
+
+相比 `document.execCommand('copy')` 方案，`ClipboardItem` 更直接、更标准，不依赖 DOM 选区，在 Obsidian（Electron）环境中可靠工作。
+
+#### 模块 6：ConvertController（转换流程控制器）
+
+**文件**：`src/convert-controller.ts`
+
+**职责**：编排整个转换流程，持有各模块实例，暴露 `convert()` 和 `convertAndCopy()` 两个入口。
 
 ---
 
 ## 5. 用户界面设计（阶段一）
 
-### 5.1 设置页面
+### 5.1 插件设置
 
-```
-┌─────────────────────────────────────────────┐
-│  WeChat Publisher 设置                       │
-│─────────────────────────────────────────────│
-│                                             │
-│  ▸ 样式设置                                  │
-│    主题:       [▼ Obsidian Light    ]        │
-│                  ├ Obsidian Light             │
-│                  ├ Obsidian Dark              │
-│                  ├ 简约                        │
-│                  └ 自定义                      │
-│    自定义CSS:  [编辑自定义样式...]             │
-│    [预览效果]  [重置为默认]                    │
-│                                             │
-│  ▸ 图片设置                                  │
-│    图片处理:   ○ base64 嵌入（默认）           │
-│               ○ 图床上传                      │
-│    图床配置:   [▼ SM.MS            ] (灰色)   │
-│    图床 Token: [___________________] (灰色)   │
-│                                             │
-│  ▸ 转换选项                                  │
-│    移除 Frontmatter:  [✓]                    │
-│    移除标签 #tag:     [✓]                    │
-│    Wiki Link 处理:    [▼ 转为纯文本  ]        │
-│    脚注位置:          [▼ 文末         ]        │
-│                                             │
-│  ▸ 高级选项                                  │
-│    调试：输出 HTML 到控制台:  [ ]              │
-│                                             │
-└─────────────────────────────────────────────┘
-```
+**文件**：`src/settings.ts`、`src/ui/settings-tab.ts`
+
+**可配置项**：
+
+| 设置 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `theme` | `'light' \| 'minimal' \| 'obsidian'` | `'light'` | 输出主题风格 |
+| `imageMode` | `'base64' \| 'skip'` | `'base64'` | 本地图片处理方式 |
+| `wikiLinkMode` | `'text' \| 'remove'` | `'text'` | WikiLink 处理方式 |
+| `removeFrontmatter` | `boolean` | `true` | 是否移除 frontmatter |
+| `removeTags` | `boolean` | `true` | 是否移除 #tag |
+| `debugMode` | `boolean` | `false` | 是否输出调试日志 |
+| `customCss` | `string` | `''` | 自定义 CSS（保留字段，待实现） |
 
 ### 5.2 命令注册
 
-| 命令 | 快捷键建议 | 说明 |
-|------|-----------|------|
-| 复制为公众号格式 | Ctrl/Cmd + Shift + W | 转换当前文档并复制到剪贴板 |
-| 预览公众号效果 | — | 弹窗预览转换后的 HTML 效果 |
+| 命令 | 说明 |
+|------|------|
+| 复制为公众号格式 | 转换当前文档并复制到剪贴板 |
+| 预览公众号效果 | 弹窗预览转换后的 HTML 效果 |
 
-```typescript
-export default class WeChatPublisherPlugin extends Plugin {
-  async onload() {
-    // "复制为公众号格式"命令
-    this.addCommand({
-      id: 'copy-as-wechat',
-      name: '复制为公众号格式',
-      callback: () => {
-        const file = this.app.workspace.getActiveFile();
-        if (file) this.convertController.convertAndCopy(file);
-        else new Notice('请先打开一个 Markdown 文件');
-      },
-    });
-    
-    // "预览公众号效果"命令
-    this.addCommand({
-      id: 'preview-wechat',
-      name: '预览公众号效果',
-      callback: () => this.showPreview(),
-    });
-    
-    // 右键菜单
-    this.registerEvent(
-      this.app.workspace.on('file-menu', (menu, file) => {
-        if (file instanceof TFile && file.extension === 'md') {
-          menu.addItem((item) => {
-            item.setTitle('复制为公众号格式')
-              .setIcon('clipboard-copy')
-              .onClick(() => this.convertController.convertAndCopy(file));
-          });
-        }
-      })
-    );
-    
-    this.addSettingTab(new WeChatPublisherSettingTab(this.app, this));
-  }
-}
-```
+还注册了左侧 Ribbon 图标（剪贴板图标）触发复制命令，以及文件右键菜单项。
 
 ### 5.3 预览弹窗
 
-提供一个 Modal 弹窗，模拟手机宽度（375px）展示转换效果，并提供"复制"按钮：
+**文件**：`src/ui/preview-modal.ts`
 
-```typescript
-class PreviewModal extends Modal {
-  constructor(app: App, private html: string) { super(app); }
-  
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.createEl('h2', { text: '公众号预览' });
-    
-    // 模拟手机宽度的预览区
-    const preview = contentEl.createDiv();
-    preview.style.cssText = 'max-width:375px; margin:0 auto; border:1px solid #e5e5e5; ' +
-                            'padding:16px; border-radius:8px; max-height:60vh; overflow-y:auto;';
-    preview.innerHTML = this.html;
-    
-    // 操作按钮
-    const bar = contentEl.createDiv({ cls: 'button-bar' });
-    bar.createEl('button', { text: '复制到剪贴板' })
-       .addEventListener('click', () => { copyRichText(this.html); new Notice('已复制！'); this.close(); });
-    bar.createEl('button', { text: '取消' })
-       .addEventListener('click', () => this.close());
-  }
-}
-```
+模拟手机宽度（375px）预览效果，支持预览后点击"复制"按钮写入剪贴板。预览容器设置 `overflow-x: hidden` 和 `box-sizing: border-box` 防止宽图溢出。
 
 ---
 
 ## 6. 项目文件结构
 
 ```
-obsidian-wechat-publisher/
+obsidian-publisher/
 ├── src/
-│   ├── main.ts                   # 插件入口
-│   ├── convert-controller.ts     # 转换流程控制器
+│   ├── main.ts                        # 插件入口，注册命令/Ribbon/设置页
+│   ├── convert-controller.ts          # 转换流程编排
+│   ├── settings.ts                    # 设置类型定义与默认值
 │   ├── markdown/
-│   │   ├── parser.ts             # Markdown 解析核心
-│   │   ├── plugins/
-│   │   │   ├── callout.ts        # Callout 语法
-│   │   │   ├── wikilink.ts       # Wiki Link
-│   │   │   ├── embed.ts          # 嵌入内容
-│   │   │   ├── highlight-mark.ts # ==高亮==
-│   │   │   ├── math.ts           # 数学公式
-│   │   │   └── task-list.ts      # 任务列表
-│   │   └── frontmatter.ts        # Frontmatter 解析
+│   │   ├── parser.ts                  # markdown-it 解析核心（内联样式输出）
+│   │   ├── preprocessor.ts            # ![[embed]] 展开、#tag 移除、脚注处理
+│   │   ├── frontmatter.ts             # Frontmatter 解析与移除
+│   │   └── plugins/
+│   │       ├── utils.ts               # splitTokensByRegex 通用工具
+│   │       ├── callout.ts             # > [!type] Callout 语法
+│   │       ├── wikilink.ts            # [[link]] → 纯文本
+│   │       ├── highlight-mark.ts      # ==高亮== → <mark>
+│   │       ├── strikethrough.ts       # ~~删除线~~ → <del>
+│   │       └── task-list.ts           # - [ ] / - [x] 任务列表
 │   ├── image/
-│   │   ├── embedder.ts           # 图片 base64 嵌入
-│   │   └── uploader.ts           # 图床上传（可选）
+│   │   └── embedder.ts                # 本地图片 → base64 data URL
 │   ├── style/
-│   │   ├── engine.ts             # 样式内联引擎
-│   │   ├── sanitizer.ts          # 微信兼容性清理
-│   │   └── themes/
-│   │       ├── base.css
-│   │       ├── light.css
-│   │       ├── dark.css
-│   │       ├── minimal.css
-│   │       └── code/
-│   │           ├── github.css
-│   │           └── monokai.css
+│   │   ├── engine.ts                  # 主题覆盖 + CSS 变量读取 + 颜色工具
+│   │   └── sanitizer.ts               # 微信兼容性清理（移除 position/class/id 等）
 │   ├── clipboard/
-│   │   └── writer.ts             # 富文本剪贴板写入
+│   │   └── writer.ts                  # ClipboardItem API 写入富文本
 │   ├── ui/
-│   │   ├── settings-tab.ts       # 设置页面
-│   │   └── preview-modal.ts      # 预览弹窗
+│   │   ├── settings-tab.ts            # 设置页面
+│   │   └── preview-modal.ts           # 预览弹窗
 │   └── utils/
-│       ├── logger.ts
-│       └── mime.ts
-├── styles.css                    # 插件自身 UI 样式
-├── manifest.json
+│       ├── logger.ts                  # 调试日志（受 debugMode 控制）
+│       └── mime.ts                    # 文件扩展名 → MIME 类型
+├── styles.css                         # 插件 UI 样式（预览弹窗等）
+├── manifest.json                      # 版本 0.2.0
 ├── package.json
 ├── tsconfig.json
 ├── esbuild.config.mjs
@@ -669,51 +375,47 @@ obsidian-wechat-publisher/
         │
         ▼
 ┌─── Frontmatter 提取 ──────┐
-│  提取 title 等元数据        │
 │  移除 frontmatter 块        │
 └────────────────────────────┘
         │
         ▼ (纯 Markdown body)
+┌─── preprocessor ──────────┐
+│  ![[image.png]] → <img>   │  ← MetadataCache 解析路径
+│  ![[note.md]]  → 内联展开  │  ← 递归，最大深度 3
+│  #tag          → 移除      │
+│  [^label]      → 上标引用  │
+│                + 底部脚注区│
+└────────────────────────────┘
+        │
+        ▼ (预处理后的 Markdown，含原始 <img> HTML)
 ┌─── markdown-it 解析 ──────┐
-│  标准 MD → HTML             │
-│  + highlight.js 代码高亮    │
-│  + Obsidian 语法插件:       │
-│    - Callout → styled div   │
-│    - WikiLink → plain text  │
-│    - ==高亮== → <mark>      │
-│    - Task list → checkbox   │
-│    - Footnotes → 文末注释   │
-│  + 数学公式 → SVG/PNG       │
-│  + Mermaid → SVG/PNG        │
+│  标准 MD → 带内联样式 HTML  │
+│  highlight.js 代码高亮     │  ← class 替换为 inline style
+│  + Obsidian 语法插件:      │
+│    callout / wikilink /    │
+│    highlight / strikethrough│
+│    / task-list             │
 └────────────────────────────┘
         │
-        ▼ (带 class 的 HTML)
-┌─── 图片嵌入 ──────────────┐
+        ▼ (带内联样式的 HTML，图片为 vault 路径)
+┌─── ImageEmbedder ─────────┐
 │  扫描所有 <img> src         │
-│  本地图片 → base64 data URL │
-│  外部图片 → 保持原 URL      │
-│  公式/图表 SVG → base64     │
+│  本地路径 → base64 data URL │  ← vault.readBinary()
+│  外部 URL → 保持原样        │
 └────────────────────────────┘
         │
-        ▼ (图片已嵌入的 HTML)
-┌─── 样式内联 ──────────────┐
-│  加载 CSS: base + theme     │
-│  + code highlight + custom  │
-│  juice.inlineContent()      │
-└────────────────────────────┘
-        │
-        ▼ (内联样式 HTML)
-┌─── 微信兼容性清理 ────────┐
-│  移除 position / class / id │
-│  移除 data-* 属性           │
-│  清理空 style 属性          │
+        ▼ (图片已 base64 的 HTML)
+┌─── StyleEngine ───────────┐
+│  读取 Obsidian CSS 变量    │  ← 仅 obsidian 主题时
+│  批量替换颜色/样式          │  ← regex 字符串替换
+│  WeChat 兼容性清理         │  ← 移除 position/class/id
+│  包装 <div> 外层容器        │
 └────────────────────────────┘
         │
         ▼ (最终清洁 HTML)
-┌─── 写入剪贴板 ────────────┐
-│  创建临时 DOM 节点           │
-│  selection + execCommand     │
-│  → 系统剪贴板 (text/html)   │
+┌─── ClipboardWriter ───────┐
+│  ClipboardItem API        │
+│  → 系统剪贴板 (text/html)  │
 └────────────────────────────┘
         │
         ▼
@@ -722,228 +424,115 @@ obsidian-wechat-publisher/
 
 ---
 
-## 8. 关键技术方案
+## 8. 关键技术方案与实现细节
 
-### 8.1 代码块处理
+### 8.1 内联样式策略（无 juice 库）
 
-```typescript
-// highlight.js 生成带 class 的 <span>：
-//   <span class="hljs-keyword">const</span>
-//
-// juice 内联后变为：
-//   <span style="color: #569cd6;">const</span>
-//
-// 代码块容器需要横向滚动：
-//   <pre style="overflow-x: auto; white-space: pre;">
-```
+不使用 `juice` 做 CSS 内联，而是**在 markdown-it renderer rules 中直接输出带 `style` 属性的 HTML**。
 
-### 8.2 数学公式处理
+优点：
+- 零运行时依赖（juice 约 20KB）
+- 完全控制每个元素的输出格式
+- 与 `StyleEngine` 的字符串替换方案完美配合
 
-微信不支持 KaTeX JS 渲染，两种备选方案：
+注意：样式分散在各 renderer rule 中，修改样式时须与 `engine.ts` 的替换表保持同步（hardcoded 颜色值是两者之间的契约）。
 
-**方案 A**（推荐先尝试）：将 KaTeX 的 CSS 与其生成的 HTML 一起内联，直接作为富文本输出。KaTeX 的 HTML 输出由大量 `<span>` 组成，配合其 CSS 可以纯靠 HTML+CSS 渲染公式。
+### 8.2 CSS 变量解析（element injection）
 
-**方案 B**（降级）：KaTeX → SVG → Canvas → PNG → base64 `<img>`。更简单可靠，但公式变成了图片，放大后会模糊。
+Obsidian 主题使用深度嵌套变量，`getPropertyValue()` 返回原始字符串（如 `var(--color-base-00)`）而非计算值。
 
-### 8.3 Mermaid 图表处理
+解决方案：将变量应用为 CSS 属性（`color: var(--foo)`），注入临时 DOM 元素，通过 `getComputedStyle()` 获取浏览器解析后的真实值。所有这类操作封装在 `withEl()` 中，用 `try/finally` 保证即使异常也能清理 DOM。
 
-Mermaid 依赖 DOM 渲染，在 Obsidian（Electron）中可使用隐藏 div 离屏渲染：
+特殊情况：`--checkbox-radius` 和 `--checkbox-border-width` 同样使用 element injection，将变量应用为 `border-radius` / `border-width`，读取 `borderTopLeftRadius` / `borderTopWidth` 计算值。
 
-```typescript
-async function renderMermaidToBase64(code: string): Promise<string> {
-  const mermaid = await import('mermaid');  // 动态加载，减小初始包体积
-  mermaid.default.initialize({ startOnLoad: false, theme: 'default' });
-  
-  const container = document.createElement('div');
-  container.style.cssText = 'position:fixed; left:-9999px;';
-  document.body.appendChild(container);
-  
-  const { svg } = await mermaid.default.render('mermaid-temp', code, container);
-  document.body.removeChild(container);
-  
-  return svgToBase64Png(svg);  // 转为 base64 PNG
-}
-```
+### 8.3 代码高亮颜色
 
-### 8.4 Callout 语法解析
+Parser 输出 GitHub Light 配色（hardcoded 颜色值）。StyleEngine 的 `applyObsidianOverrides` 将这些颜色替换为两套 Tokyo Night 配色（Day/Storm），具体选哪套由 `document.body.classList.contains('theme-dark')` 决定。
 
-Obsidian 的 Callout 是标准 Markdown 没有的扩展语法。markdown-it 插件需拦截 `blockquote` 渲染，检测 `[!type]` 标记：
+### 8.4 图片路径含空格
 
-```typescript
-function obsidianCalloutPlugin(md: MarkdownIt) {
-  // 拦截 blockquote 渲染规则
-  // 检测第一行是否匹配 [!type] pattern
-  // 匹配 → 输出 <div class="callout callout-{type}">
-  // 不匹配 → 正常输出 <blockquote>
-}
-```
+markdown-it 渲染 `![alt](path with spaces)` 时会 URL 编码空格，导致 `vault.getAbstractFileByPath()` 找不到文件。
+
+解决方案：`preprocessor.ts` 直接生成 `<img src="..." style="...">` HTML 标签（而非 markdown 语法），markdown-it 的 `html: true` 选项将其透传，图片规则不再触发 URL 编码。
+
+### 8.5 同名文件消歧
+
+按文件名全局搜索时，如果找到多个同名文件，`embedder.ts` 记录警告并跳过（不随机选一个），提示用户在 `![[]]` 中使用完整相对路径。
+
+### 8.6 任务列表实现
+
+使用 flex 布局：左侧固定宽度图标（`flex-shrink: 0`）+ 右侧 `flex: 1` 内容区。已完成任务（`is-checked`）的图标为填充紫色方框+白色勾，待完成任务为空心方框。`insideDoneTask` 状态变量控制段落渲染规则，使内容同步添加删除线和灰色。
+
+### 8.7 String.replace 特殊字符
+
+note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.replace(pattern, replacement)` 解释为替换模式引用，导致输出损坏。解决方案：始终使用函数形式 `replace(pattern, () => content)` ，函数返回值被原样使用，不做特殊字符解释。
 
 ---
 
-## 9. 依赖清单
+## 9. 已知限制与风险
 
-### 阶段一依赖（转换与复制）
-
-| 依赖包 | 用途 | 大小估算 | 必要性 |
-|--------|------|---------|--------|
-| `markdown-it` | Markdown → HTML | ~30KB | 必须 |
-| `highlight.js` | 代码语法高亮 | ~50KB（按需语言包） | 必须 |
-| `juice` | CSS 内联化 | ~20KB | 必须 |
-| `katex` | 数学公式渲染 | ~300KB | 可选（动态加载） |
-| `mermaid` | 图表渲染 | ~500KB | 可选（动态加载） |
-
-**打包策略**：`markdown-it` + `highlight.js`（核心语言包）+ `juice` 静态打包；`katex` 和 `mermaid` 使用动态 `import()` 按需加载。
-
-### 阶段二新增依赖
-
-无新增——使用 Obsidian 内置 `requestUrl` 调用微信 API。
+| 限制/风险 | 说明 | 应对 |
+|-----------|------|------|
+| 外部图片不稳定 | 微信编辑器抓取外部图片行为不稳定 | 建议使用本地图片或图床 |
+| base64 图片体积 | 大量图片导致 HTML 过大 | 未来可加图床上传选项 |
+| 主题替换表维护 | engine.ts 的颜色替换依赖 hardcoded hex 值 | 修改 parser 样式时须同步更新替换表 |
+| 微信过滤规则变化 | 新版微信编辑器可能调整过滤规则 | 每次更新后回归测试 |
+| 数学公式 | 暂不支持 LaTeX | 待 KaTeX → SVG 方案 |
+| Mermaid 图表 | 暂不支持 | 待离屏渲染方案 |
 
 ---
 
-## 10. 错误处理
+## 10. 开发路线图
 
-| 错误类型 | 示例 | 处理方式 |
-|----------|------|----------|
-| 无活动文件 | 未打开任何 .md 文件 | Notice 提示 |
-| 图片读取失败 | 引用图片不存在 | 跳过，Notice 警告列出未处理图片 |
-| 解析异常 | 极端嵌套语法 | 降级为纯文本，记录日志 |
-| 公式渲染失败 | LaTeX 语法错误 | 显示公式源码 |
-| Mermaid 渲染失败 | 图表语法错误 | 显示代码块原文 |
-| 剪贴板写入失败 | 权限问题 | 提供"复制 HTML 源码"降级选项 |
+### 阶段一：基础转换（✅ 已完成，v0.2.0）
 
----
+- [x] 插件骨架（esbuild 打包配置）
+- [x] Frontmatter 提取与移除
+- [x] 标准 Markdown 元素（标题、段落、列表、加粗、斜体、链接、表格、引用、分割线）
+- [x] 代码块语法高亮（highlight.js，GitHub Light 配色）
+- [x] 行内代码样式
+- [x] Callout 块（`> [!type]`）
+- [x] WikiLink（`[[link]]` → 纯文本）
+- [x] 高亮（`==text==` → `<mark>`）
+- [x] 删除线（`~~text~~` → `<del>`）
+- [x] 任务列表（`- [ ]` / `- [x]`，带样式图标）
+- [x] 脚注（上标引用 + 底部定义区，微信兼容，无锚链接）
+- [x] `#tag` 移除
+- [x] 图片嵌入（`![[image.png]]`，base64，支持宽度限制 `|300`）
+- [x] 笔记内联展开（`![[note.md]]`，递归深度 3，MetadataCache 解析）
+- [x] 主题适配（`light` / `minimal` / `obsidian`，CSS 变量动态读取）
+- [x] 已验证主题：Blue Topaz、Minimal、Default
+- [x] 预览弹窗（375px 手机宽度）
+- [x] ClipboardItem API 富文本写入
+- [x] 设置页面（主题、图片模式、调试模式等）
 
-## 11. 开发路线图
+### 阶段二：微信公众号 API 自动发布（待开始）
 
-### Phase 1：基础转换（预计 1.5~2 周）
-
-**目标**：跑通"Markdown → 带样式 HTML → 剪贴板复制"最短路径
-
-- [ ] 搭建插件骨架（fork 官方模板，配置 esbuild 打包）
-- [ ] `MarkdownParser` 基础功能（标题、段落、列表、加粗、斜体、链接、表格、引用、分割线、代码块容器）
-- [ ] Frontmatter 提取与移除
-- [ ] `StyleEngine`（加载默认亮色主题 CSS + juice 内联 + sanitizer 清理）
-- [ ] `ClipboardWriter`（DOM copy 方式）
-- [ ] `ConvertController` 编排流程
-- [ ] 注册"复制为公众号格式"命令 + 右键菜单
-- [ ] 基础 `SettingsTab`（主题选择）
-- [ ] **验收**：转换一篇简单文章 → 粘贴到公众号编辑器 → 确认格式正确
-
-### Phase 2：样式增强与 Obsidian 语法（预计 2 周）
-
-**目标**：覆盖所有常用元素，支持 Obsidian 特有语法
-
-- [ ] 代码块语法高亮（highlight.js 集成 + 高亮主题 CSS 内联）
-- [ ] 行内代码样式
-- [ ] Callout 块（markdown-it 插件）
-- [ ] Wiki Link（`[[]]` → 纯文本）
-- [ ] 高亮（`==text==` → `<mark>`）
-- [ ] 任务列表样式
-- [ ] 脚注处理
-- [ ] 多主题切换（亮色 / 暗色 / 简约）
-- [ ] 自定义 CSS 编辑
-- [ ] 预览弹窗
-- [ ] `ImageEmbedder`（base64 嵌入）
-- [ ] 嵌入笔记 `![[note]]` 展开（设最大递归深度 3）
-
-### Phase 3：高级内容与打磨（预计 1.5~2 周）
-
-**目标**：处理数学公式、图表，优化体验
-
-- [ ] KaTeX 数学公式支持（动态加载）
-- [ ] Mermaid 图表支持（动态加载 + 离屏渲染）
-- [ ] 图床上传支持（SM.MS 等，作为 base64 的备选）
-- [ ] 删除线、上下标等扩展格式
-- [ ] 长文章性能优化
-- [ ] 代码高亮语言包按需加载
-- [ ] 完善错误提示
-- [ ] 编写 README
-
-### Phase 4：API 发布（预计 2~3 周）
-
-**目标**：对接微信公众号 API，实现一键发布
-
-- [ ] `WeChatApiClient` 模块（Token 管理 + 图片上传 + 草稿创建 + 发布）
+- [ ] `WeChatApiClient` 模块（Token 管理 + 图片上传 + 草稿创建）
 - [ ] 设置页新增公众号配置区（AppID / AppSecret）
 - [ ] 发布确认弹窗（编辑标题、摘要、封面）
-- [ ] 发布进度条
 - [ ] 图片上传缓存（hash → 微信 URL）
 - [ ] Frontmatter 到公众号字段的映射
 - [ ] 网络错误重试
-- [ ] 安全提示
 
-### Phase 5：社区发布（预计 1 周）
+### 后续计划
 
-- [ ] 代码审查与重构
-- [ ] 中英文文档完善
-- [ ] 自动化测试
+- [ ] 数学公式（KaTeX → SVG/PNG）
+- [ ] Mermaid 图表（离屏渲染 → PNG）
+- [ ] 图床上传（SM.MS / 阿里云 OSS 等）
 - [ ] 提交 Obsidian 社区插件审核
-- [ ] GitHub Actions CI/CD
 
 ---
 
-## 12. 测试策略
+## 11. 依赖清单
 
-### 12.1 单元测试
+| 依赖包 | 用途 | 说明 |
+|--------|------|------|
+| `markdown-it` | Markdown → HTML | 核心解析器 |
+| `highlight.js` | 代码语法高亮 | 按需导入语言包（~15 种） |
+| `obsidian` | Obsidian API 类型 | devDependency，运行时由宿主提供 |
 
-- **MarkdownParser**：各种语法的 HTML 输出验证
-- **StyleEngine**：内联化结果验证
-- **Sanitizer**：微信不兼容属性的移除验证
-- **Callout 插件**：各类型 callout 解析验证
-
-### 12.2 端到端验收（手动）
-
-准备全要素测试文档，每次改动后执行：
-
-1. Obsidian 中打开测试文档
-2. 执行"复制为公众号格式"
-3. 公众号后台 → 新建图文素材 → Ctrl+V 粘贴
-4. 逐项检查每个元素显示效果
-5. 手机预览确认移动端正常
-
----
-
-## 13. 已知风险与应对
-
-| 风险 | 影响 | 应对方案 |
-|------|------|----------|
-| 微信编辑器富文本粘贴行为不一致 | 部分样式丢失 | 维护兼容性白名单，持续测试 |
-| base64 图片粘贴后不显示 | 图片丢失 | 提供图床上传作为备选 |
-| highlight.js 主题内联后 HTML 过大 | 复制/粘贴变慢 | 精简代码高亮 CSS |
-| Mermaid 体积大 | 插件加载慢 | 动态 import() 按需加载 |
-| 微信过滤规则变化 | 样式失效 | 每次更新后回归测试 |
-| 嵌入笔记递归引用 | 无限循环 | 最大递归深度 3 层 |
-| 不同 Obsidian 主题 CSS 冲突 | 预览不准 | 使用独立主题 CSS |
-
----
-
-## 14. 阶段二参考：微信公众号 API
-
-> 供阶段二开发时参考，阶段一无需关注。
-
-### API 调用流程
-
-```
-获取 Access Token → 上传图片素材 → 新建草稿 → 发布草稿（可选）
-```
-
-### 关键接口
-
-| 接口 | URL | 说明 |
-|------|-----|------|
-| 获取 Token | `GET /cgi-bin/token` | 有效期 2 小时 |
-| 上传文章图片 | `POST /cgi-bin/media/uploadimg` | 返回微信 URL |
-| 上传永久素材 | `POST /cgi-bin/material/add_material` | 封面图 |
-| 新建草稿 | `POST /cgi-bin/draft/add` | 创建图文草稿 |
-| 发布草稿 | `POST /cgi-bin/freepublish/submit` | 异步发布 |
-
-### 注意事项
-
-- 需配置 IP 白名单
-- AppSecret 需安全存储
-- API 发布的文章不触发推荐，不显示在主页
-- 建议默认仅创建草稿
-- 测试号：https://mp.weixin.qq.com/debug/cgi-bin/sandbox
+无运行时 CSS 内联库（不使用 juice）。
 
 ---
 
@@ -952,9 +541,6 @@ function obsidianCalloutPlugin(md: MarkdownIt) {
 - Obsidian 开发者文档：https://docs.obsidian.md
 - Obsidian 插件模板：https://github.com/obsidianmd/obsidian-sample-plugin
 - Obsidian API 类型定义：https://github.com/obsidianmd/obsidian-api
-- juice（CSS 内联库）：https://github.com/Automattic/juice
 - markdown-it：https://github.com/markdown-it/markdown-it
 - highlight.js：https://highlightjs.org
-- KaTeX：https://katex.org
-- 社区参考插件：obsidian-wechat-public-platform
 - 微信公众号开发文档：https://developers.weixin.qq.com/doc/offiaccount/

@@ -129,6 +129,7 @@ export class MarkdownParser {
 			html: true,
 			linkify: true,
 			typographer: false,
+			breaks: true,    // single newline → <br> (matches Obsidian reading view behavior)
 			highlight: (str, lang) => {
 				let highlighted = '';
 				if (lang && hljs.getLanguage(lang)) {
