@@ -48,6 +48,7 @@ export interface ObsidianVars {
 	calloutQuote:   string;
 	calloutAbstract:string;
 	calloutBlend:   number; // --callout-blend-factor, typically 0.1
+	lineHeight:     string; // --line-height-normal (e.g. '1.6')
 }
 
 // ── CSS variable resolution ─────────────────────────────────────────────────
@@ -138,6 +139,19 @@ function readCheckboxBorderWidth(fallback: string): string {
 		{ 'border-width': 'var(--checkbox-border-width)', 'border-style': 'solid', ...HIDDEN_STYLE },
 		el => getComputedStyle(el).borderTopWidth.trim() || fallback,
 	);
+}
+
+/**
+ * Reads --line-height-normal from the active theme.
+ * Returns the raw unitless value (e.g. '1.6') so it can be used directly in
+ * inline styles. Falls back to `fallback` if the variable is unset or contains
+ * an unresolved var() reference.
+ */
+function readLineHeight(fallback: string): string {
+	const raw = getComputedStyle(document.body).getPropertyValue('--line-height-normal').trim();
+	// Accept plain numbers only (e.g. '1.5', '1.75'); reject var() chains.
+	if (raw && /^[\d.]+$/.test(raw)) return raw;
+	return fallback;
 }
 
 /** Converts a computed CSS color string (rgb / rgba / hex) to lowercase hex. */
@@ -417,6 +431,7 @@ export function readObsidianVars(): ObsidianVars {
 		calloutQuote:   readCalloutAccent('quote',    '#607d8b'),
 		calloutAbstract:readCalloutAccent('abstract', '#00bcd4'),
 		calloutBlend:   readCalloutBlendFactor(),
+		lineHeight:     readLineHeight('1.75'),
 	};
 	logger.debug('readObsidianVars →', JSON.stringify(vars));
 	return vars;
@@ -437,9 +452,10 @@ export class StyleEngine {
 		// Sanitize font: replace any double-quotes with single-quotes so the value
 		// can be safely embedded inside style="..." without breaking the attribute.
 		const font = (vars?.fontText ?? FALLBACK_FONT).replace(/"/g, "'");
+		const lineHeight = vars?.lineHeight ?? '1.75';
 		const base =
 			`max-width: 100%; font-family: ${font}; ` +
-			`font-size: 16px; line-height: 1.75; letter-spacing: 0.3px; word-break: break-word;`;
+			`font-size: 16px; line-height: ${lineHeight}; letter-spacing: 0.3px; word-break: break-word;`;
 
 		if (this.theme === 'minimal') return base + ' color: #222222; background-color: #ffffff;';
 		if (this.theme === 'obsidian' && vars) {
@@ -559,6 +575,8 @@ export class StyleEngine {
 			[/border: 1px solid #ddd(?![0-9a-f])/gi,          `border: 1px solid ${v.bgBorder}`],
 			[/border-top: 1px solid #e5e5e5/g,                `border-top: 1px solid ${v.bgBorder}`],
 			[/border-bottom: 1px solid #ddd(?![0-9a-f])/gi,   `border-bottom: 1px solid ${v.bgBorder}`],
+			// ── Line height (paragraphs, list items) ───────────────────────────
+			[/line-height: 1\.75/g,                           `line-height: ${v.lineHeight}`],
 		];
 		return this.applyMap(html, map);
 	}

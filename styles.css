@@ -72,6 +72,36 @@
 	border-left: none !important;
 }
 
+
+/* Remove paragraph margins inside list items.
+   The parser sets margin: 0 0 1em 0 on all <p>, but inside <li> this adds
+   unwanted bottom spacing that doesn't exist in Obsidian's reading mode. */
+.publisher-preview-phone li p {
+	margin-top: 0 !important;
+	margin-bottom: 0 !important;
+}
+
+/* Indent guide lines for nested lists in preview.
+   --pub-guide-left / -color / -width are injected at runtime in preview-modal.ts
+   by reading the active theme's computed ::before styles via getComputedStyle.
+   The var() fallbacks are only used when no .markdown-preview-view exists yet. */
+.publisher-preview-phone li > ul,
+.publisher-preview-phone li > ol {
+	position: relative !important;
+}
+.publisher-preview-phone li > ul::before,
+.publisher-preview-phone li > ol::before {
+	content: '' !important;
+	display: block !important;
+	position: absolute !important;
+	left: var(--pub-guide-left, -8px) !important;
+	top: var(--pub-guide-top, 0px) !important;
+	bottom: var(--pub-guide-bottom, 0px) !important;
+	width: var(--pub-guide-width, 1px) !important;
+	border-radius: 1px !important;
+	background-color: var(--pub-guide-color, rgba(128, 128, 128, 0.3)) !important;
+}
+
 .publisher-preview-toolbar {
 	display: flex;
 	gap: 8px;

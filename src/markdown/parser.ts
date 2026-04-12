@@ -123,6 +123,7 @@ function applyHljsTheme(html: string): string {
 export class MarkdownParser {
 	private md: MarkdownIt;
 	private insideDoneTask = false;
+	private insideLink = false;
 
 	constructor() {
 		this.md = new MarkdownIt({
@@ -249,8 +250,13 @@ export class MarkdownParser {
 
 		// ── Links ─────────────────────────────────────────────────────
 		md.renderer.rules['link_open'] = (tokens, idx) => {
+			this.insideLink = true;
 			const href = tokens[idx]?.attrGet('href') ?? '';
 			return `<a href="${href}" style="color: #576b95; text-decoration: none;">`;
+		};
+		md.renderer.rules['link_close'] = () => {
+			this.insideLink = false;
+			return '</a>';
 		};
 
 		// ── Tables ────────────────────────────────────────────────────
@@ -313,7 +319,11 @@ export class MarkdownParser {
 
 		// ── Emphasis / strong ─────────────────────────────────────────
 		md.renderer.rules['strong_open'] = () => `<strong style="font-weight: 700;">`;
-		md.renderer.rules['em_open']     = () => `<em style="font-style: italic; color: #4a5568;">`;
+		// Inside a link the em must not override the link colour — omit color so it inherits.
+		md.renderer.rules['em_open'] = () =>
+			this.insideLink
+				? `<em style="font-style: italic;">`
+				: `<em style="font-style: italic; color: #4a5568;">`;
 	}
 
 	render(markdown: string): string {
