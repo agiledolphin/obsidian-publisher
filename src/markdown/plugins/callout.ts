@@ -121,8 +121,8 @@ export function obsidianCalloutPlugin(md: MarkdownIt): void {
 
 		if (!meta?.callout) {
 			return (
-				`<blockquote style="border-left: 4px solid #7c3aed; padding: 12px 16px; ` +
-				`margin: 1em 0; background-color: #f9f5ff; color: #555; font-size: 15px;">`
+				`<blockquote style="border-left: 2px solid #7c3aed; padding: 4px 16px; ` +
+				`margin: 1em 0; color: #555; font-size: 15px;">`
 			);
 		}
 

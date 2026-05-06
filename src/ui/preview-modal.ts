@@ -38,12 +38,16 @@ class SourceModal extends Modal {
  */
 function readThemeVars(): Record<string, string> {
 	const result: Record<string, string> = {
-		'--pub-guide-left':   '-8px',
-		'--pub-guide-color':  'rgba(128, 128, 128, 0.3)',
-		'--pub-guide-width':  '1px',
-		'--pub-guide-top':    '0px',
-		'--pub-guide-bottom': '0px',
-		'--pub-line-height':  '1.75',
+		'--pub-guide-left':       '-8px',
+		'--pub-guide-color':      'rgba(128, 128, 128, 0.3)',
+		'--pub-guide-width':      '1px',
+		'--pub-guide-top':        '0px',
+		'--pub-guide-bottom':     '0px',
+		'--pub-line-height':      '1.75',
+		'--pub-li-padding-top':   '0px',
+		'--pub-li-padding-bottom':'0px',
+		'--pub-ul-margin-top':    '0px',
+		'--pub-ul-margin-bottom': '0px',
 	};
 
 	const viewEl = document.querySelector('.markdown-preview-view');
@@ -73,6 +77,7 @@ function readThemeVars(): Record<string, string> {
 		const left = beforeCs.left;
 		if (left && left !== 'auto') result['--pub-guide-left'] = left;
 
+
 		// ── Indentation guide width ────────────────────────────────────
 		// Try: CSS variable → ::before width → ::before border-left → ul border-left
 		const varWidth = viewCs.getPropertyValue('--indentation-guide-width').trim();
@@ -88,10 +93,15 @@ function readThemeVars(): Record<string, string> {
 		if (top    && top    !== 'auto') result['--pub-guide-top']    = top;
 		if (bottom && bottom !== 'auto') result['--pub-guide-bottom'] = bottom;
 
-		// ── Line height & li margin ───────────────────────────────────
-		// Read actual computed values from a ul > li probe in the reading view.
+		// ── Nested ul/ol margin (li > ul) ────────────────────────────
+		result['--pub-ul-margin-top']    = ulCs.marginTop;
+		result['--pub-ul-margin-bottom'] = ulCs.marginBottom;
+
+		// ── Line height, li margin & li padding ──────────────────────
+		// Must add 'has-list-bullet' so theme selectors like
+		// ul.has-list-bullet > li { line-height: … } actually fire.
 		const probeUl = document.createElement('ul');
-		probeUl.classList.add('publisher-offscreen');
+		probeUl.classList.add('publisher-offscreen', 'has-list-bullet');
 		const probeLi = document.createElement('li');
 		probeLi.textContent = 'X';
 		probeUl.appendChild(probeLi);
@@ -101,10 +111,12 @@ function readThemeVars(): Record<string, string> {
 			const lhPx = parseFloat(liCs.lineHeight);
 			const fsPx = parseFloat(liCs.fontSize) || 16;
 			if (!isNaN(lhPx) && lhPx > 0) {
-				result['--pub-line-height']    = String(+(lhPx / fsPx).toFixed(4));
+				result['--pub-line-height']      = String(+(lhPx / fsPx).toFixed(4));
 			}
 			result['--pub-li-margin-top']    = liCs.marginTop;
 			result['--pub-li-margin-bottom'] = liCs.marginBottom;
+			result['--pub-li-padding-top']   = liCs.paddingTop;
+			result['--pub-li-padding-bottom']= liCs.paddingBottom;
 		} finally {
 			viewEl.removeChild(probeUl);
 		}
@@ -147,17 +159,39 @@ export class PreviewModal extends Modal {
 			}
 		});
 
-		// Apply theme li margins to fix guide-line length mismatch.
-		const liMarginTop    = themeVars['--pub-li-margin-top']    ?? '0px';
-		const liMarginBottom = themeVars['--pub-li-margin-bottom'] ?? '0px';
-		const liMarginStyle: Record<string, string> = {
-			'margin-top':    liMarginTop,
-			'margin-bottom': liMarginBottom,
+		// Apply theme li margins and padding to match reading-mode appearance.
+		const liStyle: Record<string, string> = {
+			'margin-top':     themeVars['--pub-li-margin-top']     ?? '0px',
+			'margin-bottom':  themeVars['--pub-li-margin-bottom']  ?? '0px',
+			'padding-top':    themeVars['--pub-li-padding-top']    ?? '0px',
+			'padding-bottom': themeVars['--pub-li-padding-bottom'] ?? '0px',
 		};
 		preview.querySelectorAll('li').forEach((el) => {
-			for (const [p, v] of Object.entries(liMarginStyle)) {
+			for (const [p, v] of Object.entries(liStyle)) {
 				(el as HTMLElement).style.setProperty(p, v);
 			}
+		});
+
+		// Override nested list margins — the parser emits "margin: 0.5em 0" on all
+		// ul/ol, but themes typically set nested ul/ol margins to 0 in reading mode.
+		const nestedListStyle: Record<string, string> = {
+			'margin-top':    themeVars['--pub-ul-margin-top']    ?? '0px',
+			'margin-bottom': themeVars['--pub-ul-margin-bottom'] ?? '0px',
+		};
+		preview.querySelectorAll('li > ul, li > ol').forEach((el) => {
+			for (const [p, v] of Object.entries(nestedListStyle)) {
+				(el as HTMLElement).style.setProperty(p, v);
+			}
+		});
+
+		// Align task-list checkbox spans with the first text line.
+		// The parser hardcodes margin-top: 4px but the correct value depends on the
+		// theme's actual line-height: (line-height_px - checkbox_height) / 2.
+		// Task list li uses font-size 16px, checkbox height is 15px.
+		const lineHeightPx = parseFloat(lineHeight) * 16;
+		const checkboxMarginTop = `${Math.max(0, Math.round((lineHeightPx - 15) / 2))}px`;
+		preview.querySelectorAll<HTMLElement>('li > span:first-child').forEach((el) => {
+			el.style.setProperty('margin-top', checkboxMarginTop);
 		});
 
 		// Toolbar — close on the left, actions on the right

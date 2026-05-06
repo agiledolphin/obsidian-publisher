@@ -14,9 +14,13 @@ export function obsidianWikiLinkPlugin(md: MarkdownIt): void {
 			token.children = splitTokensByRegex(
 				token.children, Token, /\[\[([^\]|]+?)(?:\|([^\]]+?))?\]\]/g,
 				(match) => {
-					const display = new Token('text', '', 0);
-					display.content = (match[2] ?? match[1] ?? '').trim();
-					return [display];
+					const open = new Token('html_inline', '', 0);
+					open.content = '<span style="color: #666;">';
+					const text = new Token('text', '', 0);
+					text.content = (match[2] ?? match[1] ?? '').trim();
+					const close = new Token('html_inline', '', 0);
+					close.content = '</span>';
+					return [open, text, close];
 				},
 			);
 		}

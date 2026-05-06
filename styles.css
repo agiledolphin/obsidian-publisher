@@ -84,7 +84,9 @@
 /* Indent guide lines for nested lists in preview.
    --pub-guide-left / -color / -width are injected at runtime in preview-modal.ts
    by reading the active theme's computed ::before styles via getComputedStyle.
-   The var() fallbacks are only used when no .markdown-preview-view exists yet. */
+   --pub-guide-top is overridden per-element (via JS in onOpen) with a negative
+   value when the parent li contains paragraphs before the nested list, so the
+   line extends upward to cover that content area. */
 .publisher-preview-phone li > ul,
 .publisher-preview-phone li > ol {
 	position: relative !important;

@@ -184,7 +184,7 @@ export class MarkdownParser {
 		md.renderer.rules['paragraph_open'] = (tokens, idx) => {
 			if (isEmptyInline(tokens, idx)) return '';
 			if (this.insideDoneTask) {
-				return `<p style="font-size: 16px; color: #808080; text-decoration: line-through; line-height: 1.75; margin: 0 0 1em 0;">`;
+				return `<p style="font-size: 16px; color: #888888; text-decoration: line-through; line-height: 1.75; margin: 0 0 1em 0;">`;
 			}
 			return `<p style="font-size: 16px; color: #333; line-height: 1.75; margin: 0 0 1em 0;">`;
 		};
@@ -214,7 +214,7 @@ export class MarkdownParser {
 			h3: 'font-size: 18px; color: #1a1a1a; font-weight: 600; line-height: 1.3; margin: 1.2em 0 0.5em 0;',
 			h4: 'font-size: 16px; color: #1a1a1a; font-weight: 600; line-height: 1.3; margin: 1em 0 0.4em 0;',
 			h5: 'font-size: 15px; color: #1a1a1a; font-weight: 600; line-height: 1.3; margin: 0.8em 0 0.3em 0;',
-			h6: 'font-size: 14px; color: #666; font-weight: 600; line-height: 1.3; margin: 0.8em 0 0.3em 0;',
+			h6: 'font-size: 14px; color: #1a1a1a; font-weight: 600; line-height: 1.3; margin: 0.8em 0 0.3em 0;',
 		};
 		md.renderer.rules['heading_open'] = (tokens, idx) => {
 			const tag = tokens[idx]?.tag ?? 'h1';
@@ -278,27 +278,63 @@ export class MarkdownParser {
 		md.renderer.rules['list_item_open'] = (tokens, idx) => {
 			const task = tokens[idx]?.attrGet('data-task');
 			// Flex layout: icon (flex-shrink:0) + content div (flex:1).
-			// Prevents the paragraph inside from wrapping below the icon.
 			const liBase = `font-size: 16px; line-height: 1.75; margin: 0.3em 0; list-style: none; margin-left: -1.5em; display: flex; align-items: flex-start;`;
-			const boxBase = `flex-shrink: 0; display: inline-block; width: 15px; height: 15px; border-radius: 3.14px; margin-right: 8px; margin-top: 4px; box-sizing: border-box;`;
+			const boxBase = `flex-shrink: 0; display: inline-block; width: 15px; height: 15px; border-radius: 3px; margin-right: 8px; margin-top: 4px; box-sizing: border-box; text-align: center; line-height: 15px; color: #ffffff; font-size: 11px; font-weight: bold;`;
 			if (task === 'done') {
 				this.insideDoneTask = true;
 				return (
 					`<li style="${liBase}">` +
-					`<span style="${boxBase} background-color: #7c3aed; text-align: center; line-height: 15px; color: #ffffff; font-size: 11px; font-weight: bold;">✓</span>` +
-					`<div style="flex: 1; min-width: 0; color: #808080; text-decoration: line-through;">`
+					`<span style="${boxBase} background-color: #7c3aed;">✓</span>` +
+					`<div style="flex: 1; min-width: 0; color: #888888; text-decoration: line-through;">`
+				);
+			}
+			if (task === 'cancelled') {
+				this.insideDoneTask = true;
+				return (
+					`<li style="${liBase}">` +
+					`<span style="${boxBase} background-color: #9a9a9a;">–</span>` +
+					`<div style="flex: 1; min-width: 0; color: #888888; text-decoration: line-through;">`
 				);
 			}
 			if (task === 'todo') {
 				return (
 					`<li style="${liBase}">` +
-					`<span style="${boxBase} border: 1.618px solid #c8ccd0;"></span>` +
+					`<span style="flex-shrink: 0; display: inline-block; width: 15px; height: 15px; border-radius: 3px; margin-right: 8px; margin-top: 4px; box-sizing: border-box; border: 1.5px solid #c8ccd0;"></span>` +
+					`<div style="flex: 1; min-width: 0;">`
+				);
+			}
+			if (task === 'in-progress') {
+				return (
+					`<li style="${liBase}">` +
+					`<span style="${boxBase} background-color: #4e96e0;">/</span>` +
+					`<div style="flex: 1; min-width: 0;">`
+				);
+			}
+			if (task === 'rescheduled') {
+				return (
+					`<li style="${liBase}">` +
+					`<span style="${boxBase} background-color: #d4820a;">›</span>` +
+					`<div style="flex: 1; min-width: 0;">`
+				);
+			}
+			if (task === 'question') {
+				return (
+					`<li style="${liBase}">` +
+					`<span style="${boxBase} background-color: #ba8f00;">?</span>` +
+					`<div style="flex: 1; min-width: 0;">`
+				);
+			}
+			if (task === 'important') {
+				return (
+					`<li style="${liBase}">` +
+					`<span style="${boxBase} background-color: #d44030;">!</span>` +
 					`<div style="flex: 1; min-width: 0;">`
 				);
 			}
 			return `<li style="font-size: 16px; line-height: 1.75; margin: 0.3em 0;">`;
 		};
 
+		const TASK_TYPES_WITH_DIV = new Set(['done', 'cancelled', 'todo', 'in-progress', 'rescheduled', 'question', 'important']);
 		md.renderer.rules['list_item_close'] = (tokens, idx) => {
 			let depth = 0;
 			for (let i = idx - 1; i >= 0; i--) {
@@ -308,8 +344,8 @@ export class MarkdownParser {
 				if (t.type === 'list_item_open') {
 					if (depth === 0) {
 						const task = t.attrGet('data-task');
-						if (task === 'done') this.insideDoneTask = false;
-						return task === 'done' || task === 'todo' ? '</div></li>' : '</li>';
+						if (task === 'done' || task === 'cancelled') this.insideDoneTask = false;
+						return task && TASK_TYPES_WITH_DIV.has(task) ? '</div></li>' : '</li>';
 					}
 					depth--;
 				}

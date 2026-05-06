@@ -11,20 +11,17 @@ export interface ObsidianVars {
 	textItalic:      string;
 	textMuted:       string;
 	textFaint:       string;
-	checklistDoneColor: string;
-	checklistDoneDeco:  string; // 'line-through' | 'none'
 	textHighlightBg:     string; // --text-highlight-bg
-	checkboxRadius:      string; // --checkbox-radius (e.g. '3px' or '50%')
-	checkboxBorderWidth: string; // --checkbox-border-width (e.g. '1px' or '2px')
 	accent:      string;
 	linkColor:   string;
 	fontText:    string;
-	// Per-level heading colors (--h1-color … --h5-color)
+	// Per-level heading colors (--h1-color … --h6-color)
 	h1Color:     string;
 	h2Color:     string;
 	h3Color:     string;
 	h4Color:     string;
 	h5Color:     string;
+	h6Color:     string;
 	// Code syntax highlight colors (from Obsidian --code-* variables)
 	codeBackground: string;
 	codeNormal:     string;
@@ -116,32 +113,6 @@ function readComputedFont(varName: string, fallback: string): string {
 }
 
 /**
- * Reads --checkbox-radius via element injection so nested var() chains are
- * fully resolved. Falls back to `fallback` if the variable is not defined.
- * Uses a 16×16 element so percentage values (e.g. 50%) compute to a px value
- * that, when applied to the 15×15 checkbox, still produces a circular shape.
- */
-function readCheckboxRadius(fallback: string): string {
-	if (!getComputedStyle(document.body).getPropertyValue('--checkbox-radius').trim()) return fallback;
-	return withEl(
-		{ 'border-radius': 'var(--checkbox-radius)', width: '16px', height: '16px', ...HIDDEN_STYLE },
-		el => getComputedStyle(el).borderTopLeftRadius.trim() || fallback,
-	);
-}
-
-/**
- * Reads --checkbox-border-width via element injection so nested var() chains
- * are fully resolved. Falls back to `fallback` if the variable is not defined.
- */
-function readCheckboxBorderWidth(fallback: string): string {
-	if (!getComputedStyle(document.body).getPropertyValue('--checkbox-border-width').trim()) return fallback;
-	return withEl(
-		{ 'border-width': 'var(--checkbox-border-width)', 'border-style': 'solid', ...HIDDEN_STYLE },
-		el => getComputedStyle(el).borderTopWidth.trim() || fallback,
-	);
-}
-
-/**
  * Reads --line-height-normal from the active theme.
  * Returns the raw unitless value (e.g. '1.6') so it can be used directly in
  * inline styles. Falls back to `fallback` if the variable is unset or contains
@@ -219,45 +190,6 @@ function readCalloutBlendFactor(): number {
 }
 
 
-
-/**
- * Reads the done-checklist item color and text-decoration.
- * - Color: resolved via CSS variable trick (reliable across themes).
- * - Decoration: injected element inside the preview (reads actual computed value,
- *   catching theme overrides that contradict the variable definition).
- */
-function readChecklistDoneStyle(): { color: string; decoration: string } {
-	// Color: resolve --checklist-done-color via element injection so var() is computed.
-	const color = withEl(
-		{ color: 'var(--checklist-done-color,#888888)', ...HIDDEN_STYLE },
-		el => cssColorToHex(getComputedStyle(el).color) ?? '#888888',
-	);
-
-	// Decoration: inject a complete ul > li.task-list-item.is-checked[data-task="x"] > p
-	// structure (matching Obsidian's actual DOM) so all theme selectors can match.
-	const preview = document.querySelector('.markdown-preview-view') ?? document.body;
-	const ul = document.createElement('ul');
-	ul.classList.add('publisher-offscreen');
-	const li = document.createElement('li');
-	li.className = 'task-list-item is-checked';
-	li.setAttribute('data-task', 'x');
-	const p = document.createElement('p');
-	p.textContent = 'X';
-	li.appendChild(p);
-	ul.appendChild(li);
-	preview.appendChild(ul);
-	let decoration: string;
-	try {
-		// Read from both li and p — some themes apply decoration to li, others to children.
-		const liDeco = getComputedStyle(li).textDecorationLine || getComputedStyle(li).textDecoration;
-		const pDeco  = getComputedStyle(p).textDecorationLine  || getComputedStyle(p).textDecoration;
-		decoration = (liDeco + ' ' + pDeco).includes('line-through') ? 'line-through' : 'none';
-	} finally {
-		preview.removeChild(ul);
-	}
-
-	return { color, decoration };
-}
 
 /** Reads the italic (em) text color from the reading view. */
 function readItalicColor(fallback: string): string {
@@ -356,8 +288,6 @@ export function readObsidianVars(): ObsidianVars {
 	const isDark = document.body.classList.contains('theme-dark');
 	const codePalette = isDark ? DARK_CODE_PALETTE : LIGHT_CODE_PALETTE;
 	logger.debug('readObsidianVars: isDark =', isDark, '| palette =', isDark ? 'dark' : 'light');
-	const checklistDone = readChecklistDoneStyle();
-
 	const vars: ObsidianVars = {
 		bgPrimary:   readComputedBg('--background-primary', '#ffffff'),
 		bgSecondary: readComputedBg('--background-secondary',       '#f6f8fa'),
@@ -365,10 +295,6 @@ export function readObsidianVars(): ObsidianVars {
 		textNormal:  readComputedColor('--text-normal',              '#333333'),
 		textItalic:  readItalicColor('#4a5568'),
 		textMuted:   readComputedColor('--text-muted',               '#666666'),
-		checklistDoneColor: checklistDone.color,
-		checklistDoneDeco:  checklistDone.decoration,
-		checkboxRadius:      readCheckboxRadius('1px'),
-		checkboxBorderWidth: readCheckboxBorderWidth('1px'),
 		textFaint:   readComputedColor('--text-faint',               '#999999'),
 		textHighlightBg: (() => {
 			// Try progressively deeper containers so theme selectors like
@@ -407,6 +333,7 @@ export function readObsidianVars(): ObsidianVars {
 		h3Color:     readComputedColor('--h3-color',                 '#1a1a1a'),
 		h4Color:     readComputedColor('--h4-color',                 '#1a1a1a'),
 		h5Color:     readComputedColor('--h5-color',                 '#1a1a1a'),
+		h6Color:     readComputedColor('--h6-color',                 '#1a1a1a'),
 		// Code syntax colors: predefined palette (light=GitHub Light, dark=One Dark Pro)
 		// selected by background luminance. codeBackground/codeInline still read from Obsidian.
 		codeBackground: readComputedBg('--code-background', '#f6f8fa'),
@@ -525,13 +452,11 @@ export class StyleEngine {
 			[/font-size: 18px; color: #1a1a1a/g, `font-size: 18px; color: ${v.h3Color}`],
 			[/font-size: 16px; color: #1a1a1a/g, `font-size: 16px; color: ${v.h4Color}`],
 			[/font-size: 15px; color: #1a1a1a/g, `font-size: 15px; color: ${v.h5Color}`],
+			[/font-size: 14px; color: #1a1a1a/g, `font-size: 14px; color: ${v.h6Color}`],
 			// Remove heading decorative underlines — most themes style headings
 			// via color alone; the hardcoded borders look wrong in custom themes.
 			[/; border-bottom: 2px solid #7c3aed; padding-bottom: 0\.3em/g, ''],
 			[/; border-bottom: 1px solid #e5e5e5; padding-bottom: 0\.2em/g, ''],
-			// ── Checklist done ─────────────────────────────────────────────────
-			[/color: #808080/g,                   `color: ${v.checklistDoneColor}`],
-			[/text-decoration: line-through/g,    `text-decoration: ${v.checklistDoneDeco}`],
 			// ── Italic ─────────────────────────────────────────────────────────
 			[/color: #4a5568/g,                   `color: ${v.textItalic}`],
 			// ── Text ───────────────────────────────────────────────────────────
@@ -543,12 +468,9 @@ export class StyleEngine {
 			[/color: #666(?![0-9a-f])/gi,         `color: ${v.textMuted}`],
 			[/color: #999(?![0-9a-f])/gi,         `color: ${v.textFaint}`],
 			// ── Accent ─────────────────────────────────────────────────────────
-			[/border-radius: 3\.14px/g,            `border-radius: ${v.checkboxRadius}`],
-			[/border: 1\.618px solid/g,            `border: ${v.checkboxBorderWidth} solid`],
 			[/color: #7c3aed/g,                   `color: ${v.accent}`],
 			[/background-color: #7c3aed/g,        `background-color: ${v.accent}`],
-			[/border-left: 4px solid #7c3aed/g,   `border-left: 4px solid ${v.accent}`],
-			[/background-color: #f9f5ff/g,        `background-color: ${adjustBrightness(v.bgPrimary, -8)}`],
+			[/border-left: 2px solid #7c3aed/g,   `border-left: 2px solid ${v.accent}`],
 			[/background-color: #fff3b1/g,        `background-color: ${v.textHighlightBg}`],
 			// ── Links ──────────────────────────────────────────────────────────
 			[/color: #576b95/g,                   `color: ${v.linkColor}`],
@@ -594,8 +516,7 @@ const MINIMAL_MAP: [RegExp, string][] = [
 	[/color: #7c3aed/g,                   'color: #222222'],
 	[/background-color: #7c3aed/g,        'background-color: #222222'],
 	[/border-bottom: 2px solid #7c3aed/g, 'border-bottom: 2px solid #222222'],
-	[/border-left: 4px solid #7c3aed/g,   'border-left: 4px solid #cccccc'],
-	[/background-color: #f9f5ff/g,        'background-color: #f8f8f8'],
+	[/border-left: 2px solid #7c3aed/g,   'border-left: 2px solid #cccccc'],
 ];
 
 // ── Color utilities ─────────────────────────────────────────────────────────

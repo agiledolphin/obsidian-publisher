@@ -23,12 +23,21 @@ export function obsidianTaskListPlugin(md: MarkdownIt): void {
 				if (!firstChild || firstChild.type !== 'text') break;
 
 				const text = firstChild.content;
-				if (/^\[ \]\s/.test(text)) {
-					tok.attrSet('data-task', 'todo');
-					firstChild.content = text.replace(/^\[ \]\s/, '');
-				} else if (/^\[[xX]\]\s/.test(text)) {
-					tok.attrSet('data-task', 'done');
-					firstChild.content = text.replace(/^\[[xX]\]\s/, '');
+				const taskPatterns: Array<[RegExp, string]> = [
+					[/^\[ \]\s/,   'todo'],
+					[/^\[[xX]\]\s/, 'done'],
+					[/^\[\/\]\s/,  'in-progress'],
+					[/^\[-\]\s/,   'cancelled'],
+					[/^\[>\]\s/,   'rescheduled'],
+					[/^\[\?\]\s/,  'question'],
+					[/^\[!\]\s/,   'important'],
+				];
+				for (const [pattern, taskType] of taskPatterns) {
+					if (pattern.test(text)) {
+						tok.attrSet('data-task', taskType);
+						firstChild.content = text.replace(pattern, '');
+						break;
+					}
 				}
 				break;
 			}

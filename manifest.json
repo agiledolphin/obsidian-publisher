@@ -1,7 +1,7 @@
 {
 	"id": "obsidian-publisher",
 	"name": "Obsidian Publisher",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"minAppVersion": "1.0.0",
 	"description": "将 Obsidian 文档转换为微信公众号兼容的富文本格式并复制到剪贴板。",
 	"author": "Sun Jiaming",
