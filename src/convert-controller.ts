@@ -5,6 +5,7 @@ import { StyleEngine, readObsidianVars, ObsidianVars } from './style/engine';
 import { copyRichText } from './clipboard/writer';
 import { parseFrontmatter } from './markdown/frontmatter';
 import { preprocessEmbeds, removeTags, processFootnotes } from './markdown/preprocessor';
+import { processMath } from './markdown/math';
 import { logger } from './utils/logger';
 import type { PluginSettings } from './settings';
 
@@ -67,17 +68,20 @@ export class ConvertController {
 			markdown = removeTags(markdown);
 		}
 
-		// 5. Process footnotes: [^label] refs → superscripts, definitions → bottom section
+		// 5. Render math: $$…$$ and $…$ → PNG <img> tags (via Obsidian's MathJax)
+		markdown = await processMath(markdown);
+
+		// 6. Process footnotes: [^label] refs → superscripts, definitions → bottom section
 		markdown = processFootnotes(markdown);
 
 		logger.debug('Preprocessed markdown, rendering HTML…');
 
-		// 6. Markdown → HTML (inline styles applied by parser rules)
+		// 7. Markdown → HTML (inline styles applied by parser rules)
 		let html = this.parser.render(markdown);
 
 		logger.debug('HTML rendered, embedding images…');
 
-		// 6. Embed local images as base64 data URLs
+		// 8. Embed local images as base64 data URLs
 		if (this.settings.imageMode === 'base64') {
 			const fileDir = file.parent?.path ?? '';
 			html = await this.embedder.embedImages(html, fileDir);
@@ -85,7 +89,7 @@ export class ConvertController {
 
 		logger.debug('Images embedded, applying style engine…');
 
-		// 7. Apply theme overrides + WeChat sanitization + outer wrapper
+		// 9. Apply theme overrides + WeChat sanitization + outer wrapper
 		//    For 'obsidian' theme, read live CSS variables from the current theme.
 		const vars: ObsidianVars | undefined =
 			this.settings.theme === 'obsidian' ? readObsidianVars() : undefined;

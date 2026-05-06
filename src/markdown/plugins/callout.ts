@@ -1,39 +1,124 @@
+import { getIcon } from 'obsidian';
 import type MarkdownIt from 'markdown-it';
 
-interface CalloutStyle {
-	color: string;
-	bg: string;
-	icon: string;
-}
-
-const CALLOUT_STYLES: Record<string, CalloutStyle> = {
-	note:      { color: '#448aff', bg: '#e8f0fe', icon: '📝' },
-	tip:       { color: '#00c853', bg: '#e8f5e9', icon: '💡' },
-	hint:      { color: '#00c853', bg: '#e8f5e9', icon: '💡' },
-	warning:   { color: '#ff9800', bg: '#fff8e1', icon: '⚠️' },
-	caution:   { color: '#ff9800', bg: '#fff8e1', icon: '⚠️' },
-	danger:    { color: '#f44336', bg: '#ffebee', icon: '🔥' },
-	error:     { color: '#f44336', bg: '#ffebee', icon: '❌' },
-	info:      { color: '#2196f3', bg: '#e3f2fd', icon: 'ℹ️' },
-	example:   { color: '#9c27b0', bg: '#f3e5f5', icon: '📋' },
-	quote:     { color: '#607d8b', bg: '#f5f5f5', icon: '💬' },
-	cite:      { color: '#607d8b', bg: '#f5f5f5', icon: '💬' },
-	success:   { color: '#00c853', bg: '#e8f5e9', icon: '✅' },
-	check:     { color: '#00c853', bg: '#e8f5e9', icon: '✅' },
-	done:      { color: '#00c853', bg: '#e8f5e9', icon: '✅' },
-	question:  { color: '#ff9800', bg: '#fff8e1', icon: '❓' },
-	faq:       { color: '#ff9800', bg: '#fff8e1', icon: '❓' },
-	failure:   { color: '#f44336', bg: '#ffebee', icon: '💥' },
-	missing:   { color: '#f44336', bg: '#ffebee', icon: '💥' },
-	bug:       { color: '#f44336', bg: '#ffebee', icon: '🐛' },
-	abstract:  { color: '#00bcd4', bg: '#e0f7fa', icon: '📄' },
-	summary:   { color: '#00bcd4', bg: '#e0f7fa', icon: '📄' },
-	tldr:      { color: '#00bcd4', bg: '#e0f7fa', icon: '📄' },
-	todo:      { color: '#ff9800', bg: '#fff8e1', icon: '📌' },
-	important: { color: '#f44336', bg: '#ffebee', icon: '❗' },
+// ── Alias → canonical type ────────────────────────────────────────────────────
+const CALLOUT_ALIASES: Record<string, string> = {
+	summary:   'abstract',
+	tldr:      'abstract',
+	hint:      'tip',
+	important: 'tip',
+	check:     'success',
+	done:      'success',
+	help:      'question',
+	faq:       'question',
+	caution:   'warning',
+	attention: 'warning',
+	fail:      'failure',
+	missing:   'failure',
+	error:     'danger',
+	cite:      'quote',
 };
 
-const DEFAULT_STYLE: CalloutStyle = { color: '#448aff', bg: '#e8f0fe', icon: '📝' };
+// ── Fallback values (used when CSS variables are absent) ──────────────────────
+// RGB triplets match Obsidian's default theme.
+const FALLBACK_RGB: Record<string, string> = {
+	note:     '68, 138, 255',
+	abstract: '0, 188, 212',
+	info:     '33, 150, 243',
+	todo:     '255, 152, 0',
+	tip:      '0, 200, 83',
+	success:  '0, 200, 83',
+	question: '236, 168, 0',
+	warning:  '236, 168, 0',
+	failure:  '244, 67, 54',
+	danger:   '244, 67, 54',
+	bug:      '244, 67, 54',
+	example:  '124, 77, 255',
+	quote:    '96, 125, 139',
+};
+
+// Lucide icon names match Obsidian's built-in defaults for each callout type.
+const FALLBACK_ICON: Record<string, string> = {
+	note:     'lucide-pencil',
+	abstract: 'lucide-clipboard-list',
+	info:     'lucide-info',
+	todo:     'lucide-check-circle-2',
+	tip:      'lucide-flame',
+	success:  'lucide-check',
+	question: 'lucide-help-circle',
+	warning:  'lucide-alert-triangle',
+	failure:  'lucide-x',
+	danger:   'lucide-zap',
+	bug:      'lucide-bug',
+	example:  'lucide-list',
+	quote:    'lucide-quote',
+};
+
+// Emoji fallback in case getIcon() returns null (should be very rare).
+const EMOJI_FALLBACK: Record<string, string> = {
+	note: '📝', abstract: '📋', info: 'ℹ️', todo: '✔️', tip: '💡',
+	success: '✅', question: '❓', warning: '⚠️', failure: '❌',
+	danger: '🔥', bug: '🐛', example: '📌', quote: '💬',
+};
+
+// ── Per-session cache ─────────────────────────────────────────────────────────
+type CachedStyle = { rgb: string; iconName: string };
+const styleCache = new Map<string, CachedStyle>();
+
+/**
+ * Reads --callout-color and --callout-icon from the active theme via a DOM probe.
+ * Falls back to hardcoded defaults. Results are cached for the session.
+ */
+function readCalloutStyle(type: string): CachedStyle {
+	if (styleCache.has(type)) return styleCache.get(type)!;
+
+	const fallbackRgb  = FALLBACK_RGB[type]  ?? '68, 138, 255';
+	const fallbackIcon = FALLBACK_ICON[type] ?? 'lucide-pencil';
+
+	const probe = document.createElement('div');
+	probe.className = 'callout';
+	probe.setAttribute('data-callout', type);
+	probe.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden;width:1px;height:1px;';
+	document.body.appendChild(probe);
+
+	let rgb = fallbackRgb, iconName = fallbackIcon;
+	try {
+		const cs = getComputedStyle(probe);
+		rgb      = cs.getPropertyValue('--callout-color').trim() || fallbackRgb;
+		iconName = cs.getPropertyValue('--callout-icon').trim()  || fallbackIcon;
+	} finally {
+		document.body.removeChild(probe);
+	}
+
+	const result = { rgb, iconName };
+	styleCache.set(type, result);
+	return result;
+}
+
+/**
+ * Builds an <img> tag from a Lucide icon name, with the icon stroke set to
+ * the given color and encoded as an SVG data URL.
+ * Returns empty string if the icon cannot be found (caller falls back to emoji).
+ */
+function buildIconImg(iconName: string, color: string): string {
+	try {
+		const el = getIcon(iconName);
+		if (!el) return '';
+		const svg = el.cloneNode(true) as SVGElement;
+		svg.setAttribute('width', '16');
+		svg.setAttribute('height', '16');
+		// Replace currentColor so it renders correctly as a data: URL image
+		// (CSS color inheritance does not apply inside img src).
+		const svgStr = svg.outerHTML.replace(/currentColor/g, color);
+		const encoded = encodeURIComponent(svgStr);
+		return (
+			`<img src="data:image/svg+xml,${encoded}" width="16" height="16" ` +
+			`style="display:inline-block;vertical-align:middle;margin-right:6px;">`
+		);
+	} catch {
+		return '';
+	}
+}
 
 /**
  * Renders simple inline markdown in a callout title:
@@ -47,15 +132,8 @@ function renderTitleInline(text: string): string {
 }
 
 /**
- * Converts Obsidian callout blocks to inline-styled <div> wrappers.
- *
- *   > [!note] Title text
- *   > Body content
- *
- * The plugin runs in two passes:
- *  1. Core rule  — detects callout pattern, tags blockquote_open token,
- *                  strips the header line from the inline token.
- *  2. Renderer   — blockquote_open / blockquote_close emit the styled divs.
+ * Converts Obsidian callout blocks to inline-styled <section> wrappers.
+ * Colors and icons are read from the active Obsidian theme via CSS variables.
  */
 export function obsidianCalloutPlugin(md: MarkdownIt): void {
 
@@ -67,7 +145,6 @@ export function obsidianCalloutPlugin(md: MarkdownIt): void {
 			const bqOpen = tokens[i];
 			if (!bqOpen || bqOpen.type !== 'blockquote_open') continue;
 
-			// Find the first inline token inside this blockquote
 			let inlineIdx = -1;
 			for (let j = i + 1; j < tokens.length; j++) {
 				const t = tokens[j];
@@ -83,30 +160,32 @@ export function obsidianCalloutPlugin(md: MarkdownIt): void {
 			const m = firstLine.match(/^\[!(\w+)\][+-]?\s*(.*)?/);
 			if (!m) continue;
 
-			const type  = (m[1] ?? 'note').toLowerCase();
-			const title = (m[2] ?? '').trim() || (type.charAt(0).toUpperCase() + type.slice(1));
-			const style = CALLOUT_STYLES[type] ?? DEFAULT_STYLE;
+			const raw      = (m[1] ?? 'note').toLowerCase();
+			const canonical = CALLOUT_ALIASES[raw] ?? raw;
+			const title    = (m[2] ?? '').trim() || (canonical.charAt(0).toUpperCase() + canonical.slice(1));
 
-			// Store all callout data in token.meta (avoids HTML-in-attribute issues)
+			const { rgb, iconName } = readCalloutStyle(canonical);
+			const color = `rgb(${rgb})`;
+
+			// Build icon HTML: prefer Lucide SVG, fall back to emoji.
+			const iconHtml = buildIconImg(iconName, color)
+				|| `<span style="font-family:'Apple Color Emoji','Segoe UI Emoji',sans-serif;font-style:normal;">${EMOJI_FALLBACK[canonical] ?? '📝'}</span>`;
+
 			bqOpen.meta = {
-				callout:    true,
-				color:      style.color,
-				bg:         style.bg,
-				titleHtml:  `<span style="font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif; font-style: normal;">${style.icon}\uFE0F</span> ${renderTitleInline(title)}`,
+				callout:   true,
+				color,
+				bg:        `rgba(${rgb}, 0.1)`,
+				titleHtml: `${iconHtml}${renderTitleInline(title)}`,
 			};
 
-			// Strip the header line from inline token content
-			const lines = inlineToken.content.split('\n');
-			inlineToken.content = lines.slice(1).join('\n');
+			// Strip the header line from inline token content.
+			inlineToken.content = inlineToken.content.split('\n').slice(1).join('\n');
 
-			// Strip the corresponding children (up to and including the first softbreak)
+			// Strip the corresponding children up to and including the first softbreak.
 			if (inlineToken.children) {
-				let cutAt = inlineToken.children.length; // no softbreak → remove all
+				let cutAt = inlineToken.children.length;
 				for (let k = 0; k < inlineToken.children.length; k++) {
-					if (inlineToken.children[k]?.type === 'softbreak') {
-						cutAt = k + 1;
-						break;
-					}
+					if (inlineToken.children[k]?.type === 'softbreak') { cutAt = k + 1; break; }
 				}
 				inlineToken.children = inlineToken.children.slice(cutAt);
 			}
@@ -130,8 +209,6 @@ export function obsidianCalloutPlugin(md: MarkdownIt): void {
 		const bg        = meta['bg']        as string;
 		const titleHtml = meta['titleHtml'] as string;
 
-		// Use <section> instead of <div> — WeChat's editor is more likely to
-		// preserve background-color on <section> elements than on <div>.
 		return (
 			`<section style="background-color: ${bg}; border-radius: 4px; ` +
 			`padding: 12px 16px; margin: 1em 0;">` +

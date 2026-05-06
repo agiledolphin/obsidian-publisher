@@ -1,6 +1,6 @@
 # Obsidian WeChat Publisher 插件架构设计文档
 
-> **版本**：v4.0（对应插件 v0.3.0）
+> **版本**：v5.0（对应插件 v0.4.0）
 > **日期**：2026-05-06
 > **目标平台**：微信公众号
 > **开发策略**：分阶段交付——先实现转换与复制，再实现 API 发布
@@ -17,7 +17,7 @@
 
 | 阶段 | 目标 | 状态 |
 |------|------|------|
-| **阶段一** | 转换 + 复制 | ✅ **已完成（v0.3.0）** |
+| **阶段一** | 转换 + 复制 | ✅ **已完成（v0.4.0）** |
 | **阶段二** | API 自动发布（草稿上传） | 待开始 |
 
 **阶段一的优势**：
@@ -189,7 +189,7 @@ new MarkdownIt({
 
 | 插件 | 文件 | 功能 |
 |------|------|------|
-| `obsidianCalloutPlugin` | `plugins/callout.ts` | `> [!type]` → 带样式 section；普通 `>` → blockquote（accent 竖线） |
+| `obsidianCalloutPlugin` | `plugins/callout.ts` | `> [!type]` → 带样式 section；颜色/图标通过 `--callout-color` / `--callout-icon` CSS 变量跟随主题，图标用 Lucide SVG（`getIcon()`）；普通 `>` → blockquote（accent 竖线） |
 | `obsidianWikiLinkPlugin` | `plugins/wikilink.ts` | `[[link]]` → 灰色 `<span>`（muted 色，不可点击） |
 | `obsidianHighlightPlugin` | `plugins/highlight-mark.ts` | `==text==` → `<mark>` |
 | `obsidianStrikethroughPlugin` | `plugins/strikethrough.ts` | `~~text~~` → `<del>` |
@@ -324,7 +324,21 @@ async function copyRichText(html: string): Promise<void> {
 
 **文件**：`src/ui/preview-modal.ts`
 
-模拟手机宽度（375px）预览效果，支持预览后点击"复制"按钮写入剪贴板。预览容器设置 `overflow-x: hidden` 和 `box-sizing: border-box` 防止宽图溢出。
+模拟手机宽度（375px）预览效果，支持预览后点击"复制"按钮写入剪贴板。预览容器设置 `overflow-x: hidden` 和 `box-sizing: border-box` 防止宽图溢出。标题栏（h2）支持鼠标拖拽移动弹窗位置（mousedown 时从 flex 居中转为 fixed 定位，drag 期间实时更新 left/top）。
+
+### 5.4 右侧预览面板
+
+**文件**：`src/ui/preview-view.ts`
+
+`PublisherPreviewView extends ItemView`，注册 view type `publisher-preview-view`，在右侧分栏展示微信预览效果，与 Obsidian 工作区原生分栏布局融合。
+
+**行为**：
+- 切换到另一个 `.md` 文件时（`active-leaf-change`）自动触发重新渲染
+- 工具栏提供「关闭」「刷新」「复制到剪贴板」三个按钮
+- 预览内容限宽 375px 居中，超出高度可滚动
+- 插件卸载时自动关闭（`detachLeavesOfType`）
+
+**渲染复用**：`readThemeVars()` 和 `applyPreviewContent()` 抽取到 `src/ui/preview-renderer.ts`，弹窗和面板共用。
 
 ---
 
@@ -340,6 +354,7 @@ obsidian-publisher/
 │   │   ├── parser.ts                  # markdown-it 解析核心（内联样式输出）
 │   │   ├── preprocessor.ts            # ![[embed]] 展开、#tag 移除、脚注处理
 │   │   ├── frontmatter.ts             # Frontmatter 解析与移除
+│   │   ├── math.ts                    # LaTeX → PNG（MathJax CHTML + html2canvas，iframe 隔离批量渲染）
 │   │   └── plugins/
 │   │       ├── utils.ts               # splitTokensByRegex 通用工具
 │   │       ├── callout.ts             # > [!type] Callout 语法
@@ -356,7 +371,9 @@ obsidian-publisher/
 │   │   └── writer.ts                  # ClipboardItem API 写入富文本
 │   ├── ui/
 │   │   ├── settings-tab.ts            # 设置页面
-│   │   └── preview-modal.ts           # 预览弹窗
+│   │   ├── preview-modal.ts           # 预览弹窗（可拖拽）
+│   │   ├── preview-view.ts            # 右侧预览面板（ItemView）
+│   │   └── preview-renderer.ts        # 共享：readThemeVars + applyPreviewContent
 │   └── utils/
 │       ├── logger.ts                  # 调试日志（受 debugMode 控制）
 │       └── mime.ts                    # 文件扩展名 → MIME 类型
@@ -491,21 +508,20 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 | base64 图片体积 | 大量图片导致 HTML 过大 | 未来可加图床上传选项 |
 | 主题替换表维护 | engine.ts 的颜色替换依赖 hardcoded hex 值 | 修改 parser 样式时须同步更新替换表 |
 | 微信过滤规则变化 | 新版微信编辑器可能调整过滤规则 | 每次更新后回归测试 |
-| 数学公式 | 暂不支持 LaTeX | 待 KaTeX → SVG 方案 |
 | Mermaid 图表 | 暂不支持 | 待离屏渲染方案 |
 
 ---
 
 ## 10. 开发路线图
 
-### 阶段一：基础转换（✅ 已完成，v0.3.0）
+### 阶段一：基础转换（✅ 已完成，v0.4.0）
 
 - [x] 插件骨架（esbuild 打包配置）
 - [x] Frontmatter 提取与移除
 - [x] 标准 Markdown 元素（标题 H1–H6、段落、列表、加粗、斜体、链接、表格、引用、分割线）
 - [x] 代码块语法高亮（highlight.js，GitHub Light 配色）
 - [x] 行内代码样式
-- [x] Callout 块（`> [!type]`），普通 blockquote（accent 竖线）
+- [x] Callout 块（`> [!type]`，13 种类型 + 别名，颜色/图标跟随主题），普通 blockquote（accent 竖线）
 - [x] WikiLink（`[[link]]` → 灰色文字）
 - [x] 高亮（`==text==` → `<mark>`）
 - [x] 删除线（`~~text~~` → `<del>`）
@@ -518,7 +534,9 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
   - H1–H6 各级标题色独立读取（`--h1-color` … `--h6-color`）
   - 任务列表样式与主题解耦（固定配色）
 - [x] 已验证主题：Blue Topaz、Minimal、Default
-- [x] 预览弹窗（行高、li margin、嵌套列表 margin 均跟随主题探针）
+- [x] 数学公式（`$...$` / `$$...$$`，MathJax CHTML + html2canvas，编辑/阅读模式均支持，iframe 隔离批量渲染，2x PNG）
+- [x] 预览弹窗（行高、li margin、嵌套列表 margin 均跟随主题探针；标题栏可拖拽）
+- [x] 右侧预览面板（ItemView，切换文件自动刷新，手动刷新按钮，渲染逻辑与弹窗共用）
 - [x] ClipboardItem API 富文本写入
 - [x] 设置页面（主题、图片模式、调试模式等）
 
@@ -533,7 +551,6 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 
 ### 后续计划
 
-- [ ] 数学公式（KaTeX → SVG/PNG）
 - [ ] Mermaid 图表（离屏渲染 → PNG）
 - [ ] 图床上传（SM.MS / 阿里云 OSS 等）
 - [ ] 提交 Obsidian 社区插件审核
@@ -546,6 +563,7 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 |--------|------|------|
 | `markdown-it` | Markdown → HTML | 核心解析器 |
 | `highlight.js` | 代码语法高亮 | 按需导入语言包（~15 种） |
+| `html2canvas` | DOM → PNG 截图 | 数学公式渲染，iframe 隔离批量捕获 |
 | `obsidian` | Obsidian API 类型 | devDependency，运行时由宿主提供 |
 
 无运行时 CSS 内联库（不使用 juice）。

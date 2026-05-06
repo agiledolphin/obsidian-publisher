@@ -3,11 +3,12 @@ import { DEFAULT_SETTINGS, PluginSettings } from './settings';
 import { ConvertController } from './convert-controller';
 import { PublisherSettingTab } from './ui/settings-tab';
 import { PreviewModal } from './ui/preview-modal';
+import { PublisherPreviewView, VIEW_TYPE_PUBLISHER_PREVIEW } from './ui/preview-view';
 import { logger } from './utils/logger';
 
 export default class ObsidianPublisher extends Plugin {
 	settings: PluginSettings;
-	private controller: ConvertController;
+	controller: ConvertController;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
@@ -20,9 +21,14 @@ export default class ObsidianPublisher extends Plugin {
 			this.settings
 		);
 
+		// ── Side-panel view ───────────────────────────────────────────
+		this.registerView(
+			VIEW_TYPE_PUBLISHER_PREVIEW,
+			(leaf) => new PublisherPreviewView(leaf, this)
+		);
+
 		// ── Commands ──────────────────────────────────────────────────
 
-		// Copy current file as WeChat-compatible rich text
 		this.addCommand({
 			id: 'copy-as-wechat',
 			name: '复制为公众号格式',
@@ -34,16 +40,21 @@ export default class ObsidianPublisher extends Plugin {
 			},
 		});
 
-		// Preview converted result in a modal
 		this.addCommand({
 			id: 'preview-wechat',
-			name: '预览公众号效果',
+			name: '预览公众号效果（弹窗）',
 			checkCallback: (checking) => {
 				const file = this.app.workspace.getActiveFile();
 				if (!file || file.extension !== 'md') return false;
 				if (!checking) void this.doPreview(file);
 				return true;
 			},
+		});
+
+		this.addCommand({
+			id: 'open-preview-panel',
+			name: '打开公众号预览面板',
+			callback: () => void this.activatePreviewPanel(),
 		});
 
 		// ── Ribbon icon ───────────────────────────────────────────────
@@ -72,6 +83,19 @@ export default class ObsidianPublisher extends Plugin {
 							.setIcon('eye')
 							.onClick(() => this.doPreview(file))
 					);
+					const panelOpen = this.app.workspace.getLeavesOfType(VIEW_TYPE_PUBLISHER_PREVIEW).length > 0;
+					menu.addItem((item) =>
+						item
+							.setTitle(panelOpen ? '关闭预览面板' : '打开预览面板')
+							.setIcon('layout-sidebar-right')
+							.onClick(() => {
+								if (panelOpen) {
+									this.app.workspace.detachLeavesOfType(VIEW_TYPE_PUBLISHER_PREVIEW);
+								} else {
+									void this.activatePreviewPanel();
+								}
+							})
+					);
 				}
 			})
 		);
@@ -83,6 +107,7 @@ export default class ObsidianPublisher extends Plugin {
 	}
 
 	onunload(): void {
+		this.app.workspace.detachLeavesOfType(VIEW_TYPE_PUBLISHER_PREVIEW);
 		logger.info('Plugin unloaded.');
 	}
 
@@ -93,6 +118,19 @@ export default class ObsidianPublisher extends Plugin {
 	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
 		this.controller?.updateSettings(this.settings);
+	}
+
+	/** Opens the side-panel preview view, or focuses it if already open. */
+	async activatePreviewPanel(): Promise<void> {
+		const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_PUBLISHER_PREVIEW);
+		const existingLeaf = existing[0];
+		if (existingLeaf) {
+			this.app.workspace.revealLeaf(existingLeaf);
+			return;
+		}
+		const leaf = this.app.workspace.getRightLeaf(false) ?? this.app.workspace.getLeaf('split');
+		await leaf.setViewState({ type: VIEW_TYPE_PUBLISHER_PREVIEW, active: true });
+		this.app.workspace.revealLeaf(leaf);
 	}
 
 	private async doConvertAndCopy(file: TFile): Promise<void> {

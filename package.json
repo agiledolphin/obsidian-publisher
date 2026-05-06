@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-publisher",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"description": "将 Obsidian 文档转换为微信公众号兼容的富文本格式并复制到剪贴板。",
 	"main": "main.js",
 	"type": "module",
@@ -26,6 +26,7 @@
 	"dependencies": {
 		"@types/markdown-it": "^14.1.2",
 		"highlight.js": "^11.11.1",
+		"html2canvas": "^1.4.1",
 		"markdown-it": "^14.1.1",
 		"obsidian": "latest"
 	}
