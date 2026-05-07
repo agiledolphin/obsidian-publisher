@@ -16,6 +16,7 @@ export default class ObsidianPublisher extends Plugin {
 		logger.setDebug(this.settings.debugMode);
 
 		this.controller = new ConvertController(
+			this.app,
 			this.app.vault,
 			this.app.metadataCache,
 			this.settings

@@ -29,7 +29,11 @@ export class PublisherPreviewView extends ItemView {
 		toolbar.createEl('button', {
 			text: '关闭',
 			cls: 'publisher-btn-secondary',
-		}).addEventListener('click', () => this.leaf.detach());
+		}).addEventListener('click', () => {
+			this.leaf.detach();
+			const rs = this.app.workspace.rightSplit;
+			if (rs && !rs.collapsed) rs.collapse();
+		});
 
 		const refreshBtn = toolbar.createEl('button', {
 			text: '刷新',
@@ -80,15 +84,17 @@ export class PublisherPreviewView extends ItemView {
 	async refresh(file: TFile): Promise<void> {
 		this.currentFile = file;
 		this.previewEl.empty();
-		this.previewEl.empty();
+		this.previewEl.style.setProperty('display', 'none');
 
 		try {
 			const html = await this.plugin.controller.convert(file);
 			this.currentHtml = html;
 			applyPreviewContent(this.previewEl, html, readThemeVars());
+			this.previewEl.style.removeProperty('display');
 		} catch (e) {
 			this.currentHtml = '';
 			this.previewEl.empty();
+			this.previewEl.style.removeProperty('display');
 			this.previewEl.createEl('p', { text: `❌ 渲染失败：${(e as Error).message}` });
 		}
 	}

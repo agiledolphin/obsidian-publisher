@@ -279,7 +279,7 @@ export class MarkdownParser {
 			const task = tokens[idx]?.attrGet('data-task');
 			// Flex layout: icon (flex-shrink:0) + content div (flex:1).
 			const liBase = `font-size: 16px; line-height: 1.75; margin: 0.3em 0; list-style: none; margin-left: -1.5em; display: flex; align-items: flex-start;`;
-			const boxBase = `flex-shrink: 0; display: inline-block; width: 15px; height: 15px; border-radius: 3px; margin-right: 8px; margin-top: 4px; box-sizing: border-box; text-align: center; line-height: 15px; color: #ffffff; font-size: 11px; font-weight: bold;`;
+			const boxBase = `flex-shrink: 0; display: inline-block; width: 15px; height: 15px; border-radius: 3px; margin-right: 8px; margin-top: 4px; box-sizing: border-box; text-align: center; line-height: 15px; color: #ffffff; font-size: 11px; font-weight: normal;`;
 			if (task === 'done') {
 				this.insideDoneTask = true;
 				return (
@@ -313,7 +313,7 @@ export class MarkdownParser {
 			if (task === 'rescheduled') {
 				return (
 					`<li style="${liBase}">` +
-					`<span style="${boxBase} background-color: #d4820a;">›</span>` +
+					`<span style="${boxBase} background-color: #d4820a; font-size: 15px; padding-left: 2px;">›</span>` +
 					`<div style="flex: 1; min-width: 0;">`
 				);
 			}

@@ -15,7 +15,7 @@ export function obsidianHighlightPlugin(md: MarkdownIt): void {
 				token.children, Token, /==([^=\n]+)==/g,
 				(match) => {
 					const open = new Token('html_inline', '', 0);
-					open.content = '<mark style="background-color: #fff3b1; padding: 2px 4px; border-radius: 2px;">';
+					open.content = '<mark style="background-color: #fff3b1; color: #1a1a1a; padding: 2px 4px; border-radius: 2px;">';
 					const content = new Token('text', '', 0);
 					content.content = match[1] ?? '';
 					const close = new Token('html_inline', '', 0);

@@ -92,8 +92,27 @@ export function applyPreviewContent(
 	html: string,
 	themeVars: Record<string, string>
 ): void {
+	// sanitizeHTMLToDom strips data: URLs from img src attributes.
+	// Extract them first, replace with a stable index attribute, then restore
+	// via .src property assignment after sanitization (property writes bypass
+	// the sanitizer which only processes the initial HTML string).
+	const dataUrls: string[] = [];
+	const safeHtml = html.replace(
+		/<img([^>]*?)src="(data:[^"]+)"([^>]*?)>/g,
+		(_m, before: string, dataUrl: string, after: string) => {
+			const idx = dataUrls.push(dataUrl) - 1;
+			return `<img${before}data-pub-src="${idx}"${after}>`;
+		}
+	);
+
 	container.empty();
-	container.appendChild(sanitizeHTMLToDom(html));
+	container.appendChild(sanitizeHTMLToDom(safeHtml));
+
+	container.querySelectorAll<HTMLImageElement>('img[data-pub-src]').forEach((img) => {
+		const idx = parseInt(img.getAttribute('data-pub-src') ?? '', 10);
+		if (!isNaN(idx) && dataUrls[idx]) img.src = dataUrls[idx];
+		img.removeAttribute('data-pub-src');
+	});
 
 	for (const [prop, val] of Object.entries(themeVars)) {
 		container.style.setProperty(prop, val);
