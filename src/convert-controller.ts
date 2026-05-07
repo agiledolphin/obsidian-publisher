@@ -1,4 +1,4 @@
-import { TFile, Vault, Notice, MetadataCache } from 'obsidian';
+import { App, TFile, Vault, Notice, MetadataCache } from 'obsidian';
 import { MarkdownParser } from './markdown/parser';
 import { ImageEmbedder } from './image/embedder';
 import { StyleEngine, readObsidianVars, ObsidianVars } from './style/engine';
@@ -6,6 +6,7 @@ import { copyRichText } from './clipboard/writer';
 import { parseFrontmatter } from './markdown/frontmatter';
 import { preprocessEmbeds, removeTags, processFootnotes } from './markdown/preprocessor';
 import { processMath } from './markdown/math';
+import { processMermaid } from './markdown/mermaid';
 import { logger } from './utils/logger';
 import type { PluginSettings } from './settings';
 
@@ -15,6 +16,7 @@ export class ConvertController {
 	private styleEngine: StyleEngine;
 
 	constructor(
+		private app: App,
 		private vault: Vault,
 		private metadataCache: MetadataCache,
 		private settings: PluginSettings
@@ -70,6 +72,9 @@ export class ConvertController {
 
 		// 5. Render math: $$…$$ and $…$ → PNG <img> tags (via Obsidian's MathJax)
 		markdown = await processMath(markdown);
+
+		// 5b. Render Mermaid diagrams → PNG <img> tags (via Obsidian's built-in Mermaid)
+		markdown = await processMermaid(markdown, this.app);
 
 		// 6. Process footnotes: [^label] refs → superscripts, definitions → bottom section
 		markdown = processFootnotes(markdown);

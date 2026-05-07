@@ -11,7 +11,8 @@ export interface ObsidianVars {
 	textItalic:      string;
 	textMuted:       string;
 	textFaint:       string;
-	textHighlightBg:     string; // --text-highlight-bg
+	textHighlightBg:     string;
+	textHighlightFg:     string;
 	accent:      string;
 	linkColor:   string;
 	fontText:    string;
@@ -311,19 +312,42 @@ export function readObsidianVars(): ObsidianVars {
 			p.appendChild(mark);
 			parent.appendChild(p);
 			let bg: string;
+			let fg: string;
 			try {
-				bg = getComputedStyle(mark).backgroundColor;
+				const cs = getComputedStyle(mark);
+				bg = cs.backgroundColor;
+				fg = cs.color;
 			} finally {
 				parent.removeChild(p);
 			}
 			// If transparent (selector didn't match), fall back to CSS variable resolution.
 			if (!bg || bg === 'rgba(0, 0, 0, 0)') {
-				return withEl(
+				bg = withEl(
 					{ 'background-color': 'var(--text-highlight-bg,#fff3b1)', ...HIDDEN_STYLE },
 					el => getComputedStyle(el).backgroundColor || '#fff3b1',
 				);
 			}
 			return bg;
+		})(),
+		textHighlightFg: (() => {
+			const parent =
+				document.querySelector('.markdown-preview-view .markdown-rendered') ??
+				document.querySelector('.markdown-preview-section') ??
+				document.querySelector('.markdown-preview-view') ??
+				document.body;
+			const p = document.createElement('p');
+			p.classList.add('publisher-offscreen');
+			const mark = document.createElement('mark');
+			mark.textContent = 'X';
+			p.appendChild(mark);
+			parent.appendChild(p);
+			let fg: string;
+			try {
+				fg = getComputedStyle(mark).color;
+			} finally {
+				parent.removeChild(p);
+			}
+			return fg || '';
 		})(),
 		accent:      readComputedColor('--interactive-accent',       '#7c3aed'),
 		linkColor:   readComputedColor('--link-color',               '#576b95'),
@@ -472,6 +496,7 @@ export class StyleEngine {
 			[/background-color: #7c3aed/g,        `background-color: ${v.accent}`],
 			[/border-left: 2px solid #7c3aed/g,   `border-left: 2px solid ${v.accent}`],
 			[/background-color: #fff3b1/g,        `background-color: ${v.textHighlightBg}`],
+			[/(?<=<mark[^>]*?)color: #1a1a1a/g,   `color: ${v.textHighlightFg || v.textNormal}`],
 			// ── Links ──────────────────────────────────────────────────────────
 			[/color: #576b95/g,                   `color: ${v.linkColor}`],
 			// ── Code block background ──────────────────────────────────────────

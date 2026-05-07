@@ -23,6 +23,7 @@
 | 代码块 | 语法高亮（Tokyo Night 配色） | ✅ 已验证 |
 | `[^1]` 脚注 | 上标引用 + 底部定义区（微信兼容，无锚链接） | ✅ 已验证 |
 | `$...$` / `$$...$$` 数学公式 | PNG 图片（MathJax 渲染，编辑/阅读模式均支持） | ✅ 已验证 |
+| Mermaid 图表 | PNG 图片（深/浅色模式自动切换配色） | ✅ 已验证 |
 | Frontmatter | 自动移除 | ✅ 已验证 |
 | `#tag` 标签 | 自动移除 | ✅ 已验证 |
 | `![[image.png]]` | 图片（支持宽度限制 `![[img.png\|300]]`） | ✅ 已验证 |
@@ -48,7 +49,7 @@
 
 - 文字颜色、背景色、强调色（accent）
 - 标题颜色（H1–H6 各级独立读取）
-- 斜体颜色、高亮背景色
+- 斜体颜色、高亮背景色与文字颜色
 - Callout 配色与图标（13 种类型，读取 `--callout-color` / `--callout-icon` CSS 变量）
 - 代码块背景色
 
@@ -99,7 +100,7 @@ JavaScript / TypeScript、Python、Java、Go、Rust、C++、CSS、HTML / XML、B
 ## 已知限制
 
 - **图片**：本地图片转为 base64 嵌入，粘贴后微信编辑器会自动处理；外部图片依赖微信抓取，行为不稳定
-- **Mermaid 图表**：暂不支持（离屏渲染为未来计划）
+- **Mermaid 颜色**：使用 Mermaid 内置深/浅色主题，不完全匹配 Obsidian 当前主题配色
 
 ## 开发路线图
 
@@ -114,8 +115,10 @@ JavaScript / TypeScript、Python、Java、Go、Rust、C++、CSS、HTML / XML、B
   - [x] Blockquote 样式
   - [x] H1–H6 标题配色跟随主题
   - [x] 数学公式（MathJax CHTML + html2canvas，编辑/阅读模式均支持）
+  - [x] Mermaid 图表（MarkdownRenderer offscreen → PNG，深/浅色模式自动切换）
+  - [x] 高亮文字颜色跟随主题
   - [x] Callout 颜色与图标跟随主题（CSS 变量 + Lucide 图标）
-  - [x] 右侧预览面板（切换文件自动刷新，手动刷新按钮）
+  - [x] 右侧预览面板（切换文件自动刷新，手动刷新按钮，关闭时折叠右侧分栏）
 - [ ] 阶段二：微信公众号 API 自动发布（草稿上传）
-- [ ] Mermaid 图表（离屏渲染 → PNG）
+- [ ] Mermaid 颜色精确匹配 Obsidian 主题
 - [ ] 图床上传（SM.MS / 阿里云 OSS 等）
