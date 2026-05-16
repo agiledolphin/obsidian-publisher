@@ -165,6 +165,20 @@
 	margin-right: auto;
 }
 
+/* ── Preview loading state ───────────────────────────────── */
+.publisher-hidden {
+	display: none !important;
+}
+
+/* ── Draggable modal handle ──────────────────────────────── */
+.publisher-drag-handle {
+	cursor: grab;
+}
+
+.publisher-drag-handle-active {
+	cursor: grabbing;
+}
+
 /* ── Off-screen measurement elements ────────────────────── */
 /* Used by engine.ts to inject temporary elements for CSS variable resolution
    without triggering the obsidianmd ESLint rule on style.setProperty. */

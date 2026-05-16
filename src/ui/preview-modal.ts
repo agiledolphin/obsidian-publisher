@@ -38,34 +38,38 @@ export class PreviewModal extends Modal {
 
 	/** Attaches drag-to-move behaviour to the modal, using handle as the grab target. */
 	private makeDraggable(handle: HTMLElement): void {
-		handle.style.cursor = 'grab';
+		handle.addClass('publisher-drag-handle');
 
 		let isDragging = false;
 		let originX = 0, originY = 0, startLeft = 0, startTop = 0;
 
 		const onMove = (e: MouseEvent) => {
 			if (!isDragging) return;
-			this.modalEl.style.left = `${startLeft + (e.clientX - originX)}px`;
-			this.modalEl.style.top  = `${startTop  + (e.clientY - originY)}px`;
+			Object.assign(this.modalEl.style, {
+				left: `${startLeft + (e.clientX - originX)}px`,
+				top:  `${startTop  + (e.clientY - originY)}px`,
+			});
 		};
 
 		const onUp = () => {
 			isDragging = false;
-			handle.style.cursor = 'grab';
+			handle.removeClass('publisher-drag-handle-active');
 			document.removeEventListener('mousemove', onMove);
 			document.removeEventListener('mouseup',   onUp);
 		};
 
 		handle.addEventListener('mousedown', (e: MouseEvent) => {
 			const rect = this.modalEl.getBoundingClientRect();
-			this.modalEl.style.position  = 'fixed';
-			this.modalEl.style.left      = `${rect.left}px`;
-			this.modalEl.style.top       = `${rect.top}px`;
-			this.modalEl.style.transform = 'none';
-			this.modalEl.style.margin    = '0';
+			Object.assign(this.modalEl.style, {
+				position:  'fixed',
+				left:      `${rect.left}px`,
+				top:       `${rect.top}px`,
+				transform: 'none',
+				margin:    '0',
+			});
 
 			isDragging = true;
-			handle.style.cursor = 'grabbing';
+			handle.addClass('publisher-drag-handle-active');
 			originX   = e.clientX;
 			originY   = e.clientY;
 			startLeft = rect.left;

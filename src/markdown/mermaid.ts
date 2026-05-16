@@ -252,8 +252,7 @@ export async function processMermaid(markdown: string, app: App): Promise<string
 	// Also picks up scoped CSS overrides for correct theme colours.
 	const viewCtx = document.createElement('div');
 	viewCtx.className = 'markdown-preview-view markdown-rendered';
-	viewCtx.style.cssText =
-		'position:fixed;top:-9999px;left:-9999px;width:800px;opacity:0;pointer-events:none;';
+	Object.assign(viewCtx.style, { position: 'fixed', top: '-9999px', left: '-9999px', width: '800px', opacity: '0', pointerEvents: 'none' });
 	document.body.appendChild(viewCtx);
 
 	// Use Mermaid's built-in dark/default theme to match Obsidian's mode.

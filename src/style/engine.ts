@@ -312,11 +312,8 @@ export function readObsidianVars(): ObsidianVars {
 			p.appendChild(mark);
 			parent.appendChild(p);
 			let bg: string;
-			let fg: string;
 			try {
-				const cs = getComputedStyle(mark);
-				bg = cs.backgroundColor;
-				fg = cs.color;
+				bg = getComputedStyle(mark).backgroundColor;
 			} finally {
 				parent.removeChild(p);
 			}
@@ -557,20 +554,4 @@ function mixColors(hex1: string, hex2: string, fraction: number): string {
 	const g = Math.round(parseInt(h1.slice(2,4),16)*(1-fraction) + parseInt(h2.slice(2,4),16)*fraction);
 	const b = Math.round(parseInt(h1.slice(4,6),16)*(1-fraction) + parseInt(h2.slice(4,6),16)*fraction);
 	return toHex6(String(r), String(g), String(b));
-}
-
-/**
- * Lightens (positive delta) or darkens (negative delta) a hex color.
- */
-function adjustBrightness(color: string, delta: number): string {
-	const hexM = color.match(/^#([0-9a-f]{6})$/i);
-	if (hexM) {
-		const hex = hexM[1] ?? '000000';
-		const r = parseInt(hex.slice(0, 2), 16);
-		const g = parseInt(hex.slice(2, 4), 16);
-		const b = parseInt(hex.slice(4, 6), 16);
-		const clamp = (n: number) => Math.max(0, Math.min(255, n + delta));
-		return toHex6(String(clamp(r)), String(clamp(g)), String(clamp(b)));
-	}
-	return color;
 }

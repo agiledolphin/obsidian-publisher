@@ -78,7 +78,7 @@ function readCalloutStyle(type: string): CachedStyle {
 	const probe = document.createElement('div');
 	probe.className = 'callout';
 	probe.setAttribute('data-callout', type);
-	probe.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden;width:1px;height:1px;';
+	Object.assign(probe.style, { position: 'absolute', left: '-9999px', top: '0', visibility: 'hidden', width: '1px', height: '1px' });
 	document.body.appendChild(probe);
 
 	let rgb = fallbackRgb, iconName = fallbackIcon;
