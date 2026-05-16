@@ -108,7 +108,6 @@ export default class ObsidianPublisher extends Plugin {
 	}
 
 	onunload(): void {
-		this.app.workspace.detachLeavesOfType(VIEW_TYPE_PUBLISHER_PREVIEW);
 		logger.info('Plugin unloaded.');
 	}
 
@@ -126,12 +125,12 @@ export default class ObsidianPublisher extends Plugin {
 		const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_PUBLISHER_PREVIEW);
 		const existingLeaf = existing[0];
 		if (existingLeaf) {
-			this.app.workspace.revealLeaf(existingLeaf);
+			await this.app.workspace.revealLeaf(existingLeaf);
 			return;
 		}
 		const leaf = this.app.workspace.getRightLeaf(false) ?? this.app.workspace.getLeaf('split');
 		await leaf.setViewState({ type: VIEW_TYPE_PUBLISHER_PREVIEW, active: true });
-		this.app.workspace.revealLeaf(leaf);
+		await this.app.workspace.revealLeaf(leaf);
 	}
 
 	private async doConvertAndCopy(file: TFile): Promise<void> {

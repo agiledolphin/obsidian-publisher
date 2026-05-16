@@ -60,8 +60,10 @@ async function batchFormulasToPngs(
 	// resolve before fonts are painted. Once the browser has fetched the fonts
 	// for the main document they are served from network cache in the iframe.
 	const preload = document.createElement('div');
-	preload.style.cssText =
-		'position:fixed;top:-9999px;left:-9999px;width:2000px;opacity:0;pointer-events:none;';
+	Object.assign(preload.style, {
+		position: 'fixed', top: '-9999px', left: '-9999px',
+		width: '2000px', opacity: '0', pointerEvents: 'none',
+	});
 	for (const el of mathEls) preload.appendChild(el);
 	document.body.appendChild(preload);
 	void preload.offsetHeight; // force layout → browser requests font files
@@ -74,15 +76,15 @@ async function batchFormulasToPngs(
 
 	// Create an isolated iframe: html2canvas will only see MathJax CSS here.
 	const iframe = document.createElement('iframe');
-	iframe.style.cssText = [
-		'position:fixed', 'top:-9999px', 'left:-9999px',
-		'width:4000px',   'height:2000px',
-		'border:none',    'opacity:0', 'pointer-events:none',
-	].join(';');
+	Object.assign(iframe.style, {
+		position: 'fixed', top: '-9999px', left: '-9999px',
+		width: '4000px', height: '2000px',
+		border: 'none', opacity: '0', pointerEvents: 'none',
+	});
 	document.body.appendChild(iframe);
 
 	const iframeDoc = iframe.contentDocument!;
-	iframeDoc.body.style.cssText = 'margin:0;padding:0;background:transparent;';
+	Object.assign(iframeDoc.body.style, { margin: '0', padding: '0', background: 'transparent' });
 
 	// Inject only MathJax styles (fonts absolutified) into the iframe.
 	injectMathJaxStyles(iframeDoc);
@@ -104,7 +106,7 @@ async function batchFormulasToPngs(
 	const containers: HTMLDivElement[] = [];
 	for (const el of mathEls) {
 		const div = iframeDoc.createElement('div');
-		div.style.cssText = 'display:block;padding:2px;width:fit-content;';
+		Object.assign(div.style, { display: 'block', padding: '2px', width: 'fit-content' });
 		// adoptNode moves the element into the iframe's document.
 		div.appendChild(iframeDoc.adoptNode(el));
 		wrapper.appendChild(div);
@@ -181,13 +183,13 @@ export async function processMath(markdown: string): Promise<string> {
 	const segmentsWithPlaceholders = segments.map((seg, i) => {
 		if (i % 2 === 1) return seg; // code block — skip
 
-		seg = seg.replace(/\$\$([\s\S]+?)\$\$/g, (_, inner) => {
+		seg = seg.replace(/\$\$([\s\S]+?)\$\$/g, (_match: string, inner: string) => {
 			const placeholder = `\x00MATH${counter++}\x00`;
 			formulaList.push({ formula: inner.trim(), display: true, placeholder });
 			return placeholder;
 		});
 
-		seg = seg.replace(/(?<!\$)\$([^$\n]+?)\$(?!\$)/g, (_, inner) => {
+		seg = seg.replace(/(?<!\$)\$([^$\n]+?)\$(?!\$)/g, (_match: string, inner: string) => {
 			const placeholder = `\x00MATH${counter++}\x00`;
 			formulaList.push({ formula: inner.trim(), display: false, placeholder });
 			return placeholder;
