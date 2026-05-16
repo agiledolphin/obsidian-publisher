@@ -222,7 +222,7 @@ export async function processMath(markdown: string): Promise<string> {
 				seg = seg.split(entry.placeholder).join(entry.formula);
 				return;
 			}
-			const { dataUrl, w, h } = result;
+			const { dataUrl, w } = result;
 			// Explicit 1x width so the 2x PNG displays at the correct visual size.
 			const style = entry.display
 				? `display:block;margin:1em auto;width:${w}px;height:auto;max-width:100%;`

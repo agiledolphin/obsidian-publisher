@@ -84,17 +84,17 @@ export class PublisherPreviewView extends ItemView {
 	async refresh(file: TFile): Promise<void> {
 		this.currentFile = file;
 		this.previewEl.empty();
-		this.previewEl.style.setProperty('display', 'none');
+		this.previewEl.addClass('publisher-hidden');
 
 		try {
 			const html = await this.plugin.controller.convert(file);
 			this.currentHtml = html;
 			applyPreviewContent(this.previewEl, html, readThemeVars());
-			this.previewEl.style.removeProperty('display');
+			this.previewEl.removeClass('publisher-hidden');
 		} catch (e) {
 			this.currentHtml = '';
 			this.previewEl.empty();
-			this.previewEl.style.removeProperty('display');
+			this.previewEl.removeClass('publisher-hidden');
 			this.previewEl.createEl('p', { text: `❌ 渲染失败：${(e as Error).message}` });
 		}
 	}
