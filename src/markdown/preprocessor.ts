@@ -246,6 +246,60 @@ export function processFootnotes(markdown: string): string {
 	return body + section;
 }
 
+// ── List termination ───────────────────────────────────────────────────────
+
+/**
+ * Inserts blank lines after list blocks to prevent markdown-it's CommonMark
+ * "lazy continuation" rule from merging following paragraphs into the last
+ * list item. Obsidian terminates lists at the first non-list line; markdown-it
+ * does not, so we normalize the source before rendering.
+ *
+ * Skips fenced code blocks to avoid touching content inside them.
+ */
+export function fixListTermination(markdown: string): string {
+	const lines = markdown.split('\n');
+	const result: string[] = [];
+	const LIST_ITEM_RE = /^[ \t]*(?:[-*+]|\d+[.)]) /;
+	const LIST_CONT_RE = /^[ \t]{2}/;
+	const FENCE_RE     = /^[ \t]*(?:```|~~~)/;
+
+	let inList  = false;
+	let inFence = false;
+
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i] ?? '';
+
+		if (FENCE_RE.test(line)) {
+			inFence = !inFence;
+			result.push(line);
+			if (inFence) inList = false;
+			continue;
+		}
+
+		if (inFence) {
+			result.push(line);
+			continue;
+		}
+
+		const blank      = line.trim() === '';
+		const listItem   = LIST_ITEM_RE.test(line);
+		const listCont   = !blank && !listItem && LIST_CONT_RE.test(line);
+		const isListLine = listItem || listCont;
+
+		if (inList && !blank && !isListLine) {
+			result.push('');
+		}
+
+		result.push(line);
+
+		if (blank)           inList = false;
+		else if (isListLine) inList = true;
+		else                 inList = false;
+	}
+
+	return result.join('\n');
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function splitFirst(str: string, sep: string): [string, string | undefined] {

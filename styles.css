@@ -124,7 +124,13 @@
 }
 
 .publisher-btn-primary:hover {
-	background: var(--interactive-accent-hover);
+	filter: brightness(0.88);
+}
+
+.publisher-btn-primary:disabled {
+	opacity: 0.85;
+	cursor: default;
+	filter: none;
 }
 
 .publisher-btn-secondary {
