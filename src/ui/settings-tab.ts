@@ -21,10 +21,9 @@ export class PublisherSettingTab extends PluginSettingTab {
 				drop
 					.addOption('obsidian', '使用当前 Obsidian 主题（推荐）')
 					.addOption('light', 'Obsidian light')
-					.addOption('minimal', '简约')
 					.setValue(this.plugin.settings.theme)
 					.onChange(async (value) => {
-						this.plugin.settings.theme = value as 'light' | 'minimal' | 'obsidian';
+						this.plugin.settings.theme = value as 'light' | 'obsidian';
 						await this.plugin.saveSettings();
 					})
 			);
