@@ -300,11 +300,11 @@ export function readObsidianVars(): ObsidianVars {
 		textHighlightBg: (() => {
 			// Try progressively deeper containers so theme selectors like
 			// .markdown-rendered mark { } can match.
-			const parent =
+			const container =
 				document.querySelector('.markdown-preview-view .markdown-rendered') ??
 				document.querySelector('.markdown-preview-section') ??
-				document.querySelector('.markdown-preview-view') ??
-				document.body;
+				document.querySelector('.markdown-preview-view');
+			const parent = container ?? document.body;
 			const p = document.createElement('p');
 			p.classList.add('publisher-offscreen');
 			const mark = document.createElement('mark');
@@ -317,7 +317,11 @@ export function readObsidianVars(): ObsidianVars {
 			} finally {
 				parent.removeChild(p);
 			}
-			// If transparent (selector didn't match), fall back to CSS variable resolution.
+			// If we had a real preview container, trust the computed value even if
+			// transparent — the theme may intentionally use no background (e.g.
+			// coloured-text highlight styles). Only fall back when no preview view
+			// exists in the DOM (pure editing mode with no reading pane open).
+			if (container) return bg || 'rgba(0, 0, 0, 0)';
 			if (!bg || bg === 'rgba(0, 0, 0, 0)') {
 				bg = withEl(
 					{ 'background-color': 'var(--text-highlight-bg,#fff3b1)', ...HIDDEN_STYLE },
@@ -478,6 +482,9 @@ export class StyleEngine {
 			// via color alone; the hardcoded borders look wrong in custom themes.
 			[/; border-bottom: 2px solid #7c3aed; padding-bottom: 0\.3em/g, ''],
 			[/; border-bottom: 1px solid #e5e5e5; padding-bottom: 0\.2em/g, ''],
+			// ── Highlighted text (<mark>) — must run before the #1a1a1a catch-all ──
+			[/background-color: #fff3b1/g,        `background-color: ${v.textHighlightBg}`],
+			[/(?<=<mark[^>]*?)color: #1a1a1a/g,   `color: ${v.textHighlightFg || v.textNormal}`],
 			// ── Italic ─────────────────────────────────────────────────────────
 			[/color: #4a5568/g,                   `color: ${v.textItalic}`],
 			// ── Text ───────────────────────────────────────────────────────────
@@ -487,13 +494,11 @@ export class StyleEngine {
 			[/color: #444(?![0-9a-f])/gi,         `color: ${v.textNormal}`],
 			[/color: #555(?![0-9a-f])/gi,         `color: ${v.textMuted}`],
 			[/color: #666(?![0-9a-f])/gi,         `color: ${v.textMuted}`],
-			[/color: #999(?![0-9a-f])/gi,         `color: ${v.textFaint}`],
+			[/color: #999(?![0-9a-f])/gi,         `color: ${v.textFaint}`],  // strikethrough <s> + faint text
 			// ── Accent ─────────────────────────────────────────────────────────
 			[/color: #7c3aed/g,                   `color: ${v.accent}`],
 			[/background-color: #7c3aed/g,        `background-color: ${v.accent}`],
 			[/border-left: 2px solid #7c3aed/g,   `border-left: 2px solid ${v.accent}`],
-			[/background-color: #fff3b1/g,        `background-color: ${v.textHighlightBg}`],
-			[/(?<=<mark[^>]*?)color: #1a1a1a/g,   `color: ${v.textHighlightFg || v.textNormal}`],
 			// ── Links ──────────────────────────────────────────────────────────
 			[/color: #576b95/g,                   `color: ${v.linkColor}`],
 			// ── Code block background ──────────────────────────────────────────
