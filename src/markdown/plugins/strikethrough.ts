@@ -15,11 +15,11 @@ export function obsidianStrikethroughPlugin(md: MarkdownIt): void {
 				token.children, Token, /~~([^~\n]+)~~/g,
 				(match) => {
 					const open = new Token('html_inline', '', 0);
-					open.content = '<del style="color: #999;">';
+					open.content = '<s style="color: #999;">';
 					const content = new Token('text', '', 0);
 					content.content = match[1] ?? '';
 					const close = new Token('html_inline', '', 0);
-					close.content = '</del>';
+					close.content = '</s>';
 					return [open, content, close];
 				},
 			);
