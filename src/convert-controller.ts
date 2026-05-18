@@ -5,8 +5,9 @@ import { StyleEngine, readObsidianVars, ObsidianVars } from './style/engine';
 import { copyRichText } from './clipboard/writer';
 import { parseFrontmatter } from './markdown/frontmatter';
 import { preprocessEmbeds, removeTags, processFootnotes, fixListTermination } from './markdown/preprocessor';
-import { processMath } from './markdown/math';
+import { processMath, setMathTextColor } from './markdown/math';
 import { processMermaid } from './markdown/mermaid';
+import { setCalloutTheme } from './markdown/plugins/callout';
 import { logger } from './utils/logger';
 import type { PluginSettings } from './settings';
 
@@ -71,10 +72,11 @@ export class ConvertController {
 		}
 
 		// 5. Render math: $$…$$ and $…$ → PNG <img> tags (via Obsidian's MathJax)
+		setMathTextColor(this.settings.theme === 'light' ? '#4C4F69' : null);
 		markdown = await processMath(markdown);
 
 		// 5b. Render Mermaid diagrams → PNG <img> tags (via Obsidian's built-in Mermaid)
-		markdown = await processMermaid(markdown, this.app);
+		markdown = await processMermaid(markdown, this.app, this.settings.theme);
 
 		// 6. Process footnotes: [^label] refs → superscripts, definitions → bottom section
 		markdown = processFootnotes(markdown);
@@ -87,6 +89,7 @@ export class ConvertController {
 		logger.debug('Preprocessed markdown, rendering HTML…');
 
 		// 7. Markdown → HTML (inline styles applied by parser rules)
+		setCalloutTheme(this.settings.theme);
 		let html = this.parser.render(markdown);
 
 		logger.debug('HTML rendered, embedding images…');

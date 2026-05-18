@@ -89,7 +89,7 @@ export class PublisherPreviewView extends ItemView {
 		try {
 			const html = await this.plugin.controller.convert(file);
 			this.currentHtml = html;
-			applyPreviewContent(this.previewEl, html, readThemeVars());
+			applyPreviewContent(this.previewEl, html, readThemeVars(), this.plugin.settings.theme);
 			this.previewEl.removeClass('publisher-hidden');
 		} catch (e) {
 			this.currentHtml = '';

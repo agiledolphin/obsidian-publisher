@@ -20,7 +20,8 @@ export class PublisherSettingTab extends PluginSettingTab {
 			.addDropdown((drop) =>
 				drop
 					.addOption('obsidian', '当前 Obsidian 主题（推荐）')
-					.addOption('light', 'Obsidian light')
+					// eslint-disable-next-line obsidianmd/ui/sentence-case
+					.addOption('light', 'Catppuccin Latte')
 					.setValue(this.plugin.settings.theme)
 					.onChange(async (value) => {
 						this.plugin.settings.theme = value as 'light' | 'obsidian';

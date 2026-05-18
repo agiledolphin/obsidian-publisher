@@ -412,7 +412,7 @@ export class StyleEngine {
 		if (this.theme === 'obsidian' && vars) {
 			return base + ` color: ${vars.textNormal}; background-color: ${vars.bgPrimary};`;
 		}
-		return base + ' color: #333333; background-color: #ffffff;';
+		return base + ' color: #4C4F69; background-color: #EFF1F5;';
 	}
 
 	/** Full pipeline: theme overrides → WeChat sanitize → wrapper div. */
@@ -430,7 +430,7 @@ export class StyleEngine {
 
 	private applyTheme(html: string, vars?: ObsidianVars): string {
 		if (this.theme === 'obsidian' && vars) return this.applyObsidianOverrides(html, vars);
-		return html;
+		return this.applyMap(html, CATPPUCCIN_LATTE_MAP);
 	}
 
 	private applyObsidianOverrides(html: string, v: ObsidianVars): string {
@@ -534,6 +534,82 @@ export class StyleEngine {
 		return result;
 	}
 }
+
+// ── Catppuccin Latte static theme map ───────────────────────────────────────
+//
+// Palette reference: https://catppuccin.com/palette (Latte flavour)
+// Base: #EFF1F5  Surface0: #CCD0DA  Text: #4C4F69  Mauve: #8839EF
+// Blue: #1E66F5  Teal: #179299  Green: #40A02B  Yellow: #DF8E1D  Red: #D20F39
+
+const CATPPUCCIN_LATTE_MAP: [RegExp, string][] = [
+	// ── Callout backgrounds (base #EFF1F5 blended ~10% with accent) ───────
+	[/background-color: #e8f0fe/g,  'background-color: #DAE3F5'],  // note    (Blue)
+	[/background-color: #e3f2fd/g,  'background-color: #DAE9EF'],  // info    (Sapphire)
+	[/background-color: #e8f5e9/g,  'background-color: #DEE9E1'],  // tip     (Green)
+	[/background-color: #fff8e1/g,  'background-color: #EDE7DF'],  // warning (Yellow)
+	[/background-color: #ffebee/g,  'background-color: #ECDAE2'],  // danger  (Red)
+	[/background-color: #f3e5f5/g,  'background-color: #E5DFF4'],  // example (Mauve)
+	[/background-color: #f5f5f5/g,  'background-color: #E7E9EE'],  // quote   (Overlay0)
+	[/background-color: #e0f7fa/g,  'background-color: #D9E8EC'],  // abstract(Teal)
+	// ── Callout title text colors ──────────────────────────────────────────
+	[/color: #448aff; line-height/g, 'color: #1E66F5; line-height'],  // note
+	[/color: #2196f3; line-height/g, 'color: #209FB5; line-height'],  // info
+	[/color: #00c853; line-height/g, 'color: #40A02B; line-height'],  // tip
+	[/color: #ff9800; line-height/g, 'color: #DF8E1D; line-height'],  // warning
+	[/color: #f44336; line-height/g, 'color: #D20F39; line-height'],  // danger
+	[/color: #9c27b0; line-height/g, 'color: #8839EF; line-height'],  // example
+	[/color: #607d8b; line-height/g, 'color: #9CA0B0; line-height'],  // quote
+	[/color: #00bcd4; line-height/g, 'color: #179299; line-height'],  // abstract
+	// ── Headings: per-level color (must run before catch-all #1a1a1a) ─────
+	[/font-size: 24px; color: #1a1a1a/g, 'font-size: 24px; color: #8839EF'],  // H1 Mauve
+	[/font-size: 20px; color: #1a1a1a/g, 'font-size: 20px; color: #1E66F5'],  // H2 Blue
+	[/font-size: 18px; color: #1a1a1a/g, 'font-size: 18px; color: #179299'],  // H3 Teal
+	[/font-size: 16px; color: #1a1a1a/g, 'font-size: 16px; color: #40A02B'],  // H4 Green
+	[/font-size: 15px; color: #1a1a1a/g, 'font-size: 15px; color: #DF8E1D'],  // H5 Yellow
+	[/font-size: 14px; color: #1a1a1a/g, 'font-size: 14px; color: #9CA0B0'],  // H6 Overlay0
+	// ── Highlighted text ──────────────────────────────────────────────────
+	[/background-color: #fff3b1/g,        'background-color: #EAD3B4'],
+	// ── Italic ────────────────────────────────────────────────────────────
+	[/color: #4a5568/g,                   'color: #5C5F77'],  // Subtext1
+	// ── Text (catch-all — runs after per-level heading replacements) ──────
+	[/color: #1a1a1a/g,                   'color: #4C4F69'],  // Text
+	[/color: #333333/g,                   'color: #4C4F69'],
+	[/color: #333(?![0-9a-f])/gi,         'color: #4C4F69'],
+	[/color: #444(?![0-9a-f])/gi,         'color: #4C4F69'],
+	[/color: #555(?![0-9a-f])/gi,         'color: #6C6F85'],  // Subtext0
+	[/color: #666(?![0-9a-f])/gi,         'color: #6C6F85'],
+	[/color: #999(?![0-9a-f])/gi,         'color: #9CA0B0'],  // Overlay0 (strikethrough etc.)
+	// ── Accent (Mauve) ────────────────────────────────────────────────────
+	[/color: #7c3aed/g,                   'color: #8839EF'],
+	[/background-color: #7c3aed/g,        'background-color: #8839EF'],
+	[/border-left: 2px solid #7c3aed/g,   'border-left: 2px solid #8839EF'],
+	[/border-bottom: 2px solid #7c3aed/g, 'border-bottom: 2px solid #8839EF'],
+	// ── Links (Blue) ──────────────────────────────────────────────────────
+	[/color: #576b95/g,                   'color: #1E66F5'],
+	// ── Code block background (Surface0) ──────────────────────────────────
+	[/background-color: #f6f8fa/g,        'background-color: #CCD0DA'],
+	[/background-color: #f0f0f0/g,        'background-color: #CCD0DA'],
+	[/background-color: #f2f2f2/g,        'background-color: #CCD0DA'],
+	// ── Code syntax tokens (HLJS GitHub Light → Catppuccin Latte) ─────────
+	[/color: #24292f/g,                   'color: #4C4F69'],  // Text
+	[/color: #6e7781/g,                   'color: #8C8FA1'],  // Overlay2  (comment)
+	[/color: #cf222e/g,                   'color: #D20F39'],  // Red       (keyword)
+	[/color: #8250df/g,                   'color: #8839EF'],  // Mauve     (function/built-in)
+	[/color: #0a3069/g,                   'color: #40A02B'],  // Green     (string)
+	[/color: #0550ae/g,                   'color: #FE640B'],  // Peach     (value/number)
+	[/color: #116329/g,                   'color: #D20F39'],  // Red       (tag)
+	[/color: #953800/g,                   'color: #179299'],  // Teal      (property)
+	[/color: #b45309/g,                   'color: #E64553'],  // Maroon    (variable)
+	// ── Inline code (Red) ─────────────────────────────────────────────────
+	[/color: #c7254e/g,                   'color: #D20F39'],
+	// ── Main background (Base) ────────────────────────────────────────────
+	[/background-color: #ffffff/g,        'background-color: #EFF1F5'],
+	// ── Borders (Surface0) ────────────────────────────────────────────────
+	[/border: 1px solid #e1e4e8/g,                  'border: 1px solid #CCD0DA'],
+	[/border: 1px solid #ddd(?![0-9a-f])/gi,        'border: 1px solid #CCD0DA'],
+	[/border-top: 1px solid #e5e5e5/g,              'border-top: 1px solid #CCD0DA'],
+	[/border-bottom: 1px solid #ddd(?![0-9a-f])/gi, 'border-bottom: 1px solid #CCD0DA'],
+];
 
 // ── Color utilities ─────────────────────────────────────────────────────────
 

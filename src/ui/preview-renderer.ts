@@ -118,7 +118,8 @@ export function readThemeVars(): Record<string, string> {
 export function applyPreviewContent(
 	container: HTMLElement,
 	html: string,
-	themeVars: Record<string, string>
+	themeVars: Record<string, string>,
+	theme?: string
 ): void {
 	// sanitizeHTMLToDom strips data: URLs from img src attributes.
 	// Extract them first, replace with a stable index attribute, then restore
@@ -179,23 +180,25 @@ export function applyPreviewContent(
 		el.style.setProperty('margin-top', checkboxMarginTop);
 	});
 
-	// Override mark and del colors after DOM insertion so that Obsidian theme CSS
-	// (which may use !important or scoped selectors our container doesn't match)
-	// cannot interfere with the colors we read from the live preview context.
-	const markBg    = themeVars['--pub-mark-bg'];
-	const markColor = themeVars['--pub-mark-color'];
-	if (markBg || markColor) {
-		container.querySelectorAll<HTMLElement>('mark').forEach((el) => {
-			if (markBg)    el.style.setProperty('background-color', markBg,    'important');
-			if (markColor) el.style.setProperty('color',            markColor, 'important');
-		});
-	}
+	// For the 'obsidian' theme, override mark and del colors with the live Obsidian
+	// theme values so the preview matches reading view exactly.
+	// For static themes (Catppuccin Latte etc.) the colors are already baked into
+	// the HTML inline styles — applying live theme values would clobber them.
+	if (theme === 'obsidian') {
+		const markBg    = themeVars['--pub-mark-bg'];
+		const markColor = themeVars['--pub-mark-color'];
+		if (markBg || markColor) {
+			container.querySelectorAll<HTMLElement>('mark').forEach((el) => {
+				if (markBg)    el.style.setProperty('background-color', markBg,    'important');
+				if (markColor) el.style.setProperty('color',            markColor, 'important');
+			});
+		}
 
-	const delColor = themeVars['--pub-del-color'];
-	if (delColor) {
-		// sanitizeHTMLToDom converts <del> → <s>, so query both for robustness.
-		container.querySelectorAll<HTMLElement>('del, s').forEach((el) => {
-			el.style.setProperty('color', delColor, 'important');
-		});
+		const delColor = themeVars['--pub-del-color'];
+		if (delColor) {
+			container.querySelectorAll<HTMLElement>('del, s').forEach((el) => {
+				el.style.setProperty('color', delColor, 'important');
+			});
+		}
 	}
 }
