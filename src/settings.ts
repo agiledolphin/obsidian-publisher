@@ -13,7 +13,7 @@ export interface PluginSettings {
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
-	theme: 'light',
+	theme: 'obsidian',
 	imageMode: 'base64',
 	wikiLinkMode: 'text',
 	removeFrontmatter: true,
