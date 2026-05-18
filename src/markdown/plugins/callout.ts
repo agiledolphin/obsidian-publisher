@@ -61,9 +61,40 @@ const EMOJI_FALLBACK: Record<string, string> = {
 	danger: '🔥', bug: '🐛', example: '📌', quote: '💬',
 };
 
+// ── Catppuccin Latte callout RGB values ───────────────────────────────────────
+// Format: "R, G, B" (matches Obsidian's --callout-color convention)
+const CATPPUCCIN_LATTE_CALLOUT_RGB: Record<string, string> = {
+	note:     '30, 102, 245',    // Blue     #1E66F5
+	abstract: '23, 146, 153',   // Teal     #179299
+	info:     '32, 159, 181',   // Sapphire #209FB5
+	todo:     '254, 100, 11',   // Peach    #FE640B
+	tip:      '64, 160, 43',    // Green    #40A02B
+	success:  '64, 160, 43',    // Green    #40A02B
+	question: '223, 142, 29',   // Yellow   #DF8E1D
+	warning:  '223, 142, 29',   // Yellow   #DF8E1D
+	failure:  '210, 15, 57',    // Red      #D20F39
+	danger:   '210, 15, 57',    // Red      #D20F39
+	bug:      '230, 69, 83',    // Maroon   #E64553
+	example:  '136, 57, 239',   // Mauve    #8839EF
+	quote:    '156, 160, 176',  // Overlay0 #9CA0B0
+};
+
 // ── Per-session cache ─────────────────────────────────────────────────────────
 type CachedStyle = { rgb: string; iconName: string };
 const styleCache = new Map<string, CachedStyle>();
+
+// Static RGB override: non-null when a static theme (e.g. Catppuccin Latte) is active.
+let staticCalloutRgb: Record<string, string> | null = null;
+
+/**
+ * Sets the callout color source for the next render pass.
+ * Call before parser.render(); the cache is cleared so fresh colors are used.
+ * 'light' → Catppuccin Latte hardcoded colors; anything else → live Obsidian theme.
+ */
+export function setCalloutTheme(theme: string): void {
+	staticCalloutRgb = theme === 'light' ? CATPPUCCIN_LATTE_CALLOUT_RGB : null;
+	styleCache.clear();
+}
 
 /**
  * Reads --callout-color and --callout-icon from the active theme via a DOM probe.
@@ -74,6 +105,13 @@ function readCalloutStyle(type: string): CachedStyle {
 
 	const fallbackRgb  = FALLBACK_RGB[type]  ?? '68, 138, 255';
 	const fallbackIcon = FALLBACK_ICON[type] ?? 'lucide-pencil';
+
+	// Static theme override (Catppuccin Latte etc.) — bypass live DOM reading.
+	if (staticCalloutRgb) {
+		const result = { rgb: staticCalloutRgb[type] ?? fallbackRgb, iconName: fallbackIcon };
+		styleCache.set(type, result);
+		return result;
+	}
 
 	const probe = document.createElement('div');
 	probe.className = 'callout';

@@ -10,10 +10,28 @@
 import html2canvas from 'html2canvas';
 import { renderMath, finishRenderMath, loadMathJax } from 'obsidian';
 
+let staticMathTextColor: string | null = null;
+
+/** Override the math formula text color for static themes (e.g. Catppuccin Latte).
+ *  Pass null to revert to reading --text-normal from the live Obsidian theme. */
+export function setMathTextColor(color: string | null): void {
+	staticMathTextColor = color;
+}
+
 function getTextColor(): string {
-	const cssVar = getComputedStyle(document.body).getPropertyValue('--text-normal').trim();
-	if (cssVar) return cssVar;
-	return getComputedStyle(document.body).color || '#1a1a1a';
+	if (staticMathTextColor) return staticMathTextColor;
+	// getPropertyValue('--text-normal') may return a raw var() chain (e.g. "var(--ctp-text)")
+	// rather than a resolved hex. Applying the var as a CSS color property and reading the
+	// computed value forces the browser to resolve the full chain, giving us a usable rgb().
+	const probe = document.createElement('div');
+	probe.classList.add('publisher-offscreen');
+	Object.assign(probe.style, { color: 'var(--text-normal, #1a1a1a)' });
+	document.body.appendChild(probe);
+	try {
+		return getComputedStyle(probe).color || '#1a1a1a';
+	} finally {
+		document.body.removeChild(probe);
+	}
 }
 
 /**

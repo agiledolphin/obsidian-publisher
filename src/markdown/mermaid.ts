@@ -16,6 +16,19 @@ import { App, MarkdownRenderer, Component } from 'obsidian';
 
 const MERMAID_BLOCK = /^```mermaid[ \t]*\r?\n([\s\S]*?)^```[ \t]*$/gm;
 
+const CATPPUCCIN_LATTE_MERMAID_INIT =
+	'%%{init: {"theme":"base","themeVariables":{' +
+	'"background":"#EFF1F5",' +
+	'"primaryColor":"#BDD0FA","primaryBorderColor":"#1E66F5","primaryTextColor":"#4C4F69",' +
+	'"secondaryColor":"#D3E9D7","secondaryBorderColor":"#40A02B","secondaryTextColor":"#4C4F69",' +
+	'"tertiaryColor":"#ECD3E0","tertiaryBorderColor":"#EA76CB","tertiaryTextColor":"#4C4F69",' +
+	'"lineColor":"#9CA0B0","edgeLabelBackground":"#EFF1F5",' +
+	'"clusterBkg":"#E6E9EF","clusterBorder":"#9CA0B0",' +
+	'"nodeTextColor":"#4C4F69","titleColor":"#4C4F69",' +
+	'"pie1":"#1E66F5","pie2":"#FE640B","pie3":"#DF8E1D","pie4":"#40A02B",' +
+	'"pie5":"#8839EF","pie6":"#179299","pie7":"#D20F39",' +
+	'"fontFamily":"sans-serif"},"flowchart":{"htmlLabels":false}}}%%\n';
+
 const SVG_PROPS = [
 	'fill', 'fill-opacity', 'fill-rule',
 	'stroke', 'stroke-opacity', 'stroke-width', 'stroke-dasharray',
@@ -152,7 +165,7 @@ function cleanSvgEl(svg: SVGSVGElement): SVGSVGElement {
 	return clone;
 }
 
-async function svgToPng(svg: SVGSVGElement): Promise<{ dataUrl: string; w: number; h: number } | null> {
+async function svgToPng(svg: SVGSVGElement, textColorOverride?: string): Promise<{ dataUrl: string; w: number; h: number } | null> {
 	const rect = svg.getBoundingClientRect();
 	let w = rect.width;
 	let h = rect.height;
@@ -171,12 +184,23 @@ async function svgToPng(svg: SVGSVGElement): Promise<{ dataUrl: string; w: numbe
 	const clone = svg.cloneNode(true) as SVGSVGElement;
 
 	// Read computed styles from the LIVE SVG (no mutation → no observer trigger).
-	// The live SVG is still inside its CSS context (.markdown-preview-view)
-	// so getComputedStyle() returns fully-resolved, theme-correct values.
-	// Write those resolved values onto the clone.
+	// Node fills/strokes are set by Mermaid as inline SVG styles, so they survive
+	// Obsidian's CSS cascade. Text fill set via CSS class may be overridden — see below.
 	inlineComputedStyles(svg, clone);
 
 	const cleaned = cleanSvgEl(clone);
+
+	// Force text fill for static themes (e.g. Catppuccin Latte).
+	// Mermaid applies text color via CSS class; live Obsidian dark-theme CSS can
+	// override it. We correct it here on the cleaned clone (post <style> strip),
+	// so it takes effect unconditionally in the final serialized SVG.
+	if (textColorOverride) {
+		cleaned.querySelectorAll('text, tspan').forEach(el => {
+			const s = (el as SVGElement).getAttribute('style') ?? '';
+			(el as SVGElement).setAttribute('style',
+				s.replace(/\bfill\s*:[^;]+;?/, '') + ';fill:' + textColorOverride);
+		});
+	}
 	const raw = new XMLSerializer().serializeToString(cleaned);
 	const sized = raw.replace(/<svg([^>]*)>/, (_m, attrs: string) => {
 		const hasW = /\bwidth\s*=/.test(attrs);
@@ -232,7 +256,7 @@ function buildFallback(definition: string): string {
  * Replaces fenced mermaid code blocks in markdown with PNG <img> tags.
  * Blocks that fail to render fall back to a styled text placeholder.
  */
-export async function processMermaid(markdown: string, app: App): Promise<string> {
+export async function processMermaid(markdown: string, app: App, theme?: string): Promise<string> {
 	if (!markdown.includes('```mermaid')) return markdown;
 
 	type Entry = { match: string; definition: string; placeholder: string };
@@ -255,15 +279,11 @@ export async function processMermaid(markdown: string, app: App): Promise<string
 	Object.assign(viewCtx.style, { position: 'fixed', top: '-9999px', left: '-9999px', width: '800px', opacity: '0', pointerEvents: 'none' });
 	document.body.appendChild(viewCtx);
 
-	// Use Mermaid's built-in dark/default theme to match Obsidian's mode.
-	// Obsidian applies dark colours via scoped CSS rules, but those rules can't
-	// override Mermaid's own inline styles. Setting the Mermaid theme here
-	// ensures the SVG is generated with the right colour palette from the start.
-	// Also disable htmlLabels for flowcharts to avoid <foreignObject>, which
-	// always taints a canvas when the SVG is loaded as a blob-URL <img>.
 	const isDark = document.body.classList.contains('theme-dark');
-	const initDirective =
-		`%%{init: {"theme":"${isDark ? 'dark' : 'default'}","flowchart":{"htmlLabels":false}}}%%\n`;
+	const textColorOverride = theme === 'light' ? '#4C4F69' : undefined;
+	const initDirective = theme === 'light'
+		? CATPPUCCIN_LATTE_MERMAID_INIT
+		: `%%{init: {"theme":"${isDark ? 'dark' : 'default'}","flowchart":{"htmlLabels":false}}}%%\n`;
 
 	for (const entry of entries) {
 		let replacement = buildFallback(entry.definition);
@@ -285,7 +305,7 @@ export async function processMermaid(markdown: string, app: App): Promise<string
 				if (!svg) {
 					console.warn('[obsidian-publisher] Mermaid: SVG not found within 5s for:', entry.definition.slice(0, 80));
 				} else {
-					const png = await svgToPng(svg);
+					const png = await svgToPng(svg, textColorOverride);
 					if (!png) {
 						console.warn('[obsidian-publisher] Mermaid: PNG conversion failed for:', entry.definition.slice(0, 80));
 					} else {

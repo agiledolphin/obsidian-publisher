@@ -31,7 +31,7 @@ class SourceModal extends Modal {
 }
 
 export class PreviewModal extends Modal {
-	constructor(app: App, private html: string) {
+	constructor(app: App, private html: string, private theme?: string) {
 		super(app);
 		this.modalEl.addClass('publisher-preview-modal');
 	}
@@ -91,7 +91,7 @@ export class PreviewModal extends Modal {
 		const themeVars = readThemeVars();
 
 		const preview = contentEl.createDiv({ cls: 'publisher-preview-phone' });
-		applyPreviewContent(preview, this.html, themeVars);
+		applyPreviewContent(preview, this.html, themeVars, this.theme);
 
 		// Toolbar — close on the left, actions on the right
 		const toolbar = contentEl.createDiv({ cls: 'publisher-preview-toolbar' });
