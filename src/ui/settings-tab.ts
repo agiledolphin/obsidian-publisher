@@ -19,7 +19,7 @@ export class PublisherSettingTab extends PluginSettingTab {
 			.setDesc('选择公众号文章的显示主题。使用当前 Obsidian 主题时，会在转换时自动读取你 Obsidian 正在使用的主题颜色，支持所有社区主题。')
 			.addDropdown((drop) =>
 				drop
-					.addOption('obsidian', '使用当前 Obsidian 主题（推荐）')
+					.addOption('obsidian', '当前 Obsidian 主题（推荐）')
 					.addOption('light', 'Obsidian light')
 					.setValue(this.plugin.settings.theme)
 					.onChange(async (value) => {
