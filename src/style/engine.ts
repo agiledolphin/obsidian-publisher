@@ -1,7 +1,7 @@
 import { sanitizeForWeChat } from './sanitizer';
 import { logger } from '../utils/logger';
 
-export type ThemeName = 'light' | 'minimal' | 'obsidian';
+export type ThemeName = 'light' | 'obsidian';
 
 export interface ObsidianVars {
 	bgPrimary:   string;
@@ -409,7 +409,6 @@ export class StyleEngine {
 			`max-width: 100%; font-family: ${font}; ` +
 			`font-size: 16px; line-height: ${lineHeight}; letter-spacing: 0.3px; word-break: break-word;`;
 
-		if (this.theme === 'minimal') return base + ' color: #222222; background-color: #ffffff;';
 		if (this.theme === 'obsidian' && vars) {
 			return base + ` color: ${vars.textNormal}; background-color: ${vars.bgPrimary};`;
 		}
@@ -430,7 +429,6 @@ export class StyleEngine {
 	// ── Theme overrides ───────────────────────────────────────────────────────
 
 	private applyTheme(html: string, vars?: ObsidianVars): string {
-		if (this.theme === 'minimal') return this.applyMap(html, MINIMAL_MAP);
 		if (this.theme === 'obsidian' && vars) return this.applyObsidianOverrides(html, vars);
 		return html;
 	}
@@ -536,15 +534,6 @@ export class StyleEngine {
 		return result;
 	}
 }
-
-// ── Static theme maps ───────────────────────────────────────────────────────
-
-const MINIMAL_MAP: [RegExp, string][] = [
-	[/color: #7c3aed/g,                   'color: #222222'],
-	[/background-color: #7c3aed/g,        'background-color: #222222'],
-	[/border-bottom: 2px solid #7c3aed/g, 'border-bottom: 2px solid #222222'],
-	[/border-left: 2px solid #7c3aed/g,   'border-left: 2px solid #cccccc'],
-];
 
 // ── Color utilities ─────────────────────────────────────────────────────────
 
