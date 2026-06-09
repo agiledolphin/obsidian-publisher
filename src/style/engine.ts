@@ -47,6 +47,7 @@ export interface ObsidianVars {
 	calloutAbstract:string;
 	calloutBlend:   number; // --callout-blend-factor, typically 0.1
 	lineHeight:     string; // --line-height-normal (e.g. '1.6')
+	blockquoteColor: string; // --blockquote-color (may be scoped to blockquote element)
 }
 
 // ── CSS variable resolution ─────────────────────────────────────────────────
@@ -191,6 +192,61 @@ function readCalloutBlendFactor(): number {
 }
 
 
+
+/**
+ * Reads the computed color of a heading element in the reading-view context.
+ *
+ * Some themes (e.g. Catppuccin) scope --hN-color to the heading element itself:
+ *   h1 { --h1-color: rgb(var(--ctp-h1, ...)); }
+ * A bare <div> would never match those selectors, so readComputedColor('--h1-color')
+ * falls through to the :root default of `inherit`, resolving to the body text color
+ * and making all six heading levels the same color.
+ *
+ * By injecting a real <hN> inside .markdown-preview-view, both Obsidian's
+ * `color: var(--hN-color)` rule and theme-scoped `--hN-color` assignments apply.
+ */
+function readHeadingColor(level: 1 | 2 | 3 | 4 | 5 | 6, fallback: string): string {
+	const container =
+		document.querySelector('.markdown-preview-view .markdown-rendered') ??
+		document.querySelector('.markdown-preview-section') ??
+		document.querySelector('.markdown-preview-view') ??
+		document.body;
+
+	const el = document.createElement(`h${level}`);
+	el.classList.add('publisher-offscreen');
+	el.textContent = 'X';
+	container.appendChild(el);
+	try {
+		const hex = cssColorToHex(getComputedStyle(el).color);
+		return hex ?? fallback;
+	} finally {
+		container.removeChild(el);
+	}
+}
+
+/**
+ * Reads the computed text color of a blockquote in the reading-view context.
+ * Catppuccin and similar themes scope --blockquote-color to the blockquote element,
+ * so a bare <div> reading the CSS variable would fall through to `inherit`.
+ */
+function readBlockquoteColor(fallback: string): string {
+	const container =
+		document.querySelector('.markdown-preview-view .markdown-rendered') ??
+		document.querySelector('.markdown-preview-section') ??
+		document.querySelector('.markdown-preview-view') ??
+		document.body;
+
+	const el = document.createElement('blockquote');
+	el.classList.add('publisher-offscreen');
+	el.textContent = 'X';
+	container.appendChild(el);
+	try {
+		const hex = cssColorToHex(getComputedStyle(el).color);
+		return hex ?? fallback;
+	} finally {
+		container.removeChild(el);
+	}
+}
 
 /** Reads the italic (em) text color from the reading view. */
 function readItalicColor(fallback: string): string {
@@ -353,12 +409,12 @@ export function readObsidianVars(): ObsidianVars {
 		accent:      readComputedColor('--interactive-accent',       '#7c3aed'),
 		linkColor:   readComputedColor('--link-color',               '#576b95'),
 		fontText:    readComputedFont('--font-text',                 FALLBACK_FONT),
-		h1Color:     readComputedColor('--h1-color',                 '#1a1a1a'),
-		h2Color:     readComputedColor('--h2-color',                 '#1a1a1a'),
-		h3Color:     readComputedColor('--h3-color',                 '#1a1a1a'),
-		h4Color:     readComputedColor('--h4-color',                 '#1a1a1a'),
-		h5Color:     readComputedColor('--h5-color',                 '#1a1a1a'),
-		h6Color:     readComputedColor('--h6-color',                 '#1a1a1a'),
+		h1Color:     readHeadingColor(1, '#1a1a1a'),
+		h2Color:     readHeadingColor(2, '#1a1a1a'),
+		h3Color:     readHeadingColor(3, '#1a1a1a'),
+		h4Color:     readHeadingColor(4, '#1a1a1a'),
+		h5Color:     readHeadingColor(5, '#1a1a1a'),
+		h6Color:     readHeadingColor(6, '#1a1a1a'),
 		// Code syntax colors: predefined palette (light=GitHub Light, dark=One Dark Pro)
 		// selected by background luminance. codeBackground/codeInline still read from Obsidian.
 		codeBackground: readComputedBg('--code-background', '#f6f8fa'),
@@ -384,6 +440,7 @@ export function readObsidianVars(): ObsidianVars {
 		calloutAbstract:readCalloutAccent('abstract', '#00bcd4'),
 		calloutBlend:   readCalloutBlendFactor(),
 		lineHeight:     readLineHeight('1.75'),
+		blockquoteColor: readBlockquoteColor('#555555'),
 	};
 	logger.debug('readObsidianVars →', JSON.stringify(vars));
 	return vars;
@@ -483,6 +540,8 @@ export class StyleEngine {
 			// ── Highlighted text (<mark>) — must run before the #1a1a1a catch-all ──
 			[/background-color: #fff3b1/g,        `background-color: ${v.textHighlightBg}`],
 			[/(?<=<mark[^>]*?)color: #1a1a1a/g,   `color: ${v.textHighlightFg || v.textNormal}`],
+			// ── Blockquote text color (must run before generic #555 catch-all) ─
+			[/color: #555; font-size: 15px/g,     `color: ${v.blockquoteColor}; font-size: 15px`],
 			// ── Italic ─────────────────────────────────────────────────────────
 			[/color: #4a5568/g,                   `color: ${v.textItalic}`],
 			// ── Text ───────────────────────────────────────────────────────────
