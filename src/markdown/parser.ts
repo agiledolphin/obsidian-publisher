@@ -186,7 +186,7 @@ export class MarkdownParser {
 			if (this.insideDoneTask) {
 				return `<p style="font-size: 16px; color: #888888; text-decoration: line-through; line-height: 1.75; margin: 0 0 1em 0;">`;
 			}
-			return `<p style="font-size: 16px; color: #333; line-height: 1.75; margin: 0 0 1em 0;">`;
+			return `<p style="font-size: 16px; color: inherit; line-height: 1.75; margin: 0 0 1em 0;">`;
 		};
 
 		md.renderer.rules['paragraph_close'] = (tokens, idx) => {

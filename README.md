@@ -59,7 +59,15 @@
 - `obsidian`：跟随当前 Obsidian 主题（推荐）
 - `minimal`：简约黑白风格，适合对排版要求低的场景
 
-## 安装（开发模式）
+## 安装
+
+### 手动安装（推荐）
+
+1. 前往 [GitHub Releases](https://github.com/agiledolphin/obsidian-publisher/releases/latest)，下载 `main.js` 和 `manifest.json`
+2. 在 vault 中创建目录 `.obsidian/plugins/obsidian-publisher/`，将两个文件放入
+3. 在 Obsidian：**设置 → 第三方插件 → 关闭安全模式 → 启用 Obsidian Publisher**
+
+### 开发模式安装
 
 ```bash
 # 1. 克隆并安装依赖
