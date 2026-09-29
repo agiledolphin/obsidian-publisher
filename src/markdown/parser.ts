@@ -260,12 +260,19 @@ export class MarkdownParser {
 		};
 
 		// ── Tables ────────────────────────────────────────────────────
+		// markdown-it's table rule parses `:---:`/`---:`/`:---` column markers and
+		// attaches the result as `style="text-align:<align>"` on each th/td token.
+		const columnAlign = (tokens: MarkdownIt.Token[], idx: number): string => {
+			const style = tokens[idx]?.attrGet('style');
+			const m = style?.match(/text-align:\s*(left|center|right)/);
+			return m?.[1] ?? 'left';
+		};
 		md.renderer.rules['table_open'] = () =>
 			`<table style="border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 15px;">`;
-		md.renderer.rules['th_open'] = () =>
-			`<th style="background-color: #f2f2f2; font-weight: 600; text-align: left; padding: 10px 12px; border: 1px solid #ddd;">`;
-		md.renderer.rules['td_open'] = () =>
-			`<td style="padding: 10px 12px; border: 1px solid #ddd; vertical-align: top;">`;
+		md.renderer.rules['th_open'] = (tokens, idx) =>
+			`<th style="background-color: #f2f2f2; color: #2d3748; font-weight: 600; text-align: ${columnAlign(tokens, idx)}; padding: 10px 12px; border: 1px solid #ddd;">`;
+		md.renderer.rules['td_open'] = (tokens, idx) =>
+			`<td style="text-align: ${columnAlign(tokens, idx)}; padding: 10px 12px; border: 1px solid #ddd; vertical-align: top;">`;
 
 		// ── Lists ─────────────────────────────────────────────────────
 		md.renderer.rules['bullet_list_open'] = () =>
@@ -354,7 +361,7 @@ export class MarkdownParser {
 		};
 
 		// ── Emphasis / strong ─────────────────────────────────────────
-		md.renderer.rules['strong_open'] = () => `<strong style="font-weight: 700;">`;
+		md.renderer.rules['strong_open'] = () => `<strong style="font-weight: 700; color: #1a1a1a;">`;
 		// Inside a link the em must not override the link colour — omit color so it inherits.
 		md.renderer.rules['em_open'] = () =>
 			this.insideLink

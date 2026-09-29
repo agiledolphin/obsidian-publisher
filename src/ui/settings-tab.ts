@@ -1,5 +1,6 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import type ObsidianPublisher from '../main';
+import { STATIC_THEME_LIST } from '../style/themes';
 
 export class PublisherSettingTab extends PluginSettingTab {
 	constructor(app: App, private plugin: ObsidianPublisher) {
@@ -16,18 +17,19 @@ export class PublisherSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('主题')
-			.setDesc('选择公众号文章的显示主题。使用当前 Obsidian 主题时，会在转换时自动读取你 Obsidian 正在使用的主题颜色，支持所有社区主题。')
-			.addDropdown((drop) =>
+			.setDesc('选择公众号文章的发布主题（与 Obsidian 编辑器本身的主题无关）。使用当前 Obsidian 主题时，会在转换时自动读取你 Obsidian 正在使用的主题颜色，支持所有社区主题；预设主题则是为公众号阅读场景设计的固定配色，不受 Obsidian 主题影响。')
+			.addDropdown((drop) => {
+				drop.addOption('obsidian', '当前 Obsidian 主题（推荐）');
+				for (const theme of STATIC_THEME_LIST) {
+					drop.addOption(theme.id, theme.label);
+				}
 				drop
-					.addOption('obsidian', '当前 Obsidian 主题（推荐）')
-					// eslint-disable-next-line obsidianmd/ui/sentence-case
-					.addOption('light', 'Catppuccin Latte')
 					.setValue(this.plugin.settings.theme)
 					.onChange(async (value) => {
-						this.plugin.settings.theme = value as 'light' | 'obsidian';
+						this.plugin.settings.theme = value;
 						await this.plugin.saveSettings();
-					})
-			);
+					});
+			});
 
 		new Setting(containerEl)
 			.setName('自定义 CSS')

@@ -13,21 +13,9 @@
  */
 
 import { App, MarkdownRenderer, Component } from 'obsidian';
+import { getStaticTheme, buildMermaidInit } from '../style/themes';
 
 const MERMAID_BLOCK = /^```mermaid[ \t]*\r?\n([\s\S]*?)^```[ \t]*$/gm;
-
-const CATPPUCCIN_LATTE_MERMAID_INIT =
-	'%%{init: {"theme":"base","themeVariables":{' +
-	'"background":"#EFF1F5",' +
-	'"primaryColor":"#BDD0FA","primaryBorderColor":"#1E66F5","primaryTextColor":"#4C4F69",' +
-	'"secondaryColor":"#D3E9D7","secondaryBorderColor":"#40A02B","secondaryTextColor":"#4C4F69",' +
-	'"tertiaryColor":"#ECD3E0","tertiaryBorderColor":"#EA76CB","tertiaryTextColor":"#4C4F69",' +
-	'"lineColor":"#9CA0B0","edgeLabelBackground":"#EFF1F5",' +
-	'"clusterBkg":"#E6E9EF","clusterBorder":"#9CA0B0",' +
-	'"nodeTextColor":"#4C4F69","titleColor":"#4C4F69",' +
-	'"pie1":"#1E66F5","pie2":"#FE640B","pie3":"#DF8E1D","pie4":"#40A02B",' +
-	'"pie5":"#8839EF","pie6":"#179299","pie7":"#D20F39",' +
-	'"fontFamily":"sans-serif"},"flowchart":{"htmlLabels":false}}}%%\n';
 
 const SVG_PROPS = [
 	'fill', 'fill-opacity', 'fill-rule',
@@ -280,9 +268,10 @@ export async function processMermaid(markdown: string, app: App, theme?: string)
 	document.body.appendChild(viewCtx);
 
 	const isDark = document.body.classList.contains('theme-dark');
-	const textColorOverride = theme === 'light' ? '#4C4F69' : undefined;
-	const initDirective = theme === 'light'
-		? CATPPUCCIN_LATTE_MERMAID_INIT
+	const staticTheme = theme ? getStaticTheme(theme) : undefined;
+	const textColorOverride = staticTheme?.textNormal;
+	const initDirective = staticTheme
+		? buildMermaidInit(staticTheme)
 		: `%%{init: {"theme":"${isDark ? 'dark' : 'default'}","flowchart":{"htmlLabels":false}}}%%\n`;
 
 	for (const entry of entries) {

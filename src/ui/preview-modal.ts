@@ -1,6 +1,8 @@
-import { App, Modal, Notice } from 'obsidian';
+import { App, Modal, Notice, TFile } from 'obsidian';
+import type ObsidianPublisher from '../main';
 import { copyRichText } from '../clipboard/writer';
 import { readThemeVars, applyPreviewContent } from './preview-renderer';
+import { THEME_OPTIONS } from '../style/themes';
 
 /** Shows the raw HTML source so users can diagnose WeChat compatibility issues. */
 class SourceModal extends Modal {
@@ -31,9 +33,23 @@ class SourceModal extends Modal {
 }
 
 export class PreviewModal extends Modal {
-	constructor(app: App, private html: string, private theme?: string) {
+	private html = '';
+	private previewEl!: HTMLElement;
+
+	constructor(app: App, private plugin: ObsidianPublisher, private file: TFile) {
 		super(app);
 		this.modalEl.addClass('publisher-preview-modal');
+	}
+
+	/** (Re)converts the file for the current theme setting and re-renders the preview. */
+	private async renderContent(): Promise<void> {
+		try {
+			this.html = await this.plugin.controller.convert(this.file);
+		} catch (e) {
+			new Notice(`❌ 预览失败：${(e as Error).message}`);
+			return;
+		}
+		applyPreviewContent(this.previewEl, this.html, readThemeVars(), this.plugin.settings.theme);
 	}
 
 	/** Attaches drag-to-move behaviour to the modal, using handle as the grab target. */
@@ -88,12 +104,9 @@ export class PreviewModal extends Modal {
 		const title = contentEl.createEl('h2', { text: '公众号预览' });
 		this.makeDraggable(title);
 
-		const themeVars = readThemeVars();
+		this.previewEl = contentEl.createDiv({ cls: 'publisher-preview-phone' });
 
-		const preview = contentEl.createDiv({ cls: 'publisher-preview-phone' });
-		applyPreviewContent(preview, this.html, themeVars, this.theme);
-
-		// Toolbar — close on the left, actions on the right
+		// Toolbar — close on the left, theme switcher + actions on the right
 		const toolbar = contentEl.createDiv({ cls: 'publisher-preview-toolbar' });
 
 		const closeBtn = toolbar.createEl('button', {
@@ -101,6 +114,16 @@ export class PreviewModal extends Modal {
 			cls: 'publisher-btn-secondary publisher-btn-close',
 		});
 		closeBtn.addEventListener('click', () => this.close());
+
+		const themeSelect = toolbar.createEl('select', { cls: 'dropdown' });
+		for (const opt of THEME_OPTIONS) {
+			themeSelect.createEl('option', { value: opt.id, text: opt.label });
+		}
+		themeSelect.value = this.plugin.settings.theme;
+		themeSelect.addEventListener('change', () => {
+			this.plugin.settings.theme = themeSelect.value;
+			void this.plugin.saveSettings().then(() => this.renderContent());
+		});
 
 		const sourceBtn = toolbar.createEl('button', {
 			text: '查看源码',
@@ -113,7 +136,7 @@ export class PreviewModal extends Modal {
 			cls: 'publisher-btn-primary',
 		});
 		copyBtn.addEventListener('click', () => {
-			const lh = themeVars['--pub-line-height'] ?? '1.75';
+			const lh = readThemeVars()['--pub-line-height'] ?? '1.75';
 			const synced = this.html.replace(/\bline-height:\s*[\d.]+/g, `line-height: ${lh}`);
 			copyRichText(synced)
 				.then(() => {
@@ -122,6 +145,8 @@ export class PreviewModal extends Modal {
 				})
 				.catch(() => new Notice('❌ 复制失败，请检查浏览器权限。'));
 		});
+
+		void this.renderContent();
 	}
 
 	onClose(): void {
