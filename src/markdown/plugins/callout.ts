@@ -1,5 +1,7 @@
 import { getIcon } from 'obsidian';
 import type MarkdownIt from 'markdown-it';
+import { getStaticTheme, buildCalloutRgbMap } from '../../style/themes';
+import { normalizeRgbTriplet } from '../../style/color-utils';
 
 // ── Alias → canonical type ────────────────────────────────────────────────────
 const CALLOUT_ALIASES: Record<string, string> = {
@@ -61,24 +63,6 @@ const EMOJI_FALLBACK: Record<string, string> = {
 	danger: '🔥', bug: '🐛', example: '📌', quote: '💬',
 };
 
-// ── Catppuccin Latte callout RGB values ───────────────────────────────────────
-// Format: "R, G, B" (matches Obsidian's --callout-color convention)
-const CATPPUCCIN_LATTE_CALLOUT_RGB: Record<string, string> = {
-	note:     '30, 102, 245',    // Blue     #1E66F5
-	abstract: '23, 146, 153',   // Teal     #179299
-	info:     '32, 159, 181',   // Sapphire #209FB5
-	todo:     '254, 100, 11',   // Peach    #FE640B
-	tip:      '64, 160, 43',    // Green    #40A02B
-	success:  '64, 160, 43',    // Green    #40A02B
-	question: '223, 142, 29',   // Yellow   #DF8E1D
-	warning:  '223, 142, 29',   // Yellow   #DF8E1D
-	failure:  '210, 15, 57',    // Red      #D20F39
-	danger:   '210, 15, 57',    // Red      #D20F39
-	bug:      '230, 69, 83',    // Maroon   #E64553
-	example:  '136, 57, 239',   // Mauve    #8839EF
-	quote:    '156, 160, 176',  // Overlay0 #9CA0B0
-};
-
 // ── Per-session cache ─────────────────────────────────────────────────────────
 type CachedStyle = { rgb: string; iconName: string };
 const styleCache = new Map<string, CachedStyle>();
@@ -89,10 +73,11 @@ let staticCalloutRgb: Record<string, string> | null = null;
 /**
  * Sets the callout color source for the next render pass.
  * Call before parser.render(); the cache is cleared so fresh colors are used.
- * 'light' → Catppuccin Latte hardcoded colors; anything else → live Obsidian theme.
+ * A static publish theme id → its hardcoded palette; 'obsidian' → live Obsidian theme.
  */
 export function setCalloutTheme(theme: string): void {
-	staticCalloutRgb = theme === 'light' ? CATPPUCCIN_LATTE_CALLOUT_RGB : null;
+	const staticTheme = getStaticTheme(theme);
+	staticCalloutRgb = staticTheme ? buildCalloutRgbMap(staticTheme) : null;
 	styleCache.clear();
 }
 
@@ -122,7 +107,7 @@ function readCalloutStyle(type: string): CachedStyle {
 	let rgb = fallbackRgb, iconName = fallbackIcon;
 	try {
 		const cs = getComputedStyle(probe);
-		rgb      = cs.getPropertyValue('--callout-color').trim() || fallbackRgb;
+		rgb      = normalizeRgbTriplet(cs.getPropertyValue('--callout-color'), fallbackRgb);
 		iconName = cs.getPropertyValue('--callout-icon').trim()  || fallbackIcon;
 	} finally {
 		document.body.removeChild(probe);

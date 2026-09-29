@@ -8,6 +8,7 @@ import { preprocessEmbeds, removeTags, processFootnotes, fixListTermination } fr
 import { processMath, setMathTextColor } from './markdown/math';
 import { processMermaid } from './markdown/mermaid';
 import { setCalloutTheme } from './markdown/plugins/callout';
+import { getStaticTheme } from './style/themes';
 import { logger } from './utils/logger';
 import type { PluginSettings } from './settings';
 
@@ -72,7 +73,8 @@ export class ConvertController {
 		}
 
 		// 5. Render math: $$…$$ and $…$ → PNG <img> tags (via Obsidian's MathJax)
-		setMathTextColor(this.settings.theme === 'light' ? '#4C4F69' : null);
+		const staticTheme = getStaticTheme(this.settings.theme);
+		setMathTextColor(staticTheme ? staticTheme.textNormal : null);
 		markdown = await processMath(markdown);
 
 		// 5b. Render Mermaid diagrams → PNG <img> tags (via Obsidian's built-in Mermaid)

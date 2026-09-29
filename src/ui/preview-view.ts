@@ -2,6 +2,7 @@ import { ItemView, WorkspaceLeaf, TFile, Notice } from 'obsidian';
 import type ObsidianPublisher from '../main';
 import { readThemeVars, applyPreviewContent } from './preview-renderer';
 import { copyRichText } from '../clipboard/writer';
+import { THEME_OPTIONS } from '../style/themes';
 
 export const VIEW_TYPE_PUBLISHER_PREVIEW = 'publisher-preview-view';
 
@@ -41,6 +42,18 @@ export class PublisherPreviewView extends ItemView {
 		});
 		refreshBtn.addEventListener('click', () => {
 			if (this.currentFile) void this.refresh(this.currentFile);
+		});
+
+		const themeSelect = toolbar.createEl('select', { cls: 'publisher-view-theme-select dropdown' });
+		for (const opt of THEME_OPTIONS) {
+			themeSelect.createEl('option', { value: opt.id, text: opt.label });
+		}
+		themeSelect.value = this.plugin.settings.theme;
+		themeSelect.addEventListener('change', () => {
+			this.plugin.settings.theme = themeSelect.value;
+			void this.plugin.saveSettings().then(() => {
+				if (this.currentFile) void this.refresh(this.currentFile);
+			});
 		});
 
 		toolbar.createDiv({ cls: 'publisher-view-spacer' });

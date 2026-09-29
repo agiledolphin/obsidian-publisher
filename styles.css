@@ -206,14 +206,29 @@
 .publisher-view-toolbar {
 	flex-shrink: 0;
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
-	gap: 8px;
+	gap: 6px;
 	padding: 8px 12px;
 	border-bottom: 1px solid var(--background-modifier-border);
 }
 
+/* Compact button sizing — the sidebar is narrow, so the default
+   .publisher-btn-* padding (meant for the wider modal toolbar) is too wide. */
+.publisher-view-toolbar button {
+	padding: 5px 10px;
+	font-size: 13px;
+}
+
 .publisher-view-spacer {
-	flex: 1;
+	flex: 1 0 0;
+	min-width: 0;
+}
+
+.publisher-view-theme-select {
+	flex: 1 1 auto;
+	min-width: 0;
+	max-width: 130px;
 }
 
 .publisher-view-copy-btn {

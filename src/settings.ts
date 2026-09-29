@@ -1,4 +1,6 @@
-export type ThemeName = 'light' | 'obsidian';
+import type { ThemeName } from './style/themes';
+
+export type { ThemeName };
 export type ImageMode = 'base64' | 'skip';
 export type WikiLinkMode = 'text' | 'remove';
 

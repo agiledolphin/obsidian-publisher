@@ -113,6 +113,11 @@ export default class ObsidianPublisher extends Plugin {
 
 	async loadSettings(): Promise<void> {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<PluginSettings>);
+		// Migrate the pre-registry theme id ('light') saved by older versions.
+		if (this.settings.theme === 'light') {
+			this.settings.theme = 'catppuccin-latte';
+			await this.saveData(this.settings);
+		}
 	}
 
 	async saveSettings(): Promise<void> {
@@ -144,8 +149,7 @@ export default class ObsidianPublisher extends Plugin {
 
 	private async doPreview(file: TFile): Promise<void> {
 		try {
-			const html = await this.controller.convert(file);
-			new PreviewModal(this.app, html, this.settings.theme).open();
+			new PreviewModal(this.app, this, file).open();
 		} catch (e) {
 			logger.error('Preview failed:', e);
 			new Notice(`❌ 预览失败：${(e as Error).message}`);
