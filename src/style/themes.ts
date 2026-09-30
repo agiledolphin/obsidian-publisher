@@ -447,7 +447,6 @@ export function buildStaticThemeMap(theme: StaticTheme): [RegExp, string][] {
 		// The flag triangle below is a fixed-size border shape (WeChat's paste
 		// sanitizer strips clip-path, so it can't use flex stretch to match the
 		// badge automatically) — keep this in sync with padding/font-size above.
-		const badgeHeight = level === 1 ? 43 : 37;
 		// Rounded only on the top-left: the right edge butts against the flag
 		// (when present), and the bottom stays square so the full-width
 		// underline meets it cleanly instead of poking out past a curve.
@@ -457,14 +456,29 @@ export function buildStaticThemeMap(theme: StaticTheme): [RegExp, string][] {
 		const wrapperStyle =
 			`display: flex; align-items: stretch; margin: ${margin}; ` +
 			`border-bottom: 2px solid ${theme.accent};`;
-		// A border-only triangle (not clip-path) so it survives WeChat's paste
-		// sanitizer: border-bottom draws the diagonal, border-right is the
-		// transparent run-up that gives it width — left edge (against the
-		// badge) stays straight/vertical. margin-left is the gap to the badge.
+		// The flag is an SVG data URI used as a *background-image* on an empty
+		// span — not an <img> (an <img> has an intrinsic aspect ratio from its
+		// viewBox; with only width set, the browser derives a large hypothetical
+		// height from that ratio, and align-items:stretch then stretches the
+		// whole flex line — including the badge — to match, making everything
+		// balloon). A background-image never contributes to box sizing, so the
+		// empty span's own hypothetical height stays ~0, the badge's natural
+		// height wins the stretch, and background-size:100% 100% then paints
+		// the triangle to fill whatever height the span ends up with —
+		// including when the title text wraps to multiple lines.
 		const flagHtml = flagColor
-			? `<span style="display: inline-block; width: 0; height: 0; margin-left: 6px; ` +
-			  `border-style: solid; border-width: 0 20px ${badgeHeight}px 0; ` +
-			  `border-color: transparent transparent ${flagColor} transparent;"></span>`
+			? (() => {
+				// Double quotes here, not single — encodeURIComponent leaves single
+				// quotes unescaped, which would collide with the outer url('...')
+				// delimiter below and silently break the whole background-image
+				// (computed style falls back to "none", no error, no visible flag).
+				const svg =
+					`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 100" preserveAspectRatio="none">` +
+					`<polygon points="0,0 0,100 20,100" fill="${flagColor}"/></svg>`;
+				const dataUri = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+				return `<span style="display: inline-block; width: 20px; align-self: stretch; margin-left: 6px; ` +
+					`background-image: url('${dataUri}'); background-size: 100% 100%; background-repeat: no-repeat;"></span>`;
+			})()
 			: '';
 		const [openSource, closeSource] = level === 1
 			? [H1_OPEN_SOURCE, H1_CLOSE_SOURCE]
