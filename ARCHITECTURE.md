@@ -247,7 +247,7 @@ new MarkdownIt({
 
 **两个可选扩展字段**（目前只有橙心用到）：
 
-- `headingBanner?: { level: 1 | 2; textColor: string; flagColor?: string }`：把指定层级标题从纯色文字换成"色块横幅"——内层 `<span>` 徽标（`display:inline-block`，紧贴文字宽度）+ 外层 `<h2>` 撑满宽度画 `border-bottom` 通栏细线。若配置了 `flagColor`，徽标右侧会再拼一个**纯 `border-color` 实现的三角旗**（`clip-path` 会被微信粘贴过滤器剥离，因此三角形必须用最基础的 border 属性画，高度跟着 padding/字号手动算好，不能用 flex stretch 自动匹配）。
+- `headingBanner?: { level: 1 | 2; textColor: string; flagColor?: string }`：把指定层级标题从纯色文字换成"色块横幅"——内层 `<span>` 徽标（`display:inline-block`，紧贴文字宽度）+ 外层 `<h2>` 撑满宽度画 `border-bottom` 通栏细线（`display:flex; align-items:stretch`）。若配置了 `flagColor`，徽标右侧会再拼一个三角旗：一个空 `<span>`，把 SVG data URI（`viewBox` 多边形）当**背景图**（`background-image` + `background-size: 100% 100%`），而不是 `<img>` 内容、CSS `clip-path`（会被微信粘贴过滤器剥离）或纯 border 三角形（固定像素高度，标题换行时对不上徽标实际高度）。**踩过的坑**：一度试过把 SVG 用 `<img>` 呈现，结果 `<img>` 自带的 `viewBox` 宽高比（20:100）被浏览器当成"内在尺寸"参与 flex 布局的高度计算，`align-items:stretch` 反而把徽标拉伸到匹配这个虚高的图片高度，导致单行标题也变成一个大方块；换成空 `<span>` + `background-image` 后，背景图完全不参与盒子尺寸计算，`span` 的高度只由 `align-self:stretch` 决定（即跟随徽标的真实高度，包括标题换行成多行的情况），`background-size:100% 100%` 再把三角形拉伸填满这个高度。
 - `boldColor?: string`：覆盖 `**粗体**` 的颜色，默认继承正文色。选色时要避开该主题里标题/callout 已经占用的强调色，避免视觉撞色（例如橙心最终选了主强调色珊瑚橙 `#DF7766`，贯穿粗体/链接/H2/Note callout 这一条"品牌色"线）。
 
 **颜色计算工具**（`color-utils.ts`）：
@@ -617,7 +617,6 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 | 微信过滤规则变化 | 新版微信编辑器可能调整过滤规则 | 每次更新后回归测试 |
 | Mermaid 颜色精确度（`obsidian` 主题） | 实时主题下仍用 Mermaid 内置 dark/default 主题，不完全匹配 Obsidian 当前主题配色 | 静态主题已通过 `buildMermaidInit()` 用主题自身色值映射 themeVariables，只有 `obsidian` 实时模式待改进 |
 | 橙心 callout 是固定色板 | 早期实现过"跟随当前 Obsidian 主题实时变化"，后按用户要求改回固定色板（专门设计、区分 13 种类型、统一橙心自己的暖色家族），不再联动 Obsidian 主题 | 属于确认过的设计决策，非 bug；如需恢复实时联动可参考 8.8 提到的 `readCalloutStyle` 实时读取路径 |
-| 三角旗形状为固定高度 | 橙心 H2 旗标用纯 border 属性画三角形（避免被微信粘贴过滤器剥离 `clip-path`），无法像 flex stretch 一样自动匹配徽标高度，改了 padding/字号需要同步手动调 `themes.ts` 里的高度计算 | 已在代码注释标注两处需保持同步 |
 
 ---
 
@@ -643,7 +642,7 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
   - H1–H6 各级标题色独立读取（`--h1-color` … `--h6-color`），部分主题的元素级作用域变量（真实插入 `<h1>`–`<h6>`/`<blockquote>` 读取）
   - 表格表头背景/文字色、边框色改为读取实际生效值/专用变量（见 8.9）
   - 任务列表样式与主题解耦（固定配色）
-  - 橙心主题的色块横幅标题（`headingBanner`）+ 纯 border 三角旗
+  - 橙心主题的色块横幅标题（`headingBanner`）+ SVG 背景图三角旗（自动匹配换行后的徽标高度，不用 `<img>` 是因为其内在宽高比会干扰 flex 拉伸计算）
   - 预览弹窗/预览面板均可直接切换主题，无需前往设置页
 - [x] 数学公式（`$...$` / `$$...$$`，MathJax CHTML + html2canvas，编辑/阅读模式均支持，iframe 隔离批量渲染，2x PNG）
 - [x] Mermaid 图表（MarkdownRenderer offscreen → SVG → Canvas 2x PNG，深/浅色模式自动切换，静态主题按自身色值映射 themeVariables，fallback 样式化文本块）
