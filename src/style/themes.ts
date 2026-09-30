@@ -343,13 +343,26 @@ const ORANGE_HEART: StaticTheme = {
 		string: '#6B8A4E', value: '#DF7766', tag: '#C85A3A', property: '#3F9C8B',
 		variable: '#B0793E', inline: '#3F9C8B',
 	},
+	// Drawn entirely from colors already used elsewhere in 橙心 (headings,
+	// code tokens) so every callout type still reads as part of this theme's
+	// own warm coral/jade family, while staying distinguishable type-to-type.
 	calloutAccent: {
-		note: '#DF7766', abstract: '#3F9C8B', info: '#4FAD9C', todo: '#E0954A',
-		tip: '#6B8A4E', success: '#6B8A4E', question: '#E0954A', warning: '#E0954A',
-		failure: '#C85A3A', danger: '#C85A3A', bug: '#A6503E', example: '#8F6B8A', quote: '#A69C90',
+		note: '#DF7766',     // coral — primary accent, the flagship type
+		abstract: '#3F9C8B', // jade — matches H3
+		info: '#4FAD9C',     // light jade — matches H5
+		todo: '#B0793E',     // amber-brown — matches code.variable
+		tip: '#6B8A4E',      // soft green — matches code.string
+		success: '#6B8A4E',
+		question: '#E0954A', // warm gold, distinct from todo's browner amber
+		warning: '#E0954A',
+		failure: '#C85A3A',  // deep coral-red — matches H1
+		danger: '#C85A3A',
+		bug: '#A6503E',      // muted maroon
+		example: '#8F6B8A',  // muted plum — a cool accent for contrast
+		quote: '#A69C90',    // warm taupe — matches code.comment
 	},
 	headingBanner: { level: 2, textColor: '#FFFFFF', flagColor: '#EEEBE9' },
-	boldColor: '#3F9C8B',
+	boldColor: '#DF7766',
 };
 
 export const STATIC_THEMES: Record<string, StaticTheme> = {
