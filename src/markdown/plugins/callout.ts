@@ -151,7 +151,12 @@ function renderTitleInline(text: string): string {
 	return text
 		.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
 		.replace(/\*([^*\n]+)\*/g,     '<em>$1</em>')
-		.replace(/`([^`\n]+)`/g,       '<code style="font-family: monospace; font-size: 0.9em;">$1</code>');
+		// Same placeholder colors as parser.ts's code_inline rule, so theme
+		// overrides (engine.ts / themes.ts) recolor this consistently too.
+		.replace(/`([^`\n]+)`/g,
+			'<code style="background-color: #f0f0f0; padding: 2px 6px; border-radius: 3px; ' +
+			'border: 1px solid #e1e4e8; font-size: 0.9em; color: #c7254e; ' +
+			'font-family: \'SF Mono\', Monaco, Menlo, Consolas, \'Courier New\', monospace;">$1</code>');
 }
 
 /**

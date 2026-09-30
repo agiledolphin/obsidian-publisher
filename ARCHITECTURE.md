@@ -667,6 +667,7 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 - [ ] Mermaid 颜色精确匹配（`obsidian` 实时主题下用 `theme:base` + themeVariables 映射 Obsidian CSS 变量；静态主题已完成）
 - [ ] 图床上传（SM.MS / 阿里云 OSS 等）
 - [ ] 提交 Obsidian 社区插件审核
+- [ ] `![[note#heading]]` / `![[note#^block-id]]` 锚点精确嵌入：目前 `preprocessEmbeds()` 会忽略 `#` 之后的锚点，直接展开整篇笔记（见 4.3 模块 1 和 8.7）。真正实现需要解析目标笔记的标题层级，定位该 heading 到下一个同级/更高级 heading 之间的区间作为展开边界；block 引用（`^block-id`）还需要单独在笔记正文里搜索对应的 block-id 标记并定位其所在的单个块。已评估过工作量，暂不实现，先记录在此
 
 ---
 

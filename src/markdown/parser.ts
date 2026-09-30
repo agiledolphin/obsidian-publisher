@@ -226,7 +226,7 @@ export class MarkdownParser {
 			const content = md.utils.escapeHtml(tokens[idx]?.content ?? '');
 			return (
 				`<code style="background-color: #f0f0f0; padding: 2px 6px; border-radius: 3px; ` +
-				`font-size: 14px; color: #c7254e; ` +
+				`border: 1px solid #e1e4e8; font-size: 14px; color: #c7254e; ` +
 				`font-family: 'SF Mono', Monaco, Menlo, Consolas, 'Courier New', monospace;">${content}</code>`
 			);
 		};

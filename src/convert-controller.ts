@@ -4,7 +4,7 @@ import { ImageEmbedder } from './image/embedder';
 import { StyleEngine, readObsidianVars, ObsidianVars } from './style/engine';
 import { copyRichText } from './clipboard/writer';
 import { parseFrontmatter } from './markdown/frontmatter';
-import { preprocessEmbeds, removeTags, processFootnotes, fixListTermination } from './markdown/preprocessor';
+import { preprocessEmbeds, removeTags, removeComments, processFootnotes, fixListTermination } from './markdown/preprocessor';
 import { processMath, setMathTextColor } from './markdown/math';
 import { processMermaid } from './markdown/mermaid';
 import { setCalloutTheme } from './markdown/plugins/callout';
@@ -58,6 +58,10 @@ export class ConvertController {
 		if (this.settings.removeFrontmatter) {
 			markdown = parseFrontmatter(raw).body;
 		}
+
+		// 2b. Strip %% comments %% — always hidden, matching Obsidian's own
+		// Reading View behavior (no setting to show them).
+		markdown = removeComments(markdown);
 
 		// 3. Pre-process Obsidian embeds: ![[image.png]] and ![[note.md]]
 		markdown = await preprocessEmbeds(

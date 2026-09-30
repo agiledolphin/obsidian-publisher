@@ -6,6 +6,70 @@ const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', '
 const MAX_EMBED_DEPTH = 3;
 
 /**
+ * Finds [start, end) ranges of fenced code blocks and inline code spans, so
+ * embed/tag scanning can skip literal `![[...]]` syntax examples written as
+ * documentation rather than real embed directives.
+ */
+function findCodeRanges(markdown: string): Array<[number, number]> {
+	const ranges: Array<[number, number]> = [];
+
+	const fenceRegex = /^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[ \t]*$/gm;
+	let fm: RegExpExecArray | null;
+	while ((fm = fenceRegex.exec(markdown)) !== null) {
+		ranges.push([fm.index, fm.index + fm[0].length]);
+	}
+
+	const inlineRegex = /`[^`\n]+`/g;
+	let im: RegExpExecArray | null;
+	while ((im = inlineRegex.exec(markdown)) !== null) {
+		ranges.push([im.index, im.index + im[0].length]);
+	}
+
+	return ranges;
+}
+
+function isWithinRanges(index: number, ranges: Array<[number, number]>): boolean {
+	return ranges.some(([start, end]) => index >= start && index < end);
+}
+
+/** Applies `regex` to `text`, replacing each match except those inside `ranges`. */
+function replaceOutsideRanges(
+	text: string,
+	regex: RegExp,
+	ranges: Array<[number, number]>,
+	replacement: string
+): string {
+	let out = '';
+	let lastIndex = 0;
+	let m: RegExpExecArray | null;
+	while ((m = regex.exec(text)) !== null) {
+		if (isWithinRanges(m.index, ranges)) continue;
+		out += text.slice(lastIndex, m.index) + replacement;
+		lastIndex = m.index + m[0].length;
+	}
+	out += text.slice(lastIndex);
+	return out;
+}
+
+/**
+ * Removes Obsidian's `%% comment %%` syntax — both block comments (a line
+ * that is exactly `%%`, content, then a line that is exactly `%%`) and inline
+ * ones (`%%text%%` within a line). Skips fenced code blocks / inline code
+ * spans, where `%%` can be meaningful syntax rather than a real comment (e.g.
+ * a Mermaid `%%{init}%%` directive the user wrote themselves).
+ */
+export function removeComments(markdown: string): string {
+	const blockRanges = findCodeRanges(markdown);
+	let result = replaceOutsideRanges(markdown, /^%%[ \t]*\r?\n[\s\S]*?\r?\n%%[ \t]*$/gm, blockRanges, '');
+
+	// Recompute ranges — block removal shifted indices.
+	const inlineRanges = findCodeRanges(result);
+	result = replaceOutsideRanges(result, /%%[^\n]+?%%/g, inlineRanges, '');
+
+	return result;
+}
+
+/**
  * Pre-processes Obsidian-specific syntax that markdown-it cannot handle natively.
  *
  * Handles:
@@ -27,12 +91,17 @@ export async function preprocessEmbeds(
 		return markdown;
 	}
 
-	// Collect all embeds first to avoid regex mutation issues during replacement
+	// Collect all embeds first to avoid regex mutation issues during replacement.
+	// Skip matches inside fenced code blocks / inline code spans — those are
+	// syntax examples (e.g. in a note documenting Obsidian syntax), not real
+	// embed directives.
+	const codeRanges = findCodeRanges(markdown);
 	const embedRegex = /!\[\[([^\]]+)\]\]/g;
 	const embeds: Array<{ full: string; linkText: string }> = [];
 	let m: RegExpExecArray | null;
 
 	while ((m = embedRegex.exec(markdown)) !== null) {
+		if (isWithinRanges(m.index, codeRanges)) continue;
 		embeds.push({ full: m[0] ?? '', linkText: m[1] ?? '' });
 	}
 
@@ -45,6 +114,15 @@ export async function preprocessEmbeds(
 		const [pathPart, displayPart] = splitFirst(linkText, '|');
 		const [filePath] = splitFirst(pathPart ?? '', '#');
 		const cleanPath = (filePath ?? '').trim();
+
+		// Guard against empty/whitespace-only paths (e.g. malformed "![[ ]]"):
+		// resolving an empty linkpath can fall back to the current file itself,
+		// which would recursively embed the whole document into itself.
+		if (!cleanPath) {
+			logger.warn(`Skipping malformed embed with empty path: "${full}" (in ${sourcePath})`);
+			result = result.replace(full, () => '');
+			continue;
+		}
 
 		const ext = cleanPath.split('.').pop()?.toLowerCase() ?? '';
 
@@ -158,8 +236,10 @@ function removeInlineTags(line: string): string {
 	return parts.map((part, i) => {
 		// Odd indices are backtick spans — don't touch
 		if (i % 2 === 1) return part;
-		// Remove #tag patterns preceded by space, start-of-string, or open paren
-		return part.replace(/(^|[\s(])#([\w\u4e00-\u9fa5][\w\u4e00-\u9fa5/_-]*)/g, '$1');
+		// Remove #tag patterns preceded by space, start-of-string, or open paren.
+		// Also consume one trailing space so we don't leave a double space behind
+		// when the tag sits mid-sentence (e.g. "an X #tag tag" \u2192 "an X tag", not "an X  tag").
+		return part.replace(/(^|[\s(])#([\w\u4e00-\u9fa5][\w\u4e00-\u9fa5/_-]*)[ \t]?/g, '$1');
 	}).join('');
 }
 
