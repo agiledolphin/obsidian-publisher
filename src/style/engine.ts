@@ -572,7 +572,7 @@ export class StyleEngine {
 		return base + ` color: ${staticTheme.textNormal}; background-color: ${staticTheme.bgPrimary};`;
 	}
 
-	/** Full pipeline: theme overrides → WeChat sanitize → wrapper div. */
+	/** Full pipeline: theme overrides → WeChat sanitize → wrapper section. */
 	process(html: string, vars?: ObsidianVars): string {
 		logger.debug('StyleEngine.process: theme =', this.theme);
 		let result = this.applyTheme(html, vars);
@@ -580,7 +580,14 @@ export class StyleEngine {
 		const wrapperStyle = this.getWrapperStyle(vars);
 		logger.debug('StyleEngine: wrapperStyle =', wrapperStyle);
 		logger.debug('StyleEngine: first 300 chars of result =', result.slice(0, 300));
-		return `<div style="${wrapperStyle}">${result}</div>`;
+		// Confirmed via real-paste DOM inspection: a <div> wrapping the entire
+		// article — at any nesting depth, doubling it didn't help — never makes
+		// it into WeChat's editor at all (not just its style; the tag itself is
+		// gone). <section> wrapping the exact same content survives completely
+		// intact, same as it already does for callout boxes — so the top-level
+		// wrapper uses <section> instead of <div>, which is what actually lets
+		// a theme's page background-color (e.g. graphite-dark) come through.
+		return `<section style="${wrapperStyle}">${result}</section>`;
 	}
 
 	// ── Theme overrides ───────────────────────────────────────────────────────
