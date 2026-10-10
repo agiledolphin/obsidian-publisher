@@ -443,41 +443,60 @@ export function buildStaticThemeMap(theme: StaticTheme): [RegExp, string][] {
 		const { level, textColor, flagColor } = theme.headingBanner;
 		const fontSize = level === 1 ? '22px' : '18px';
 		const margin = level === 1 ? '1.5em 0 0.8em 0' : '1.3em 0 0.6em 0';
-		// Badge height = padding(6+6) + line-height(1.4 × font-size), rounded up.
-		// The flag triangle below is a fixed-size border shape (WeChat's paste
-		// sanitizer strips clip-path, so it can't use flex stretch to match the
-		// badge automatically) — keep this in sync with padding/font-size above.
+		// The badge's own height used to be implicit (auto, driven purely by
+		// padding + line-height + however WeChat's substituted font actually
+		// renders that one line of bold text) — chasing a flag height to match
+		// that unknown, font-dependent number turned into an unbounded
+		// bisection (37/42/44px all left a gap; 45px overshot — the margin for
+		// error is under a couple px and nothing pins down the real value).
+		// Pinning the badge to an *explicit* height (box-sizing:border-box, so
+		// padding is included rather than added on top) removes that unknown
+		// entirely: both the badge and the flag now size off the same literal
+		// number regardless of what font WeChat substitutes, instead of one
+		// of them being at the mercy of real text-rendering metrics. The badge
+		// switches from inline-block + line-height to inline-flex + centered
+		// content so the text still sits in the middle of whatever height is
+		// declared, even if real text metrics don't divide evenly into it.
+		const badgeHeight = level === 1 ? 46 : 40;
 		// Rounded only on the top-left: the right edge butts against the flag
 		// (when present), and the bottom stays square so the full-width
 		// underline meets it cleanly instead of poking out past a curve.
 		const badgeStyle =
-			`display: inline-block; background-color: ${theme.accent}; color: ${textColor}; ` +
-			`font-size: ${fontSize}; font-weight: 700; line-height: 1.4; padding: 6px 18px; border-radius: 6px 0 0 0;`;
-		const wrapperStyle =
-			`display: flex; align-items: stretch; margin: ${margin}; ` +
+			`display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; ` +
+			`height: ${badgeHeight}px; background-color: ${theme.accent}; color: ${textColor}; ` +
+			`font-size: ${fontSize}; font-weight: 700; padding: 0 18px; border-radius: 6px 0 0 0;`;
+		const wrapperStyle = `display: flex; align-items: center; margin: ${margin};` +
 			`border-bottom: 2px solid ${theme.accent};`;
-		// The flag is an SVG data URI used as a *background-image* on an empty
-		// span — not an <img> (an <img> has an intrinsic aspect ratio from its
-		// viewBox; with only width set, the browser derives a large hypothetical
-		// height from that ratio, and align-items:stretch then stretches the
-		// whole flex line — including the badge — to match, making everything
-		// balloon). A background-image never contributes to box sizing, so the
-		// empty span's own hypothetical height stays ~0, the badge's natural
-		// height wins the stretch, and background-size:100% 100% then paints
-		// the triangle to fill whatever height the span ends up with —
-		// including when the title text wraps to multiple lines.
+		// The flag is an <img> over an SVG data URI — the same trick callout
+		// icons rely on. This is the one rendering primitive confirmed to
+		// actually show *something* once pasted into WeChat; everything else
+		// tried disappears outright:
+		//   - CSS clip-path: stripped by WeChat's paste sanitizer.
+		//   - A zero-size <span> faked into a triangle via border-width/
+		//     border-color: also stripped entirely (most likely WeChat's
+		//     sanitizer treats a 0×0 "empty" element as junk and drops it,
+		//     border trick or not — confirmed by testing: no flag at all).
+		//   - background-image (SVG on an empty flex-stretched span): avoids
+		//     the <img> sizing issues below, but is *also* stripped.
+		//   - calc()/em-relative CSS height on the <img>: didn't close the
+		//     gap reliably — possibly calc() itself gets filtered, possibly
+		//     the font-size it depends on does; a plain px value sidesteps
+		//     the question entirely.
+		//   - align-items:stretch pulling an auto-height badge up to match the
+		//     flag: works, but only solves half the problem — the badge's
+		//     *natural* height was itself the unknown being chased. Now that
+		//     the badge has an explicit height too, the two just share the
+		//     same literal `badgeHeight` number directly; no stretch needed.
 		const flagHtml = flagColor
 			? (() => {
-				// Double quotes here, not single — encodeURIComponent leaves single
-				// quotes unescaped, which would collide with the outer url('...')
-				// delimiter below and silently break the whole background-image
-				// (computed style falls back to "none", no error, no visible flag).
+				const flagWidth = 26;
 				const svg =
-					`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 100" preserveAspectRatio="none">` +
-					`<polygon points="0,0 0,100 20,100" fill="${flagColor}"/></svg>`;
+					`<svg xmlns="http://www.w3.org/2000/svg" width="${flagWidth}" height="${badgeHeight}" ` +
+					`viewBox="0 0 ${flagWidth} ${badgeHeight}" preserveAspectRatio="none">` +
+					`<polygon points="0,0 0,${badgeHeight} ${flagWidth},${badgeHeight}" fill="${flagColor}"/></svg>`;
 				const dataUri = `data:image/svg+xml,${encodeURIComponent(svg)}`;
-				return `<span style="display: inline-block; width: 20px; align-self: stretch; margin-left: 6px; ` +
-					`background-image: url('${dataUri}'); background-size: 100% 100%; background-repeat: no-repeat;"></span>`;
+				return `<img src="${dataUri}" ` +
+					`style="width: ${flagWidth}px; height: ${badgeHeight}px; display: block; margin-left: 6px;">`;
 			})()
 			: '';
 		const [openSource, closeSource] = level === 1
@@ -509,6 +528,16 @@ export function buildStaticThemeMap(theme: StaticTheme): [RegExp, string][] {
 		[/font-size: 16px; color: #1a1a1a/g, `font-size: 16px; color: ${theme.headings[3]}`],
 		[/font-size: 15px; color: #1a1a1a/g, `font-size: 15px; color: ${theme.headings[4]}`],
 		[/font-size: 14px; color: #1a1a1a/g, `font-size: 14px; color: ${theme.headings[5]}`],
+		// H3–H6 placeholder underlines (see parser.ts) exist only for the
+		// 'obsidian' live theme to detect and follow a real theme's border —
+		// no static preset currently wants underlines below H2, so these
+		// always get stripped back out, same as H1/H2 did before headingBanner
+		// existed (and still do here, when a theme doesn't configure a banner
+		// for that level — see the headingBanner branch below for H1/H2).
+		[/; border-bottom: 1px solid #a1a1a1; padding-bottom: 0\.2em/g, ''],
+		[/; border-bottom: 1px solid #a2a2a2; padding-bottom: 0\.2em/g, ''],
+		[/; border-bottom: 1px solid #a3a3a3; padding-bottom: 0\.2em/g, ''],
+		[/; border-bottom: 1px solid #a4a4a4; padding-bottom: 0\.2em/g, ''],
 		// ── Highlighted text ───────────────────────────────────────────────
 		[/background-color: #fff3b1/g, `background-color: ${theme.highlightBg}`],
 		// ── Italic ──────────────────────────────────────────────────────────

@@ -247,7 +247,15 @@ new MarkdownIt({
 
 **两个可选扩展字段**（目前只有橙心用到）：
 
-- `headingBanner?: { level: 1 | 2; textColor: string; flagColor?: string }`：把指定层级标题从纯色文字换成"色块横幅"——内层 `<span>` 徽标（`display:inline-block`，紧贴文字宽度）+ 外层 `<h2>` 撑满宽度画 `border-bottom` 通栏细线（`display:flex; align-items:stretch`）。若配置了 `flagColor`，徽标右侧会再拼一个三角旗：一个空 `<span>`，把 SVG data URI（`viewBox` 多边形）当**背景图**（`background-image` + `background-size: 100% 100%`），而不是 `<img>` 内容、CSS `clip-path`（会被微信粘贴过滤器剥离）或纯 border 三角形（固定像素高度，标题换行时对不上徽标实际高度）。**踩过的坑**：一度试过把 SVG 用 `<img>` 呈现，结果 `<img>` 自带的 `viewBox` 宽高比（20:100）被浏览器当成"内在尺寸"参与 flex 布局的高度计算，`align-items:stretch` 反而把徽标拉伸到匹配这个虚高的图片高度，导致单行标题也变成一个大方块；换成空 `<span>` + `background-image` 后，背景图完全不参与盒子尺寸计算，`span` 的高度只由 `align-self:stretch` 决定（即跟随徽标的真实高度，包括标题换行成多行的情况），`background-size:100% 100%` 再把三角形拉伸填满这个高度。
+- `headingBanner?: { level: 1 | 2; textColor: string; flagColor?: string }`：把指定层级标题从纯色文字换成"色块横幅"——内层 `<span>` 徽标（`display:inline-flex; align-items:center; justify-content:center`，显式 `box-sizing:border-box; height: ${badgeHeight}px`，文字在固定高度盒子里居中）+ 外层 `<h2>` 撑满宽度画 `border-bottom` 通栏细线。若配置了 `flagColor`，徽标右侧会再拼一个三角旗：`<img>` 引用一段内联 SVG data URI（三角形多边形 + `preserveAspectRatio="none"`），和 callout 图标是同一招，同样用显式 `height: ${badgeHeight}px`——跟徽标共用**同一个字面量数字**，不再互相"猜"对方的真实高度。**这条前后踩了七次坑**，按顺序记录：
+  ① CSS `clip-path` 画三角形——微信粘贴过滤器会剥离 `clip-path`，旗子直接消失；
+  ② 换成零尺寸 `<span>` + `border-width`/`border-color` 画三角形——一度以为微信实测过关，但后续补测发现**这招其实整个被微信过滤掉了**（大概率是把"宽高都是 0 的空元素"当垃圾清掉，不管有没有 border），旗子完全不显示；
+  ③ 为了让高度自动匹配徽标，先后试了 `<img>`（SVG 只写 `viewBox` 不写 `width`/`height`——浏览器没有声明的内在尺寸，直接退回 UA 默认的 300×150，把徽标撑成大方块）和空 `<span>` 背景图（`background-image` 不参与盒子尺寸计算，`align-self:stretch` 确实能让高度正确拉伸，但背景图这种"按 CSS 加载外部资源"的写法会被微信粘贴过滤器整个丢弃，预览正常、粘贴到公众号后却完全不见）；
+  ④ 改回 `<img>` 内容（+ SVG 根节点显式声明 `width`/`height`，避免 UA 默认尺寸），先靠 `align-items:stretch` 拉伸 auto 高度的 `<img>`，后改成让 `<img>` 显式 `height: calc(1.4em + 12px)` 和徽标用同一个公式算高度——Obsidian 预览里两版都对得上，但微信粘贴后旗子和下方分隔线之间始终留有空隙；
+  ⑤ 由于零尺寸 border 三角形被证实整个不显示（比"有空隙"更差），退回到 `<img>`（目前为止唯一确认能在微信里显示出东西的技术），不再用 `calc()`，改成 `<img>` 显式纯像素 `height`（单行估算值 + 8px 余量）——微信实测三角旗终于稳定显示、不再有空隙，但徽标本身也被拉高了一截；
+  ⑥ 这个意外拉高的结果澄清了一半真相：`align-items:stretch` 在微信里其实是生效的（之前一直以为它失效，其实是 `<img>` 高度本身没算对）。于是按二分法反复微调单行估算值上的余量：+0（漏空隙）→ +5（仍漏）→ +7/+8（不漏但拉高）——每一步都要麻烦用户重新粘贴截图确认，区间越收越窄，但徽标自身的"真实高度"本来就取决于微信替换的字体渲染出的行高，是个我们测不到、只能从外部摸的数字，永远在"差一点点"附近来回震荡；
+  ⑦ **真正的修正**：问题不在于怎么猜准三角旗的高度，而在于徽标自己的高度从一开始就是隐式的（`padding` + `line-height` + 不受控制的字体行高）。干脆把徽标也改成显式高度（`box-sizing:border-box` + `inline-flex` 居中文字），这样两个元素共享同一个写死的像素数字，不再有任何一方依赖"猜对方实际渲染出多高"——`align-items:stretch` 也就不再需要了（两者本就等高，换成普通的 `align-items:center`）。
+  **现状**：确认能稳定显示三角旗的技术是 `<img src="data:image/svg+xml,...">` + 纯像素 `height`（不用 `calc()`/`em`）。`clip-path`、零尺寸 `border` 三角形、`background-image` 全部已确认在微信粘贴场景下不可靠。高度匹配问题通过"两边都用显式高度、共享同一个字面量数字"解决，不再依赖 `align-items:stretch` 去猜测/追赶一个不受控制的真实渲染高度。
 - `boldColor?: string`：覆盖 `**粗体**` 的颜色，默认继承正文色。选色时要避开该主题里标题/callout 已经占用的强调色，避免视觉撞色（例如橙心最终选了主强调色珊瑚橙 `#DF7766`，贯穿粗体/链接/H2/Note callout 这一条"品牌色"线）。
 
 **颜色计算工具**（`color-utils.ts`）：
@@ -555,6 +563,9 @@ Obsidian 主题使用深度嵌套变量，`getPropertyValue()` 返回原始字�
 
 特殊情况：高亮色同时读取 computed `backgroundColor`（`textHighlightBg`）和 `color`（`textHighlightFg`），以捕获 Blue Topaz 等主题直接写 `mark {}` 规则（而非走 CSS 变量）的情况，确保高亮文字颜色也能跟随主题。
 
+**H1–H6 下划线跟随真实主题**：`parser.ts` 给 H1/H2 输出的是占位样式（含占位 `border-bottom`），早期 `engine.ts` 在 `obsidian` 实时主题下统一把这个占位下划线删掉，理由是"大多数主题标题只用颜色区分层级，硬编码的下划线放别的主题下会显得突兀"——但这个判断是**无条件的**，不管用户当前主题实际有没有下划线都会删，于是出现"当前 Obsidian 主题 H1 明明带下划线，但预览里却没有"的不一致。H3–H6 原本连占位 `border-bottom` 都没有（parser.ts 从未支持过），用户确认也想要同样的跟随行为后一并补上。
+修复为 `readHeadingBorder(level, fallbackPaddingBottom)`：和 `readHeadingColor` 同样的 element-injection 手法，往预览区域临时插入真实的 `<h1>`–`<h6>`，用 `getComputedStyle()` 读 `border-bottom-width/style/color` 和 `padding-bottom`。真实主题有下划线（宽度非 0 且 style 不是 `none`，`dashed`/`dotted` 等非 `solid` 样式也能识别）就原样跟随；没有就回退到整条删除，不强行套用占位值。H3–H6 新增的占位 `border-bottom`（`#a1a1a1`–`#a4a4a4`，仅用于被 `engine.ts` 探测替换，不会真实显示）在静态主题（`themes.ts` 的 `buildStaticThemeMap`）里一律无条件删除，因为目前 9 套预设都没有 H3–H6 下划线的设计。已知局限：只能捕获标题元素自身字面的 `border-bottom`，如果某个主题是靠 `::after` 伪元素或 `box-shadow` 画下划线，这种探测方式读不到，会回退成"无下划线"。
+
 ### 8.3 代码高亮颜色
 
 Parser 输出 GitHub Light 配色（hardcoded 颜色值）。StyleEngine 的 `applyObsidianOverrides` 将这些颜色替换为两套 Tokyo Night 配色（Day/Storm），具体选哪套由 `document.body.classList.contains('theme-dark')` 决定。
@@ -617,6 +628,7 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 | 微信过滤规则变化 | 新版微信编辑器可能调整过滤规则 | 每次更新后回归测试 |
 | Mermaid 颜色精确度（`obsidian` 主题） | 实时主题下仍用 Mermaid 内置 dark/default 主题，不完全匹配 Obsidian 当前主题配色 | 静态主题已通过 `buildMermaidInit()` 用主题自身色值映射 themeVariables，只有 `obsidian` 实时模式待改进 |
 | 橙心 callout 是固定色板 | 早期实现过"跟随当前 Obsidian 主题实时变化"，后按用户要求改回固定色板（专门设计、区分 13 种类型、统一橙心自己的暖色家族），不再联动 Obsidian 主题 | 属于确认过的设计决策，非 bug；如需恢复实时联动可参考 8.8 提到的 `readCalloutStyle` 实时读取路径 |
+| 橙心标题换行时三角旗高度对不上 | 徽标和三角旗的高度都是同一个写死的像素数字（`badgeHeight`，按单行标题设计），标题换行到 2 行及以上时徽标会被内容撑高（`min-height:auto` 是 flex 子项默认行为，避免文字被裁切），但三角旗的 `<img>` 没有这种"被内容撑高"的机制，高度不会跟着变，盖不住整个徽标 | `clip-path`、零尺寸 border 三角形、`background-image`、`calc()`、依赖 `align-items:stretch` 去猜测徽标真实高度这几种方案均已确认不可靠或治标不治本（详见 4.3），目前没有可靠解法；如标题较长建议手动控制在一行内 |
 
 ---
 
@@ -642,7 +654,7 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
   - H1–H6 各级标题色独立读取（`--h1-color` … `--h6-color`），部分主题的元素级作用域变量（真实插入 `<h1>`–`<h6>`/`<blockquote>` 读取）
   - 表格表头背景/文字色、边框色改为读取实际生效值/专用变量（见 8.9）
   - 任务列表样式与主题解耦（固定配色）
-  - 橙心主题的色块横幅标题（`headingBanner`）+ SVG 背景图三角旗（自动匹配换行后的徽标高度，不用 `<img>` 是因为其内在宽高比会干扰 flex 拉伸计算）
+  - 橙心主题的色块横幅标题（`headingBanner`）+ SVG-as-`<img>` 三角旗（徽标和旗子共用同一个显式像素高度，不再依赖 `align-items:stretch` 猜测对方真实渲染高度；标题换行 2+ 行时高度对不上是已知限制，详见 4.3 的踩坑记录与 §9）
   - 预览弹窗/预览面板均可直接切换主题，无需前往设置页
 - [x] 数学公式（`$...$` / `$$...$$`，MathJax CHTML + html2canvas，编辑/阅读模式均支持，iframe 隔离批量渲染，2x PNG）
 - [x] Mermaid 图表（MarkdownRenderer offscreen → SVG → Canvas 2x PNG，深/浅色模式自动切换，静态主题按自身色值映射 themeVariables，fallback 样式化文本块）
