@@ -211,10 +211,15 @@ export class MarkdownParser {
 		const headingStyles: Record<string, string> = {
 			h1: 'font-size: 24px; color: #1a1a1a; font-weight: 700; line-height: 1.3; margin: 1.5em 0 0.8em 0; border-bottom: 2px solid #7c3aed; padding-bottom: 0.3em;',
 			h2: 'font-size: 20px; color: #1a1a1a; font-weight: 600; line-height: 1.3; margin: 1.3em 0 0.6em 0; border-bottom: 1px solid #e5e5e5; padding-bottom: 0.2em;',
-			h3: 'font-size: 18px; color: #1a1a1a; font-weight: 600; line-height: 1.3; margin: 1.2em 0 0.5em 0;',
-			h4: 'font-size: 16px; color: #1a1a1a; font-weight: 600; line-height: 1.3; margin: 1em 0 0.4em 0;',
-			h5: 'font-size: 15px; color: #1a1a1a; font-weight: 600; line-height: 1.3; margin: 0.8em 0 0.3em 0;',
-			h6: 'font-size: 14px; color: #1a1a1a; font-weight: 600; line-height: 1.3; margin: 0.8em 0 0.3em 0;',
+			// H3–H6 placeholder border-bottoms (#a1a1a1…#a4a4a4) exist only so the
+			// 'obsidian' live theme can detect and follow a real theme's heading
+			// underline at these levels (see engine.ts's readHeadingBorder) —
+			// static themes always strip them back out (see themes.ts), since
+			// none of the presets currently want underlines below H2.
+			h3: 'font-size: 18px; color: #1a1a1a; font-weight: 600; line-height: 1.3; margin: 1.2em 0 0.5em 0; border-bottom: 1px solid #a1a1a1; padding-bottom: 0.2em;',
+			h4: 'font-size: 16px; color: #1a1a1a; font-weight: 600; line-height: 1.3; margin: 1em 0 0.4em 0; border-bottom: 1px solid #a2a2a2; padding-bottom: 0.2em;',
+			h5: 'font-size: 15px; color: #1a1a1a; font-weight: 600; line-height: 1.3; margin: 0.8em 0 0.3em 0; border-bottom: 1px solid #a3a3a3; padding-bottom: 0.2em;',
+			h6: 'font-size: 14px; color: #1a1a1a; font-weight: 600; line-height: 1.3; margin: 0.8em 0 0.3em 0; border-bottom: 1px solid #a4a4a4; padding-bottom: 0.2em;',
 		};
 		md.renderer.rules['heading_open'] = (tokens, idx) => {
 			const tag = tokens[idx]?.tag ?? 'h1';

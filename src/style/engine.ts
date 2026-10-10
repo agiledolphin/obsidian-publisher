@@ -25,6 +25,14 @@ export interface ObsidianVars {
 	h4Color:     string;
 	h5Color:     string;
 	h6Color:     string;
+	// H1–H6 underline, read from the real theme's border-bottom (empty string
+	// if the real theme has none — most themes style headings via color alone)
+	h1BorderCss: string;
+	h2BorderCss: string;
+	h3BorderCss: string;
+	h4BorderCss: string;
+	h5BorderCss: string;
+	h6BorderCss: string;
 	// Code syntax highlight colors (from Obsidian --code-* variables)
 	codeBackground: string;
 	codeNormal:     string;
@@ -220,6 +228,44 @@ function readHeadingColor(level: 1 | 2 | 3 | 4 | 5 | 6, fallback: string): strin
 	try {
 		const hex = cssColorToHex(getComputedStyle(el).color);
 		return hex ?? fallback;
+	} finally {
+		container.removeChild(el);
+	}
+}
+
+/**
+ * Reads a real theme's heading underline (border-bottom), if it has one, so
+ * the placeholder decorative border in parser.ts's headingStyles can either
+ * be replaced with the real value or dropped entirely — instead of always
+ * being dropped regardless of whether the active theme actually uses one.
+ *
+ * Returns a ready-to-splice CSS suffix (`; border-bottom: ...; padding-bottom: ...`)
+ * when the real heading has a visible bottom border, or '' when it doesn't
+ * (most themes style heading levels via color alone, matching the previous
+ * unconditional-strip behavior as the fallback).
+ *
+ * Only catches literal `border-bottom` on the heading element itself — a
+ * theme that draws its underline via a `::after` pseudo-element or
+ * `box-shadow` trick won't be picked up here and will fall back to no border.
+ */
+function readHeadingBorder(level: 1 | 2 | 3 | 4 | 5 | 6, fallbackPaddingBottom: string): string {
+	const container =
+		document.querySelector('.markdown-preview-view .markdown-rendered') ??
+		document.querySelector('.markdown-preview-section') ??
+		document.querySelector('.markdown-preview-view') ??
+		document.body;
+
+	const el = document.createElement(`h${level}`);
+	el.classList.add('publisher-offscreen');
+	el.textContent = 'X';
+	container.appendChild(el);
+	try {
+		const cs = getComputedStyle(el);
+		const width = parseFloat(cs.borderBottomWidth);
+		if (!width || cs.borderBottomStyle === 'none') return '';
+		const colorHex = cssColorToHex(cs.borderBottomColor) ?? '#000000';
+		const paddingBottom = parseFloat(cs.paddingBottom) > 0 ? cs.paddingBottom : fallbackPaddingBottom;
+		return `; border-bottom: ${cs.borderBottomWidth} ${cs.borderBottomStyle} ${colorHex}; padding-bottom: ${paddingBottom}`;
 	} finally {
 		container.removeChild(el);
 	}
@@ -459,6 +505,12 @@ export function readObsidianVars(): ObsidianVars {
 		h4Color:     readHeadingColor(4, '#1a1a1a'),
 		h5Color:     readHeadingColor(5, '#1a1a1a'),
 		h6Color:     readHeadingColor(6, '#1a1a1a'),
+		h1BorderCss: readHeadingBorder(1, '0.3em'),
+		h2BorderCss: readHeadingBorder(2, '0.2em'),
+		h3BorderCss: readHeadingBorder(3, '0.2em'),
+		h4BorderCss: readHeadingBorder(4, '0.2em'),
+		h5BorderCss: readHeadingBorder(5, '0.2em'),
+		h6BorderCss: readHeadingBorder(6, '0.2em'),
 		// Code syntax colors: predefined palette (light=GitHub Light, dark=One Dark Pro)
 		// selected by background luminance. codeBackground/codeInline still read from Obsidian.
 		codeBackground: readComputedBg('--code-background', '#f6f8fa'),
@@ -582,10 +634,15 @@ export class StyleEngine {
 			[/font-size: 16px; color: #1a1a1a/g, `font-size: 16px; color: ${v.h4Color}`],
 			[/font-size: 15px; color: #1a1a1a/g, `font-size: 15px; color: ${v.h5Color}`],
 			[/font-size: 14px; color: #1a1a1a/g, `font-size: 14px; color: ${v.h6Color}`],
-			// Remove heading decorative underlines — most themes style headings
-			// via color alone; the hardcoded borders look wrong in custom themes.
-			[/; border-bottom: 2px solid #7c3aed; padding-bottom: 0\.3em/g, ''],
-			[/; border-bottom: 1px solid #e5e5e5; padding-bottom: 0\.2em/g, ''],
+			// Heading underlines: follow the real theme's border-bottom if it has
+			// one (read via readHeadingBorder), otherwise drop the placeholder
+			// entirely — most themes style headings via color alone.
+			[/; border-bottom: 2px solid #7c3aed; padding-bottom: 0\.3em/g, v.h1BorderCss],
+			[/; border-bottom: 1px solid #e5e5e5; padding-bottom: 0\.2em/g, v.h2BorderCss],
+			[/; border-bottom: 1px solid #a1a1a1; padding-bottom: 0\.2em/g, v.h3BorderCss],
+			[/; border-bottom: 1px solid #a2a2a2; padding-bottom: 0\.2em/g, v.h4BorderCss],
+			[/; border-bottom: 1px solid #a3a3a3; padding-bottom: 0\.2em/g, v.h5BorderCss],
+			[/; border-bottom: 1px solid #a4a4a4; padding-bottom: 0\.2em/g, v.h6BorderCss],
 			// ── Highlighted text (<mark>) — must run before the #1a1a1a catch-all ──
 			[/background-color: #fff3b1/g,        `background-color: ${v.textHighlightBg}`],
 			[/(?<=<mark[^>]*?)color: #1a1a1a/g,   `color: ${v.textHighlightFg || v.textNormal}`],
