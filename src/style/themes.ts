@@ -62,6 +62,28 @@ export interface StaticTheme {
 	 */
 	headingBox?: { level: 1 | 2; borderColor: string; quoteMarks?: boolean };
 	/**
+	 * Optional "solid bar" treatment for one heading level: the heading tag
+	 * itself (no extra wrapper element — just restyled in place) gets a solid
+	 * background-color, contrasting text color, and left-aligned padding,
+	 * instead of plain colored text. Simpler and lower-risk than headingBanner/
+	 * headingBox (a single existing element restyled vs. several new ones),
+	 * since a block tag with real text content and a plain background-color
+	 * is the single most reliably-surviving pattern confirmed this session.
+	 */
+	headingBar?: { level: 1 | 2; bgColor: string; textColor: string };
+	/**
+	 * Optional small icon + soft-highlighted text treatment for one heading
+	 * level — an <img> (single combined SVG, not several separately-
+	 * positioned shapes) followed by the heading text on a subtle tinted
+	 * background, laid out with plain `display:flex; align-items:center`
+	 * (no stretch-matching, no precise height dependency between the two —
+	 * flex centering a small fixed-size icon against natural-height text is
+	 * low-risk, unlike the badge/flag height-matching problems elsewhere in
+	 * this file). `iconSvg` is the inner markup only (paths/shapes), wrapped
+	 * in a standard `<svg viewBox="0 0 24 24">` automatically.
+	 */
+	headingIcon?: { level: 1 | 2; iconSvg: string; textColor: string; textBg: string };
+	/**
 	 * Heading levels that should drop the default underline (an accent-colored
 	 * border-bottom, normally applied to H1/H2 automatically) entirely, with
 	 * no replacement decoration — for themes where a level already gets its
@@ -139,7 +161,7 @@ const CATPPUCCIN_LATTE: StaticTheme = {
 
 const MINIMAL_MONO: StaticTheme = {
 	id: 'minimal-mono',
-	label: '简约黑白',
+	label: '简约黑白一',
 	bgPrimary: '#FAFAF8',
 	textNormal: '#1F1F1F',
 	textMuted: '#595959',
@@ -173,6 +195,19 @@ const MINIMAL_MONO: StaticTheme = {
 	// ones that were still full-hue (blue/orange/yellow/red) regardless of
 	// theme — graded by the same severity logic as calloutAccent above.
 	taskAccent: { inProgress: '#404040', rescheduled: '#595959', question: '#595959', important: '#1F1F1F' },
+};
+
+// ── 简约黑白二 (Minimal Mono II) ─────────────────────────────────────────
+// Identical palette to 简约黑白一 (same grayscale code/callout/task-list
+// treatment) — only the H2 decoration differs: a solid black bar with
+// left-aligned white text instead of a bordered box with corner marks.
+
+const MINIMAL_MONO_2: StaticTheme = {
+	...MINIMAL_MONO,
+	id: 'minimal-mono-2',
+	label: '简约黑白二',
+	headingBox: undefined,
+	headingBar: { level: 2, bgColor: '#1F1F1F', textColor: '#FFFFFF' },
 };
 
 // ── 护眼杏仁 (Warm Almond) ───────────────────────────────────────────────
@@ -406,9 +441,61 @@ const ORANGE_HEART: StaticTheme = {
 	boldColor: '#DF7766',
 };
 
+// ── 冷酷的仙境 (Hard-Boiled Wonderland) ───────────────────────────────────
+// Named after Murakami's 世界の終りとハードボイルド・ワンダーランド — a novel
+// that splits between a shadowy, noir-tinged "Hard-Boiled Wonderland" and a
+// silent, dreamlike walled town at "The End of the World". "冷酷" (cold) is
+// carried by hue and temperature, not darkness — a pale frost-white page
+// (not the warm off-whites the other light themes use) lit by two cold
+// accents, a deep icy teal (frost/clarity, the noir half) and a muted violet
+// (the surreal, dreamlike half) — instead of either one alone. Suited to
+// essays, fiction, and personal writing that wants an atmospheric, literary
+// register rather than a business/tech one.
+
+const HARDBOILED_WONDERLAND: StaticTheme = {
+	id: 'hardboiled-wonderland',
+	label: '冷酷的仙境',
+	bgPrimary: '#EFF3F8',
+	textNormal: '#24314A',
+	textMuted: '#5C6B82',
+	textFaint: '#8C97A8',
+	textItalic: '#44536B',
+	linkColor: '#1E9E8F',
+	accent: '#1E9E8F',
+	headings: ['#1E9E8F', '#7A6BC4', '#3B6FA0', '#2B9388', '#9583C9', '#8C97A8'],
+	highlightBg: '#D6EDE9',
+	codeBackground: '#E8EDF3',
+	borderColor: '#D5DCE6',
+	code: {
+		normal: '#24314A', comment: '#8C97A8', keyword: '#7A6BC4', function: '#1E9E8F',
+		string: '#3B6FA0', value: '#9583C9', tag: '#2B9388', property: '#3B6FA0',
+		variable: '#5C6B82', inline: '#2B9388',
+	},
+	calloutAccent: {
+		note: '#3B6FA0', abstract: '#1E9E8F', info: '#2B9388', todo: '#6B7FA8',
+		tip: '#1E9E8F', success: '#1E9E8F', question: '#7A6BC4', warning: '#7A6BC4',
+		// Cold rose/mauve, not warm red — even "danger" stays inside the
+		// theme's cold palette rather than breaking it for an alarm color.
+		failure: '#A85B7D', danger: '#A85B7D', bug: '#8C5570',
+		example: '#7A6BC4', quote: '#8C97A8',
+	},
+	// A single combined SVG (one sparkle + one dot, not separately-positioned
+	// shapes) in the theme's two accent colors — a small, literal nod to the
+	// reference design's star cluster, recolored cold instead of kawaii-warm.
+	headingIcon: {
+		level: 2,
+		iconSvg: '<path d="M12 2 L14.5 9.5 L22 12 L14.5 14.5 L12 22 L9.5 14.5 L2 12 L9.5 9.5 Z" fill="#1E9E8F"/>' +
+			'<circle cx="19" cy="5" r="2.2" fill="#7A6BC4"/>',
+		textColor: '#7A6BC4',
+		textBg: '#EDE9F7',
+	},
+	boldColor: '#1E9E8F',
+};
+
 export const STATIC_THEMES: Record<string, StaticTheme> = {
 	'catppuccin-latte': CATPPUCCIN_LATTE,
 	'minimal-mono': MINIMAL_MONO,
+	'minimal-mono-2': MINIMAL_MONO_2,
 	'warm-almond': WARM_ALMOND,
 	'tech-blue': TECH_BLUE,
 	'china-red': CHINA_RED,
@@ -416,12 +503,13 @@ export const STATIC_THEMES: Record<string, StaticTheme> = {
 	'sakura-pink': SAKURA_PINK,
 	'graphite-dark': GRAPHITE_DARK,
 	'orange-heart': ORANGE_HEART,
+	'hardboiled-wonderland': HARDBOILED_WONDERLAND,
 };
 
 /** Ordered list for building settings dropdowns. */
 export const STATIC_THEME_LIST: StaticTheme[] = [
-	CATPPUCCIN_LATTE, MINIMAL_MONO, WARM_ALMOND, TECH_BLUE, CHINA_RED,
-	FOREST_GREEN, SAKURA_PINK, GRAPHITE_DARK, ORANGE_HEART,
+	CATPPUCCIN_LATTE, MINIMAL_MONO, MINIMAL_MONO_2, WARM_ALMOND, TECH_BLUE, CHINA_RED,
+	FOREST_GREEN, SAKURA_PINK, GRAPHITE_DARK, ORANGE_HEART, HARDBOILED_WONDERLAND,
 ];
 
 /** id/label pairs for building a theme <select>, 'obsidian' first — shared by
@@ -604,6 +692,53 @@ export function buildStaticThemeMap(theme: StaticTheme): [RegExp, string][] {
 		map.push(
 			[openSource, `${boxOpen}<${tag} style="${headingStyle}">${quoteOpen}`],
 			[closeSource, `${quoteClose}</${tag}>${boxClose}`],
+		);
+	}
+	if (theme.headingBar) {
+		const { level, bgColor, textColor } = theme.headingBar;
+		const fontSize = level === 1 ? '22px' : '18px';
+		const margin = level === 1 ? '1.5em 0 0.8em 0' : '1.3em 0 0.6em 0';
+		const [openSource, closeSource] = level === 1
+			? [H1_OPEN_SOURCE, H1_CLOSE_SOURCE]
+			: [H2_OPEN_SOURCE, H2_CLOSE_SOURCE];
+		const tag = level === 1 ? 'h1' : 'h2';
+		// The heading tag itself just centers its content; the actual solid
+		// bar is an inline-block <span> around the text, so the background
+		// hugs the text width instead of spanning the full line.
+		const headingStyle = `margin: ${margin}; text-align: center;`;
+		const barStyle =
+			`display: inline-block; font-size: ${fontSize}; font-weight: 700; ` +
+			`color: ${textColor}; background-color: ${bgColor}; padding: 10px 16px; line-height: 1.3;`;
+		map.push(
+			[openSource, `<${tag} style="${headingStyle}"><span style="${barStyle}">`],
+			[closeSource, `</span></${tag}>`],
+		);
+	}
+	if (theme.headingIcon) {
+		const { level, iconSvg, textColor, textBg } = theme.headingIcon;
+		const fontSize = level === 1 ? '22px' : '18px';
+		const margin = level === 1 ? '1.5em 0 0.8em 0' : '1.3em 0 0.6em 0';
+		const [openSource, closeSource] = level === 1
+			? [H1_OPEN_SOURCE, H1_CLOSE_SOURCE]
+			: [H2_OPEN_SOURCE, H2_CLOSE_SOURCE];
+		const tag = level === 1 ? 'h1' : 'h2';
+		// The heading just centers its content; the actual badge is an
+		// inline-flex <span> wrapping *both* the icon and the text, so the
+		// background covers the icon too instead of just framing the text
+		// (the icon sitting outside the colored span, as in the first cut of
+		// this design, left it looking like an unrelated bullet rather than
+		// part of the same tag).
+		const headingStyle = `margin: ${margin}; display: flex; justify-content: center;`;
+		const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">${iconSvg}</svg>`;
+		const iconHtml =
+			`<img src="data:image/svg+xml,${encodeURIComponent(svg)}" ` +
+			`style="width: 22px; height: 22px; margin-right: 8px; display: block;">`;
+		const badgeStyle =
+			`display: inline-flex; align-items: center; background-color: ${textBg}; padding: 3px 10px;`;
+		const textStyle = `font-size: ${fontSize}; font-weight: 700; color: ${textColor}; line-height: 1.3;`;
+		map.push(
+			[openSource, `<${tag} style="${headingStyle}"><span style="${badgeStyle}">${iconHtml}<span style="${textStyle}">`],
+			[closeSource, `</span></span></${tag}>`],
 		);
 	}
 	if (theme.noUnderline) {

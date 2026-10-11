@@ -234,7 +234,8 @@ new MarkdownIt({
 | id | 名称 | 定位 |
 |----|------|------|
 | `catppuccin-latte` | 马卡龙紫 | 柔和马卡龙紫色调，生活方式、读书笔记、文艺随笔 |
-| `minimal-mono` | 简约黑白 | 米白底 + 灰阶标题层级，通用长文阅读排版；代码高亮、callout（4 档灰度区分轻重：危急/警示/中性/平和）、任务列表 checkbox、高亮背景色全部灰阶化，只保留一个克制的墨蓝强调色（链接、`done` 任务打勾），贯彻到底不是只有标题做到了"黑白"；H2 用"票据/印章"式边框盒子（`headingBox`），H1 不带下划线（`noUnderline`） |
+| `minimal-mono` | 简约黑白一 | 米白底 + 灰阶标题层级，通用长文阅读排版；代码高亮、callout（4 档灰度区分轻重：危急/警示/中性/平和）、任务列表 checkbox、高亮背景色全部灰阶化，只保留一个克制的墨蓝强调色（链接、`done` 任务打勾），贯彻到底不是只有标题做到了"黑白"；H2 用边框盒子 + 书名号包裹标题（`headingBox` + `quoteMarks`），H1 不带下划线（`noUnderline`） |
+| `minimal-mono-2` | 简约黑白二 | 和"简约黑白一"用同一套灰阶代码/callout/任务列表/高亮色板（直接 `{ ...MINIMAL_MONO, ... }` 展开复制再覆盖差异字段），唯一区别是 H2 装饰：不是边框盒子，而是黑底白字、左对齐的实心色块（`headingBar`）——比 `headingBanner`/`headingBox` 都更简单，直接改 `<h2>` 自身的 `background-color`/`color`/`padding`，不额外引入任何包裹元素，是本节这几种标题装饰里理论上风险最低的一种 |
 | `warm-almond` | 护眼杏仁 | 暖米黄底 + 棕褐正文，长文阅读、减少眼疲劳 |
 | `tech-blue` | 科技蓝 | 冷白/浅灰底 + 靛蓝强调色，科技/商业/金融类账号 |
 | `china-red` | 中国红 | 暖白底 + 朱红+金强调色，文化/历史/时评类账号 |
@@ -242,6 +243,7 @@ new MarkdownIt({
 | `sakura-pink` | 樱语粉 | 柔和樱花粉，情感/生活方式/女性向账号 |
 | `graphite-dark` | 深空灰 | **首款暗色背景主题**，科技数码、深夜阅读 |
 | `orange-heart` | 橙心 | 参考"墨滴"同名主题：珊瑚橙 + 墨绿双色，H2 采用色块横幅（`headingBanner`），见下 |
+| `hardboiled-wonderland` | 冷酷的仙境 | 取名自村上春树《世界尽头与冷酷仙境》，冷调双强调色（冰蓝 + 浅紫）而非单一色系，呼应小说"硬汉奇境"与"世界尽头"两条故事线；冷底色不是靠深色，而是刻意选了偏冷调的浅灰白（区别于其它浅色主题的暖白/米白）；H2 用图标+柔和背景色标签（`headingIcon`），见下 |
 
 **`StaticTheme` 接口**（`themes.ts`）统一描述一款静态主题的全部色值：`bgPrimary`/`textNormal`/`textMuted`/`textFaint`/`textItalic`/`linkColor`/`accent`/`headings`（H1–H6 六色）/`highlightBg`/`codeBackground`/`borderColor`/`code`（10 个语法高亮 token 色）/`calloutAccent`（13 种 callout 类型强调色）。新增一款主题只需要在 `themes.ts` 里补一份这样的配置对象，`buildStaticThemeMap()` 会自动生成对应的 regex 替换表，其余模块（`callout.ts`/`mermaid.ts`/`math.ts`）都通过 `getStaticTheme(themeId)` 统一查表，不需要逐个文件加 if/else。
 
@@ -256,7 +258,9 @@ new MarkdownIt({
   ⑥ 这个意外拉高的结果澄清了一半真相：`align-items:stretch` 在微信里其实是生效的（之前一直以为它失效，其实是 `<img>` 高度本身没算对）。于是按二分法反复微调单行估算值上的余量：+0（漏空隙）→ +5（仍漏）→ +7/+8（不漏但拉高）——每一步都要麻烦用户重新粘贴截图确认，区间越收越窄，但徽标自身的"真实高度"本来就取决于微信替换的字体渲染出的行高，是个我们测不到、只能从外部摸的数字，永远在"差一点点"附近来回震荡；
   ⑦ **真正的修正**：问题不在于怎么猜准三角旗的高度，而在于徽标自己的高度从一开始就是隐式的（`padding` + `line-height` + 不受控制的字体行高）。干脆把徽标也改成显式高度（`box-sizing:border-box` + `inline-flex` 居中文字），这样两个元素共享同一个写死的像素数字，不再有任何一方依赖"猜对方实际渲染出多高"——`align-items:stretch` 也就不再需要了（两者本就等高，换成普通的 `align-items:center`）。
   **现状**：确认能稳定显示三角旗的技术是 `<img src="data:image/svg+xml,...">` + 纯像素 `height`（不用 `calc()`/`em`）。`clip-path`、零尺寸 `border` 三角形、`background-image` 全部已确认在微信粘贴场景下不可靠。高度匹配问题通过"两边都用显式高度、共享同一个字面量数字"解决，不再依赖 `align-items:stretch` 去猜测/追赶一个不受控制的真实渲染高度。
-- `headingBox?: { level: 1 | 2; borderColor: string; quoteMarks?: boolean }`：另一种标题装饰——边框盒子（目前简约黑白的 H2 在用）。结构很简单：一个 `<section>` 画 `border` + `background-color`，左右各缩进 20px（`inset`），内含左上角"+"、居中加粗的 `<h${level}>` 标题、右下角"+"（`text-align:left/right` 摆位，不用 `position:absolute`）。标题的 padding 刻意做成上下对称（`1px 20px`），不对称的 padding 会让标题看起来没有垂直居中。全部用 `<section>` 而非 `<div>`——确认过 `<div>` 在微信粘贴时可能连标签带内容一起消失。`quoteMarks: true` 给标题文字两侧加中文书名号「」（简约黑白在用）——纯文字拼接进标题内容本身，不是额外的标签元素，不会有上面"空标签被微信清掉"那个问题。
+- `headingBox?: { level: 1 | 2; borderColor: string; quoteMarks?: boolean }`：另一种标题装饰——边框盒子（目前简约黑白的 H2 在用）。结构很简单：一个 `<section>` 画 `border` + `background-color`，左右各缩进 20px（`inset`），内含左上角"+"、居中加粗的 `<h${level}>` 标题、右下角"+"（`text-align:left/right` 摆位，不用 `position:absolute`）。标题的 padding 刻意做成上下对称（`1px 20px`），不对称的 padding 会让标题看起来没有垂直居中。全部用 `<section>` 而非 `<div>`——确认过 `<div>` 在微信粘贴时可能连标签带内容一起消失。`quoteMarks: true` 给标题文字两侧加中文书名号「」（简约黑白一在用）——纯文字拼接进标题内容本身，不是额外的标签元素，不会有上面"空标签被微信清掉"那个问题。
+- `headingBar?: { level: 1 | 2; bgColor: string; textColor: string }`：另一种标题装饰——实心色块徽标（简约黑白二的 H2 在用）。`<h${level}>` 本身只负责 `text-align:center`，真正的色块是内层包住标题文字的 `<span style="display:inline-block; background-color...">`，这样背景色只贴着文字宽度，不会铺满整行（最早的版本是直接在 `<h2>` 自己身上设 `background-color`，整行铺满、左对齐，用户反馈要改成"居中 + 背景只包文字"后才加了这层 `<span>`）。仍然只有一个额外元素（`headingBanner` 的徽标、`headingBox` 的"+"号也是同样数量级），比那两个更简单的地方在于不需要任何定位/尺寸匹配逻辑，是这几种标题装饰里结构最简单的一种。
+- `headingIcon?: { level: 1 | 2; iconSvg: string; textColor: string; textBg: string }`：图标 + 柔和背景色标签（冷酷的仙境的 H2 在用）。`<h${level}>` 只负责 `display:flex; justify-content:center` 把整个标签居中；真正的标签是内层 `display:inline-flex; align-items:center` 的 `<span>`，背景色挂在**这一层**，`<img>` 图标和标题文字（自己又包了一层 `<span>` 管颜色）都是它的子元素——这样背景色能同时盖住图标和文字（最早的版本背景色只包文字、图标露在外面，用户反馈改成"背景也盖住图标"后才加了这层外层 `<span>`，顺带把 `<h2>` 自己从 `align-items:center` 改成 `justify-content:center` 实现整体居中）。不依赖任何高度匹配/stretch 逻辑（这点和三角旗、票据盒子的教训不一样：图标是固定尺寸，文字是自然高度，`align-items:center` 只是把两者居中对齐，不要求精确等高，风险低很多）。`iconSvg` 只传内部的 path/shape 标记，外层 `<svg viewBox="0 0 24 24">` 由代码统一包裹。参考图里标题左侧是三四个分别定位的彩色小图案（星星/圆点），这里刻意合并成**一个** `<img>`（SVG 内部画多个形状），不是多个分别定位的小元素——这个会话已经反复验证"多个零散定位的装饰小元素"在微信里不可靠，合并成单一 `<img>` 更稳。
   **曾经有过、后来放弃的设计**：参考截图原本还要求盒子上下各加一条比盒子更宽、朝相反方向偏移的横线（"票据/印章"效果）。这条线只能是空 `<section>`（只有 `border-top`，没有文字内容），实测发现这类纯空标签会被微信的粘贴净化器不可预测地清掉——不是像 `clip-path` 那样每次都稳定剥离，而是随着文档里重复出现的次数增多，丢失情况逐渐变严重（第一个 H2 只丢一条，往后的 H2 两条全丢）。给每条线塞一个不可见文字节点（`&nbsp;` + `color:transparent`，并且这个 `font-size`/`line-height` 必须直接设在 `<section>` 自己身上而不是内部再包一层 `<span>`，否则 `<section>` 会继承外层约 16px/1.75 倍行距撑出一大截空白）试图让它不再是"空标签"，仍然没能解决。用户帮忙跑 Console 脚本转储粘贴后的真实 DOM 确认了这一点，也确认了我们自己生成的原始 HTML 字符串标签闭合完全正常（不是己方 bug）。最终判断这是微信自己对这种重复结构的不稳定处理，不是能靠调整 HTML/CSS 可靠解决的问题，于是去掉这两条线，只保留边框盒子本身——盒子、"+"号、标题文字这些都是本节反复验证过确实稳定的元素。
 - `noUnderline?: (1 | 2)[]`：让指定层级的标题彻底不带下划线（既不要 `headingBanner`/`headingBox` 的装饰，也不要默认的 accent 色下划线）。H1/H2 默认都会有一条用 `theme.accent` 上色的 `border-bottom`（parser.ts 占位样式 + 通用替换），简约黑白给 H1 配了这个字段去掉它（H1 用纯文字即可，下划线留给 H2 的票据盒子去做视觉锚点，两级标题都带下划线会太满）。实现上要注意顺序：必须匹配**占位符原文**（`#7c3aed`/`#e5e5e5`）并在 `border-bottom: 2px solid #7c3aed → theme.accent` 这条通用替换之前执行，不然占位色已经被换成主题色，正则就匹配不上了。
 - `taskAccent?: { inProgress?; rescheduled?; question?; important? }`：任务列表 checkbox 的填充色，`parser.ts` 里这几种状态一直是硬编码的固定色号（蓝/橙/黄/红），不像标题/callout 那样天生走占位符替换体系——之前没人注意到这几个状态其实不跟随主题，静态主题切换时它们一直是同一套颜色。`done` 不需要这个字段，它恰好复用了 `#7c3aed` 这个和主题 accent 通用替换共享的占位色，本来就跟随主题；`todo` 是空心边框，没有填充色可换。简约黑白给这四个状态配了灰阶值，复用 callout 那套"轻重分级"逻辑（最严重的 `important` 最深）。
@@ -450,7 +454,7 @@ obsidian-publisher/
 │   │   └── embedder.ts                # 本地图片 → base64 data URL
 │   ├── style/
 │   │   ├── engine.ts                  # StyleEngine：主题覆盖分发 + Obsidian CSS 变量读取
-│   │   ├── themes.ts                  # 静态主题注册表（9 款预设）+ 主题色值→regex 替换表生成
+│   │   ├── themes.ts                  # 静态主题注册表（11 款预设）+ 主题色值→regex 替换表生成
 │   │   ├── color-utils.ts             # mixColors / hexToRgbTriplet / normalizeRgbTriplet
 │   │   └── sanitizer.ts               # 微信兼容性清理（移除 position/class/id 等）
 │   ├── clipboard/
