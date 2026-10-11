@@ -54,8 +54,31 @@ export interface StaticTheme {
 	 * heading depth.
 	 */
 	headingBanner?: { level: 1 | 2; textColor: string; flagColor?: string };
+	/**
+	 * Optional "ticket/stamp" treatment for one heading level: a full-width
+	 * rule above a bordered, inset box with centered text and small corner
+	 * crosses — e.g. 简约黑白's H2. Only levels 1–2 are supported, same
+	 * reasoning as headingBanner.
+	 */
+	headingBox?: { level: 1 | 2; borderColor: string; quoteMarks?: boolean };
+	/**
+	 * Heading levels that should drop the default underline (an accent-colored
+	 * border-bottom, normally applied to H1/H2 automatically) entirely, with
+	 * no replacement decoration — for themes where a level already gets its
+	 * own treatment from headingBanner/headingBox, or simply shouldn't be
+	 * underlined at all.
+	 */
+	noUnderline?: (1 | 2)[];
 	/** Optional override for **bold** text color; defaults to textNormal (inherited) when unset. */
 	boldColor?: string;
+	/**
+	 * Optional overrides for task-list checkbox fill colors. 'done' isn't
+	 * included — it already follows `accent` via the shared #7c3aed
+	 * placeholder every theme's accent color flows through. 'todo' isn't
+	 * included either — it's an unfilled border, no fill color to override.
+	 * Any state left unset keeps parser.ts's hardcoded default color.
+	 */
+	taskAccent?: Partial<Record<'inProgress' | 'rescheduled' | 'question' | 'important', string>>;
 }
 
 // Representative type used for each of the 8 visually-distinct callout groups
@@ -107,6 +130,12 @@ const CATPPUCCIN_LATTE: StaticTheme = {
 // ── 简约黑白 (Minimal Mono) ──────────────────────────────────────────────
 // Grayscale typography hierarchy with a single restrained ink-blue accent.
 // Designed for long-form reading where color should not compete with content.
+// Code syntax highlighting and callouts are grayscale too (code: lightness
+// alone carries the hierarchy comments/keywords would otherwise get from
+// hue; callouts: a 4-tier gray severity ramp — critical/caution/neutral/calm
+// — instead of a different hue per type), so nothing breaks the mono promise
+// the theme's name makes. Type is still readable without color: each callout
+// keeps its own icon shape and label text.
 
 const MINIMAL_MONO: StaticTheme = {
 	id: 'minimal-mono',
@@ -119,19 +148,31 @@ const MINIMAL_MONO: StaticTheme = {
 	linkColor: '#2B5FAD',
 	accent: '#2B5FAD',
 	headings: ['#14213D', '#1F1F1F', '#333333', '#404040', '#4D4D4D', '#595959'],
-	highlightBg: '#F5E6A8',
+	highlightBg: '#DCDCD6',
 	codeBackground: '#F1F1EE',
 	borderColor: '#E2E2DE',
 	code: {
-		normal: '#3760bf', comment: '#848cb8', keyword: '#9854f1', function: '#2e7de9',
-		string: '#587539', value: '#b15c00', tag: '#f52a65', property: '#007197',
-		variable: '#c64343', inline: '#a23e48',
+		normal: '#262626', comment: '#9A9A9A', keyword: '#1A1A1A', function: '#404040',
+		string: '#6B6B6B', value: '#595959', tag: '#333333', property: '#595959',
+		variable: '#4D4D4D', inline: '#333333',
 	},
 	calloutAccent: {
-		note: '#335FA8', abstract: '#2E7C7C', info: '#3A7D96', todo: '#B26E35',
-		tip: '#3F7C47', success: '#3F7C47', question: '#B28C35', warning: '#B28C35',
-		failure: '#B23F3F', danger: '#B23F3F', bug: '#964242', example: '#6C5CA0', quote: '#828282',
+		// Critical: failure/danger/bug — darkest, most visual weight.
+		failure: '#1F1F1F', danger: '#1F1F1F', bug: '#1F1F1F',
+		// Caution: todo/question/warning — asks for attention, not alarm.
+		todo: '#404040', question: '#404040', warning: '#404040',
+		// Neutral: note/abstract/info/example — plain informational.
+		note: '#595959', abstract: '#595959', info: '#595959', example: '#595959',
+		// Calm: tip/success/quote — positive or understated, lightest tier.
+		tip: '#808080', success: '#808080', quote: '#808080',
 	},
+	headingBox: { level: 2, borderColor: '#1F1F1F', quoteMarks: true },
+	noUnderline: [1],
+	// 'done' already follows accent (ink-blue) via the shared placeholder;
+	// 'cancelled' is already a neutral gray by default. These four are the
+	// ones that were still full-hue (blue/orange/yellow/red) regardless of
+	// theme — graded by the same severity logic as calloutAccent above.
+	taskAccent: { inProgress: '#404040', rescheduled: '#595959', question: '#595959', important: '#1F1F1F' },
 };
 
 // ── 护眼杏仁 (Warm Almond) ───────────────────────────────────────────────
@@ -508,10 +549,92 @@ export function buildStaticThemeMap(theme: StaticTheme): [RegExp, string][] {
 			[closeSource, `</span>${flagHtml}</${tag}>`],
 		);
 	}
+	if (theme.headingBox) {
+		const { level, borderColor, quoteMarks } = theme.headingBox;
+		const fontSize = level === 1 ? '22px' : '18px';
+		const topMargin = level === 1 ? '1.5em' : '1.3em';
+		const bottomMargin = level === 1 ? '0.8em' : '0.6em';
+		const inset = 20; // how much narrower the box is than the container, each side
+		const plusStyle = `font-size: 16px; font-weight: 700; line-height: 1; color: ${borderColor};`;
+		// <section>, not <div>, for every piece here — not just the box that
+		// carries background-color. Confirmed this session that a <div> can
+		// vanish entirely on WeChat paste (not just lose its style), so there's
+		// no safe case for using one where <section> costs nothing extra.
+		// Corner "+" marks sit just inside the box via plain text-align, not
+		// position:absolute straddling the border — another trick this session
+		// confirmed is unreliable once pasted, on top of being unverifiable
+		// without a real WeChat test each time it's touched.
+		//
+		// This originally also had a full-width rule above and below the box,
+		// offset off its edges (overhanging one side, falling short of the
+		// other) to match a reference screenshot. Dropped: those rules were
+		// genuinely empty <section>s (just a border, no content), and WeChat's
+		// paste sanitizer dropped them unpredictably — not deterministically
+		// per-property like clip-path/background-image, but seemingly
+		// cumulatively worse the more repeated heading instances were in the
+		// pasted document (first H2 lost its bottom rule only, the next H2
+		// lost both). Giving each rule real text content (an invisible
+		// &nbsp;) didn't fix it either. Confirmed via a raw generated-HTML
+		// dump (not the browser-corrected DOM) that our own markup is clean
+		// and well-formed at every instance, so this isn't a tag-balance bug
+		// on our end — it's WeChat's own handling of this repeated pattern,
+		// outside what adjusting our CSS/HTML can reliably fix. The box
+		// itself (border, corner "+" marks, centered title) is unaffected by
+		// this and has been confirmed stable, so that's all that's left.
+		const boxOpen =
+			`<section style="border: 1px solid ${borderColor}; background-color: ${theme.bgPrimary}; ` +
+			`margin: ${topMargin} ${inset}px ${bottomMargin} ${inset}px;">` +
+			`<section style="padding: 0 8px 0 8px; ${plusStyle}">+</section>`;
+		const boxClose =
+			`<section style="padding: 0 8px 2px 8px; text-align: right; ${plusStyle}">+</section></section>`;
+		const [openSource, closeSource] = level === 1
+			? [H1_OPEN_SOURCE, H1_CLOSE_SOURCE]
+			: [H2_OPEN_SOURCE, H2_CLOSE_SOURCE];
+		const tag = level === 1 ? 'h1' : 'h2';
+		// Symmetric top/bottom padding — the earlier asymmetric 2px/14px made
+		// the title look pushed toward the top instead of centered in the box.
+		const headingStyle =
+			`font-size: ${fontSize}; font-weight: 700; text-align: center; ` +
+			`color: ${theme.textNormal}; margin: 0; padding: 0 20px; line-height: 1.25;`;
+		// Plain CJK quote marks («title» in Chinese typography) wrapping the
+		// title text — real text, not a separate element, so it carries none
+		// of the "empty decorative tag" risk the dropped rule-lines above had.
+		const quoteOpen = quoteMarks ? '「' : '';
+		const quoteClose = quoteMarks ? '」' : '';
+		map.push(
+			[openSource, `${boxOpen}<${tag} style="${headingStyle}">${quoteOpen}`],
+			[closeSource, `${quoteClose}</${tag}>${boxClose}`],
+		);
+	}
+	if (theme.noUnderline) {
+		// Matched against the literal placeholder text (not theme.accent —
+		// this has to run before the generic border-bottom→accent-color
+		// substitution further down, which would otherwise color it in first
+		// and leave nothing here to match against).
+		const underlinePlaceholder: Record<1 | 2, RegExp> = {
+			1: /; border-bottom: 2px solid #7c3aed; padding-bottom: 0\.3em/g,
+			2: /; border-bottom: 1px solid #e5e5e5; padding-bottom: 0\.2em/g,
+		};
+		for (const level of theme.noUnderline) {
+			map.push([underlinePlaceholder[level], '']);
+		}
+	}
 	if (theme.boldColor) {
 		// Lookbehind restricts this to <strong>'s own color: #1a1a1a, so the
 		// generic text catch-all below still governs everywhere else.
 		map.push([/(?<=<strong[^>]*?)color: #1a1a1a/g, `color: ${theme.boldColor}`]);
+	}
+	if (theme.taskAccent) {
+		const taskPlaceholder: Record<'inProgress' | 'rescheduled' | 'question' | 'important', RegExp> = {
+			inProgress:  /background-color: #4e96e0/g,
+			rescheduled: /background-color: #d4820a/g,
+			question:    /background-color: #ba8f00/g,
+			important:   /background-color: #d44030/g,
+		};
+		for (const key of Object.keys(theme.taskAccent) as (keyof typeof taskPlaceholder)[]) {
+			const color = theme.taskAccent[key];
+			if (color) map.push([taskPlaceholder[key], `background-color: ${color}`]);
+		}
 	}
 	for (const type of CALLOUT_GROUPS) {
 		map.push([bgSourcePattern[type]!, `background-color: ${calloutBg(theme, type)}`]);
