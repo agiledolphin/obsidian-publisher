@@ -87,8 +87,8 @@ export default class ObsidianPublisher extends Plugin {
 					const panelOpen = this.app.workspace.getLeavesOfType(VIEW_TYPE_PUBLISHER_PREVIEW).length > 0;
 					menu.addItem((item) =>
 						item
-							.setTitle(panelOpen ? '关闭预览面板' : '打开预览面板')
-							.setIcon('layout-sidebar-right')
+							.setTitle(panelOpen ? '关闭公众号预览面板' : '打开公众号预览面板')
+							.setIcon('panel-right')
 							.onClick(() => {
 								if (panelOpen) {
 									this.app.workspace.detachLeavesOfType(VIEW_TYPE_PUBLISHER_PREVIEW);
