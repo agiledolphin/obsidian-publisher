@@ -17,15 +17,16 @@
 | `[[WikiLink]]` | 灰色文字（不可点击，保留引用语义） | ✅ 已验证 |
 | `==高亮==` | `<mark>`，颜色跟随主题 | ✅ 已验证 |
 | `~~删除线~~` | `<del>` | ✅ 已验证 |
-| 任务列表（7 种状态） | 自定义方框图标，固定配色，见下表 | ✅ 已验证 |
+| 任务列表（7 种状态） | 自定义方框图标，见下表 | ✅ 已验证 |
 | `> 引用` | 左侧 accent 色竖线（2px） | ✅ 已验证 |
 | `> [!note]` Callout 块 | 带标题的样式块，颜色/图标跟随主题 | ✅ 已验证 |
-| 代码块 | 语法高亮（Tokyo Night 配色） | ✅ 已验证 |
+| 代码块 | 语法高亮（"当前 Obsidian 主题"下用 Tokyo Night 配色，静态预设主题各有自己的代码配色） | ✅ 已验证 |
 | `[^1]` 脚注 | 上标引用 + 底部定义区（微信兼容，无锚链接） | ✅ 已验证 |
 | `$...$` / `$$...$$` 数学公式 | PNG 图片（MathJax 渲染，编辑/阅读模式均支持） | ✅ 已验证 |
 | Mermaid 图表 | PNG 图片（深/浅色模式自动切换配色） | ✅ 已验证 |
 | Frontmatter | 自动移除 | ✅ 已验证 |
 | `#tag` 标签 | 自动移除 | ✅ 已验证 |
+| `%% 注释 %%` | 自动隐藏（行内与整块注释均支持，代码块里的不受影响） | ✅ 已验证 |
 | `![[image.png]]` | 图片（支持宽度限制 `![[img.png\|300]]`） | ✅ 已验证 |
 | `![[note.md]]` | 内联展开被嵌入的笔记（最大递归深度 3） | ✅ 已验证 |
 
@@ -41,14 +42,14 @@
 | `- [?]` | ? | 黄色 | 正常 |
 | `- [!]` | ! | 红色 | 正常 |
 
-任务列表样式为公众号自有风格，不跟随 Obsidian 主题。
+上表是默认配色。已完成（`[x]`）的打勾颜色跟随所选主题的强调色；静态预设主题还可以覆盖其它状态的颜色，比如简约黑白一/二全部改为灰阶。
 
 ### 主题适配
 
 插件在转换时从当前 Obsidian 主题读取实际 CSS 变量，预览和输出样式跟随主题自动适配：
 
 - 文字颜色、背景色、强调色（accent）
-- 标题颜色（H1–H6 各级独立读取）
+- 标题颜色（H1–H6 各级独立读取），以及标题下划线（主题本身有下划线才会显示）
 - 斜体颜色、高亮背景色与文字颜色
 - Callout 配色与图标（13 种类型，读取 `--callout-color` / `--callout-icon` CSS 变量）
 - 代码块背景色
@@ -63,8 +64,8 @@
 
 ### 手动安装（推荐）
 
-1. 前往 [GitHub Releases](https://github.com/agiledolphin/obsidian-publisher/releases/latest)，下载 `main.js` 和 `manifest.json`
-2. 在 vault 中创建目录 `.obsidian/plugins/obsidian-publisher/`，将两个文件放入
+1. 前往 [GitHub Releases](https://github.com/agiledolphin/obsidian-publisher/releases/latest)，下载 `main.js`、`manifest.json` 和 `styles.css`
+2. 在 vault 中创建目录 `.obsidian/plugins/obsidian-publisher/`，将三个文件放入（缺少 `styles.css` 时预览面板的布局会错乱）
 3. 在 Obsidian：**设置 → 第三方插件 → 关闭安全模式 → 启用 Obsidian Publisher**
 
 ### 开发模式安装
@@ -129,6 +130,9 @@ JavaScript / TypeScript、Python、Java、Go、Rust、C++、CSS、HTML / XML、B
   - [x] 高亮文字颜色跟随主题
   - [x] Callout 颜色与图标跟随主题（CSS 变量 + Lucide 图标）
   - [x] 右侧预览面板（切换文件自动刷新，手动刷新按钮，关闭时折叠右侧分栏）
+  - [x] 发布主题系统（当前 Obsidian 主题 + 11 款静态预设，预览弹窗/面板中可直接切换）
+  - [x] H1–H6 标题下划线跟随当前 Obsidian 主题
+  - [x] `%% 注释 %%` 自动隐藏
 - [ ] 阶段二：微信公众号 API 自动发布（草稿上传）
 - [ ] Mermaid 颜色精确匹配 Obsidian 主题
 - [ ] 图床上传（SM.MS / 阿里云 OSS 等）
