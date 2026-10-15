@@ -147,6 +147,15 @@ export function applyPreviewContent(
 		container.style.setProperty(prop, val);
 	}
 
+	// The frame's padding ring takes the content's own page background when
+	// it has one (dark mode, static themes) so the two read as one surface;
+	// only content with no background of its own (live theme, light mode)
+	// falls back to styles.css's white, standing in for WeChat's article page.
+	const root = container.firstElementChild as HTMLElement | null;
+	const rootBg = root?.style.backgroundColor ?? '';
+	if (rootBg) container.style.setProperty('background-color', rootBg);
+	else container.style.removeProperty('background-color');
+
 	const lineHeight = themeVars['--pub-line-height'] ?? '1.75';
 	container.querySelectorAll('p, li').forEach((el) => {
 		(el as HTMLElement).style.setProperty('line-height', lineHeight);

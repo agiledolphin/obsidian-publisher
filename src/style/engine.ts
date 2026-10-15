@@ -6,6 +6,7 @@ import { getStaticTheme, buildStaticThemeMap, type ThemeName } from './themes';
 export type { ThemeName };
 
 export interface ObsidianVars {
+	isDark:      boolean; // Obsidian is in dark mode (body.theme-dark)
 	bgPrimary:   string;
 	bgSecondary: string;
 	bgBorder:    string;
@@ -123,10 +124,19 @@ function readComputedBg(varName: string, fallback: string): string {
 }
 
 function readComputedFont(varName: string, fallback: string): string {
-	return withEl(
+	const raw = withEl(
 		{ 'font-family': `var(${varName})`, ...HIDDEN_STYLE },
-		el => getComputedStyle(el).fontFamily.trim() || fallback,
+		el => getComputedStyle(el).fontFamily.trim(),
 	);
+	// Obsidian's app.css defaults --font-text-override to the placeholder
+	// font name '??' when the user hasn't picked a font, so --font-text
+	// always starts with it. Harmless in a browser (no such font, skipped),
+	// but it's junk in the exported HTML — drop it.
+	const families = raw
+		.split(',')
+		.map(f => f.trim())
+		.filter(f => f && !/^["']?\?\?["']?$/.test(f));
+	return families.join(', ') || fallback;
 }
 
 /**
@@ -436,6 +446,7 @@ export function readObsidianVars(): ObsidianVars {
 	logger.debug('readObsidianVars: isDark =', isDark, '| palette =', isDark ? 'dark' : 'light');
 	const tableHeaderVars = readTableHeaderVars('#1a1a1a');
 	const vars: ObsidianVars = {
+		isDark,
 		bgPrimary:   readComputedBg('--background-primary', '#ffffff'),
 		bgSecondary: readComputedBg('--background-secondary',       '#f6f8fa'),
 		bgBorder:    readComputedColor('--background-modifier-border', '#e5e5e5'),
@@ -566,7 +577,13 @@ export class StyleEngine {
 			`font-size: 16px; line-height: ${lineHeight}; letter-spacing: 0.3px; word-break: break-word;`;
 
 		if (this.theme === 'obsidian' && vars) {
-			return base + ` color: ${vars.textNormal}; background-color: ${vars.bgPrimary};`;
+			// Light mode: no page background at all — WeChat's own page shows
+			// through instead of Obsidian's slightly-tinted light background.
+			// Dark mode keeps it: the text color read from a dark theme is
+			// light, and is unreadable on WeChat's default white page without
+			// its own background (confirmed by a real paste test).
+			const bg = vars.isDark ? ` background-color: ${vars.bgPrimary};` : '';
+			return base + ` color: ${vars.textNormal};${bg}`;
 		}
 		const staticTheme = getStaticTheme(this.theme) ?? getStaticTheme('catppuccin-latte')!;
 		return base + ` color: ${staticTheme.textNormal}; background-color: ${staticTheme.bgPrimary};`;
