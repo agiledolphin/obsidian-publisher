@@ -94,6 +94,13 @@ export interface StaticTheme {
 	/** Optional override for **bold** text color; defaults to textNormal (inherited) when unset. */
 	boldColor?: string;
 	/**
+	 * Don't export `bgPrimary` as the article's page background — WeChat's
+	 * own page shows through instead. Only for light themes whose text stays
+	 * readable on white; `bgPrimary` is still used internally (callout tints,
+	 * etc.).
+	 */
+	transparentPage?: boolean;
+	/**
 	 * Optional overrides for task-list checkbox fill colors. 'done' isn't
 	 * included — it already follows `accent` via the shared #7c3aed
 	 * placeholder every theme's accent color flows through. 'todo' isn't
@@ -437,7 +444,10 @@ const ORANGE_HEART: StaticTheme = {
 		example: '#8F6B8A',  // muted plum — a cool accent for contrast
 		quote: '#A69C90',    // warm taupe — matches code.comment
 	},
-	headingBanner: { level: 2, textColor: '#FFFFFF', flagColor: '#EEEBE9' },
+	// No flag: the near-white flag (#EEEBE9) read poorly against WeChat's
+	// dark-mode page. The flag mechanism itself still works if re-enabled.
+	headingBanner: { level: 2, textColor: '#FFFFFF' },
+	transparentPage: true,
 	boldColor: '#DF7766',
 };
 
@@ -490,6 +500,7 @@ const HARDBOILED_WONDERLAND: StaticTheme = {
 		textBg: '#EDE9F7',
 	},
 	boldColor: '#1E9E8F',
+	transparentPage: true,
 };
 
 export const STATIC_THEMES: Record<string, StaticTheme> = {
@@ -587,13 +598,14 @@ export function buildStaticThemeMap(theme: StaticTheme): [RegExp, string][] {
 		// content so the text still sits in the middle of whatever height is
 		// declared, even if real text metrics don't divide evenly into it.
 		const badgeHeight = level === 1 ? 46 : 40;
-		// Rounded only on the top-left: the right edge butts against the flag
-		// (when present), and the bottom stays square so the full-width
-		// underline meets it cleanly instead of poking out past a curve.
+		// Top corners only: the bottom stays square so the full-width underline
+		// meets it cleanly. With a flag, the top-right stays square too, since
+		// the flag butts against that edge.
+		const radius = flagColor ? '6px 0 0 0' : '6px 6px 0 0';
 		const badgeStyle =
 			`display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; ` +
 			`height: ${badgeHeight}px; background-color: ${theme.accent}; color: ${textColor}; ` +
-			`font-size: ${fontSize}; font-weight: 700; padding: 0 18px; border-radius: 6px 0 0 0;`;
+			`font-size: ${fontSize}; font-weight: 700; padding: 0 18px; border-radius: ${radius};`;
 		const wrapperStyle = `display: flex; align-items: center; margin: ${margin};` +
 			`border-bottom: 2px solid ${theme.accent};`;
 		// The flag is an <img> over an SVG data URI — the same trick callout

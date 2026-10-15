@@ -191,7 +191,7 @@ new MarkdownIt({
 
 | 插件 | 文件 | 功能 |
 |------|------|------|
-| `obsidianCalloutPlugin` | `plugins/callout.ts` | `> [!type]` → 带样式 section；`obsidian` 主题下颜色/图标通过 `--callout-color` / `--callout-icon` CSS 变量跟随主题（`normalizeRgbTriplet` 兼容 "r,g,b" 和十六进制两种取值格式），静态主题下走 `setCalloutTheme()` 注入的固定色板；图标用 Lucide SVG（`getIcon()`）；普通 `>` → blockquote（accent 竖线） |
+| `obsidianCalloutPlugin` | `plugins/callout.ts` | `> [!type]` → 带样式 section；`obsidian` 主题下颜色/图标通过 `--callout-color` / `--callout-icon` CSS 变量跟随主题（`normalizeRgbTriplet` 兼容 "r,g,b" 和十六进制两种取值格式），静态主题下走 `setCalloutTheme()` 注入的固定色板；图标用 Lucide SVG（`getIcon()`），输出前统一转成 PNG（见 8.12）；普通 `>` → blockquote（accent 竖线） |
 | `obsidianWikiLinkPlugin` | `plugins/wikilink.ts` | `[[link]]` → 灰色 `<span>`（muted 色，不可点击） |
 | `obsidianHighlightPlugin` | `plugins/highlight-mark.ts` | `==text==` → `<mark>` |
 | `obsidianStrikethroughPlugin` | `plugins/strikethrough.ts` | `~~text~~` → `<del>` |
@@ -242,14 +242,14 @@ new MarkdownIt({
 | `forest-green` | 森系绿 | 清新鼠尾草绿，健康/教育/成长类账号 |
 | `sakura-pink` | 樱语粉 | 柔和樱花粉，情感/生活方式/女性向账号 |
 | `graphite-dark` | 深空灰 | **首款暗色背景主题**，科技数码、深夜阅读 |
-| `orange-heart` | 橙心 | 参考"墨滴"同名主题：珊瑚橙 + 墨绿双色，H2 采用色块横幅（`headingBanner`），见下 |
+| `orange-heart` | 橙心 | 参考"墨滴"同名主题：珊瑚橙 + 墨绿双色，H2 采用色块横幅（`headingBanner`），见下；**不带三角旗**（曾经有，见下） |
 | `hardboiled-wonderland` | 冷酷的仙境 | 取名自村上春树《世界尽头与冷酷仙境》，冷调双强调色（冰蓝 + 浅紫）而非单一色系，呼应小说"硬汉奇境"与"世界尽头"两条故事线；冷底色不是靠深色，而是刻意选了偏冷调的浅灰白（区别于其它浅色主题的暖白/米白）；H2 用图标+柔和背景色标签（`headingIcon`），见下 |
 
 **`StaticTheme` 接口**（`themes.ts`）统一描述一款静态主题的全部色值：`bgPrimary`/`textNormal`/`textMuted`/`textFaint`/`textItalic`/`linkColor`/`accent`/`headings`（H1–H6 六色）/`highlightBg`/`codeBackground`/`borderColor`/`code`（10 个语法高亮 token 色）/`calloutAccent`（13 种 callout 类型强调色）。新增一款主题只需要在 `themes.ts` 里补一份这样的配置对象，`buildStaticThemeMap()` 会自动生成对应的 regex 替换表，其余模块（`callout.ts`/`mermaid.ts`/`math.ts`）都通过 `getStaticTheme(themeId)` 统一查表，不需要逐个文件加 if/else。
 
 **两个可选扩展字段**（目前只有橙心用到）：
 
-- `headingBanner?: { level: 1 | 2; textColor: string; flagColor?: string }`：把指定层级标题从纯色文字换成"色块横幅"——内层 `<span>` 徽标（`display:inline-flex; align-items:center; justify-content:center`，显式 `box-sizing:border-box; height: ${badgeHeight}px`，文字在固定高度盒子里居中）+ 外层 `<h2>` 撑满宽度画 `border-bottom` 通栏细线。若配置了 `flagColor`，徽标右侧会再拼一个三角旗：`<img>` 引用一段内联 SVG data URI（三角形多边形 + `preserveAspectRatio="none"`），和 callout 图标是同一招，同样用显式 `height: ${badgeHeight}px`——跟徽标共用**同一个字面量数字**，不再互相"猜"对方的真实高度。**这条前后踩了七次坑**，按顺序记录：
+- `headingBanner?: { level: 1 | 2; textColor: string; flagColor?: string }`：把指定层级标题从纯色文字换成"色块横幅"——内层 `<span>` 徽标（`display:inline-flex; align-items:center; justify-content:center`，显式 `box-sizing:border-box; height: ${badgeHeight}px`，文字在固定高度盒子里居中）+ 外层 `<h2>` 撑满宽度画 `border-bottom` 通栏细线。徽标只有上面两个角是圆角；带三角旗时右上角也保持直角，好让旗子贴上去。**橙心后来去掉了三角旗**：旗子颜色是接近白色的 `#EEEBE9`，在微信深色模式下效果不好，用户决定不要了。下面这套三角旗机制仍然保留在代码里，配上 `flagColor` 即可重新启用。若配置了 `flagColor`，徽标右侧会再拼一个三角旗：`<img>` 引用一段内联 SVG data URI（三角形多边形 + `preserveAspectRatio="none"`），和 callout 图标是同一招，同样用显式 `height: ${badgeHeight}px`——跟徽标共用**同一个字面量数字**，不再互相"猜"对方的真实高度。**这条前后踩了七次坑**，按顺序记录：
   ① CSS `clip-path` 画三角形——微信粘贴过滤器会剥离 `clip-path`，旗子直接消失；
   ② 换成零尺寸 `<span>` + `border-width`/`border-color` 画三角形——一度以为微信实测过关，但后续补测发现**这招其实整个被微信过滤掉了**（大概率是把"宽高都是 0 的空元素"当垃圾清掉，不管有没有 border），旗子完全不显示；
   ③ 为了让高度自动匹配徽标，先后试了 `<img>`（SVG 只写 `viewBox` 不写 `width`/`height`——浏览器没有声明的内在尺寸，直接退回 UA 默认的 300×150，把徽标撑成大方块）和空 `<span>` 背景图（`background-image` 不参与盒子尺寸计算，`align-self:stretch` 确实能让高度正确拉伸，但背景图这种"按 CSS 加载外部资源"的写法会被微信粘贴过滤器整个丢弃，预览正常、粘贴到公众号后却完全不见）；
@@ -257,7 +257,7 @@ new MarkdownIt({
   ⑤ 由于零尺寸 border 三角形被证实整个不显示（比"有空隙"更差），退回到 `<img>`（目前为止唯一确认能在微信里显示出东西的技术），不再用 `calc()`，改成 `<img>` 显式纯像素 `height`（单行估算值 + 8px 余量）——微信实测三角旗终于稳定显示、不再有空隙，但徽标本身也被拉高了一截；
   ⑥ 这个意外拉高的结果澄清了一半真相：`align-items:stretch` 在微信里其实是生效的（之前一直以为它失效，其实是 `<img>` 高度本身没算对）。于是按二分法反复微调单行估算值上的余量：+0（漏空隙）→ +5（仍漏）→ +7/+8（不漏但拉高）——每一步都要麻烦用户重新粘贴截图确认，区间越收越窄，但徽标自身的"真实高度"本来就取决于微信替换的字体渲染出的行高，是个我们测不到、只能从外部摸的数字，永远在"差一点点"附近来回震荡；
   ⑦ **真正的修正**：问题不在于怎么猜准三角旗的高度，而在于徽标自己的高度从一开始就是隐式的（`padding` + `line-height` + 不受控制的字体行高）。干脆把徽标也改成显式高度（`box-sizing:border-box` + `inline-flex` 居中文字），这样两个元素共享同一个写死的像素数字，不再有任何一方依赖"猜对方实际渲染出多高"——`align-items:stretch` 也就不再需要了（两者本就等高，换成普通的 `align-items:center`）。
-  **现状**：确认能稳定显示三角旗的技术是 `<img src="data:image/svg+xml,...">` + 纯像素 `height`（不用 `calc()`/`em`）。`clip-path`、零尺寸 `border` 三角形、`background-image` 全部已确认在微信粘贴场景下不可靠。高度匹配问题通过"两边都用显式高度、共享同一个字面量数字"解决，不再依赖 `align-items:stretch` 去猜测/追赶一个不受控制的真实渲染高度。
+  **现状**：确认能稳定显示三角旗的技术是 `<img>` + 纯像素 `height`（不用 `calc()`/`em`）。代码里三角旗仍然先按 SVG data URI 生成，但输出前会被统一转成 PNG——SVG 图片粘贴后能显示，**保存草稿时会被微信丢掉**，见 8.12。`clip-path`、零尺寸 `border` 三角形、`background-image` 全部已确认在微信粘贴场景下不可靠。高度匹配问题通过"两边都用显式高度、共享同一个字面量数字"解决，不再依赖 `align-items:stretch` 去猜测/追赶一个不受控制的真实渲染高度。
 - `headingBox?: { level: 1 | 2; borderColor: string; quoteMarks?: boolean }`：另一种标题装饰——边框盒子（目前简约黑白的 H2 在用）。结构很简单：一个 `<section>` 画 `border` + `background-color`，左右各缩进 20px（`inset`），内含左上角"+"、居中加粗的 `<h${level}>` 标题、右下角"+"（`text-align:left/right` 摆位，不用 `position:absolute`）。标题的 padding 刻意做成上下对称（`1px 20px`），不对称的 padding 会让标题看起来没有垂直居中。全部用 `<section>` 而非 `<div>`——确认过 `<div>` 在微信粘贴时可能连标签带内容一起消失。`quoteMarks: true` 给标题文字两侧加中文书名号「」（简约黑白一在用）——纯文字拼接进标题内容本身，不是额外的标签元素，不会有上面"空标签被微信清掉"那个问题。
 - `headingBar?: { level: 1 | 2; bgColor: string; textColor: string }`：另一种标题装饰——实心色块徽标（简约黑白二的 H2 在用）。`<h${level}>` 本身只负责 `text-align:center`，真正的色块是内层包住标题文字的 `<span style="display:inline-block; background-color...">`，这样背景色只贴着文字宽度，不会铺满整行（最早的版本是直接在 `<h2>` 自己身上设 `background-color`，整行铺满、左对齐，用户反馈要改成"居中 + 背景只包文字"后才加了这层 `<span>`）。仍然只有一个额外元素（`headingBanner` 的徽标、`headingBox` 的"+"号也是同样数量级），比那两个更简单的地方在于不需要任何定位/尺寸匹配逻辑，是这几种标题装饰里结构最简单的一种。
 - `headingIcon?: { level: 1 | 2; iconSvg: string; textColor: string; textBg: string }`：图标 + 柔和背景色标签（冷酷的仙境的 H2 在用）。`<h${level}>` 只负责 `display:flex; justify-content:center` 把整个标签居中；真正的标签是内层 `display:inline-flex; align-items:center` 的 `<span>`，背景色挂在**这一层**，`<img>` 图标和标题文字（自己又包了一层 `<span>` 管颜色）都是它的子元素——这样背景色能同时盖住图标和文字（最早的版本背景色只包文字、图标露在外面，用户反馈改成"背景也盖住图标"后才加了这层外层 `<span>`，顺带把 `<h2>` 自己从 `align-items:center` 改成 `justify-content:center` 实现整体居中）。不依赖任何高度匹配/stretch 逻辑（这点和三角旗、票据盒子的教训不一样：图标是固定尺寸，文字是自然高度，`align-items:center` 只是把两者居中对齐，不要求精确等高，风险低很多）。`iconSvg` 只传内部的 path/shape 标记，外层 `<svg viewBox="0 0 24 24">` 由代码统一包裹。参考图里标题左侧是三四个分别定位的彩色小图案（星星/圆点），这里刻意合并成**一个** `<img>`（SVG 内部画多个形状），不是多个分别定位的小元素——这个会话已经反复验证"多个零散定位的装饰小元素"在微信里不可靠，合并成单一 `<img>` 更稳。
@@ -466,7 +466,8 @@ obsidian-publisher/
 │   │   └── preview-renderer.ts        # 共享：readThemeVars + applyPreviewContent
 │   └── utils/
 │       ├── logger.ts                  # 调试日志（受 debugMode 控制）
-│       └── mime.ts                    # 文件扩展名 → MIME 类型
+│       ├── mime.ts                    # 文件扩展名 → MIME 类型
+│       └── svg-raster.ts              # SVG → PNG（Mermaid 共用；输出前把 SVG 图片统一转 PNG、小 PNG 补到 2KB）
 ├── styles.css                         # 插件 UI 样式（预览弹窗等）
 ├── manifest.json                      # 版本 0.7.0
 ├── package.json
@@ -578,6 +579,8 @@ Obsidian 主题使用深度嵌套变量，`getPropertyValue()` 返回原始字�
 
 Parser 输出 GitHub Light 配色（hardcoded 颜色值）。StyleEngine 的 `applyObsidianOverrides` 将这些颜色替换为两套 Tokyo Night 配色（Day/Storm），具体选哪套由 `document.body.classList.contains('theme-dark')` 决定。
 
+**代码块空白**：微信粘贴时不理会 `<pre>` 上的 `white-space: pre`，会按普通网页规则压缩空白——夹在两个高亮 `<span>` 之间的单独空格（`def` 和 `hello_world` 之间）、行首缩进都会消失，而夹在普通文字中间的空格能保留。所以 `parser.ts` 的 `preserveCodeWhitespace()` 在高亮完成后，把代码里标签之外的文字中的空格换成 `&nbsp;`、制表符换成 4 个 `&nbsp;`、换行换成 `<br>`（去掉末尾换行），不再依赖 `white-space`。所有围栏代码块（带不带语言标记）都走这个 `highlight` 回调，一处覆盖。代价：读者从公众号复制代码时，空格会是不换行空格（`U+00A0`），个别编辑器里可能需要替换，这是公众号代码块的普遍做法。
+
 ### 8.4 图片路径含空格
 
 markdown-it 渲染 `![alt](path with spaces)` 时会 URL 编码空格，导致 `vault.getAbstractFileByPath()` 找不到文件。
@@ -636,11 +639,23 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 
 **经验**：这类问题靠在 Obsidian 里反复试错效率很低，因为预览环境和微信真实粘贴环境本来就不是同一套渲染/净化逻辑；直接从用户那边拿到粘贴后的真实 DOM 数据（哪怕只是一段简单的 Console 脚本转储），比纯靠猜测再一轮轮验证快得多，也更准。
 
-### 8.11 "当前 Obsidian 主题"浅色模式下不带正文背景色
+### 8.11 部分主题不带正文背景色（"当前 Obsidian 主题"浅色模式、橙心、冷酷的仙境）
 
-用户要求"当前 Obsidian 主题"复制到公众号时不带正文背景色，交给微信自己决定——Obsidian 浅色主题的背景常常是略带灰/暖调的浅色，贴到公众号白底上会变成一块和周围不一样的色块。但这个主题的文字颜色是从 Obsidian 实时读的：**深色模式下读到的是浅色文字**，如果也去掉背景，贴到公众号默认白底上就看不清了（和讨论"深空灰"要不要透明背景时是同一个道理）。所以只在**浅色模式**下去掉：`getWrapperStyle()` 根据 `ObsidianVars.isDark`（`body.theme-dark`，读变量时一并记下）决定是否输出 `background-color`，深色模式照旧带上 `--background-primary`（用户专门试过深色模式也去掉背景、粘贴到微信实测，确认浅色文字确实看不清，已回退）。静态预设主题不受影响，它们的背景色是主题设计的一部分。
+用户要求"当前 Obsidian 主题"复制到公众号时不带正文背景色，交给微信自己决定——Obsidian 浅色主题的背景常常是略带灰/暖调的浅色，贴到公众号白底上会变成一块和周围不一样的色块。但这个主题的文字颜色是从 Obsidian 实时读的：**深色模式下读到的是浅色文字**，如果也去掉背景，贴到公众号默认白底上就看不清了（和讨论"深空灰"要不要透明背景时是同一个道理）。所以只在**浅色模式**下去掉：`getWrapperStyle()` 根据 `ObsidianVars.isDark`（`body.theme-dark`，读变量时一并记下）决定是否输出 `background-color`，深色模式照旧带上 `--background-primary`（用户专门试过深色模式也去掉背景、粘贴到微信实测，确认浅色文字确实看不清，已回退）。
+
+静态预设主题默认仍然输出自己的背景色（背景是主题设计的一部分），但可以用 `transparentPage: true` 关掉——之后用户要求橙心和冷酷的仙境也不带背景色，就给这两个打开了。只适合浅色主题：去掉后正文直接落在公众号白底上，文字必须在白底上也清晰。`bgPrimary` 仍然保留，内部用来计算 callout 底色等；Mermaid 图表虽然也用 `bgPrimary` 做配色基准，但导出的 PNG 背景本身是透明的，去掉页面背景后不会出现一块带底色的矩形（已在预览里确认）。
 
 配套改了预览框：底色**跟随内容自身的背景色**——`applyPreviewContent()`（`preview-renderer.ts`，弹窗和面板共用）读根 `<section>` 的内联 `background-color`，有就设到预览框上，没有就清掉、退回 `styles.css` 里的白色（模拟公众号文章页）。第一版是预览框一律固定白色，深色模式/静态主题的内容外面就露出一圈白边（预览框 `padding` 那一圈），用户觉得像 bug——虽然严格说那是"贴到白底公众号页面上"的样子，但公众号自己也可能在深色模式，白边并不总是真实效果，所以改成跟随内容。
+
+### 8.12 图片在保存草稿时被微信丢掉（SVG、小于约 1KB）→ 统一转 PNG 并补足体积
+
+之前一直以为 `<img src="data:image/svg+xml,...">` 在微信里"稳定可靠"（callout 图标、橙心三角旗、冷酷的仙境 H2 图标都靠它），因为粘贴进编辑器后确实能显示。后来用户发现：**粘贴后能看到，但一保存草稿就没了**——三角旗、所有 callout 标题图标都消失。推测是保存时微信服务器会把文章里的内嵌图片转存到自己的图床，而转存只认位图格式（PNG/JPG/GIF），SVG 转存不了就被删掉。数学公式、Mermaid、本地图片本来就是 PNG，所以一直没出问题。
+
+修复：`convert()` 的最后一步加了 `rasterizeSvgImages()`（`src/utils/svg-raster.ts`），把输出 HTML 里所有 SVG data URI 的 `<img>` 在本地转成 PNG data URI——按 `<img>` 的显示尺寸（内联 style 的 px → `width`/`height` 属性 → SVG 根节点自己的尺寸，依次取）乘 2 倍渲染，`<img>` 的其它属性和样式原样保留，显示尺寸不变；相同图标只渲染一次。转换失败就保留原 SVG（至少编辑器里还能看到）。生成三角旗/图标的代码本身不用改，仍然先写 SVG，最后统一转。SVG→画布→PNG 这一段原本写在 Mermaid 里，抽成了共用的 `rasterizeSvg()`，Mermaid 也改用它。
+
+**转成 PNG 之后还不够——小于约 1KB 的图片也会被丢**：转 PNG 后用户再保存草稿，callout 图标只剩 Information、Todo、Question 三个，三角旗仍然没了。量了一下各图标 PNG 的文件大小：留下来的三个正好最大（1122–1230B），其余都在 1KB 以下（400–999B），三角旗是纯色三角形，压缩后只有约 620B；而它们的像素尺寸全是一样的 32×32。所以推测微信保存时会把小于约 1KB 的图片当成追踪像素之类的垃圾图片删掉。修复：`padSmallPngs()`（同在 `svg-raster.ts`）在输出最后一步检查所有 PNG data URI，小于 2KB 的在 IEND 之前插入一个填充空格的 `tEXt` 注释块（自己算 CRC32），把文件撑过门槛，像素完全不变。这一步对所有 PNG 生效，所以很短的行内数学公式图片（同样可能小于 1KB）也一起被覆盖了。用户保存草稿实测确认：补足体积后三角旗和全部 callout 图标都保留了下来——像素没变、只改了文件大小就修好，也反过来证实了"按文件大小丢弃"这个推测。
+
+**教训**：微信"粘贴后能显示"不等于"能发布"。粘贴时编辑器只是渲染这段 HTML；保存草稿时服务器还会再处理一遍，有些东西是在这一步才被丢掉的。以后验证微信兼容性，要**保存草稿后再看**，不能只看粘贴后的编辑器。
 
 ---
 
@@ -654,7 +669,6 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 | 微信过滤规则变化 | 新版微信编辑器可能调整过滤规则 | 每次更新后回归测试 |
 | Mermaid 颜色精确度（`obsidian` 主题） | 实时主题下仍用 Mermaid 内置 dark/default 主题，不完全匹配 Obsidian 当前主题配色 | 静态主题已通过 `buildMermaidInit()` 用主题自身色值映射 themeVariables，只有 `obsidian` 实时模式待改进 |
 | 橙心 callout 是固定色板 | 早期实现过"跟随当前 Obsidian 主题实时变化"，后按用户要求改回固定色板（专门设计、区分 13 种类型、统一橙心自己的暖色家族），不再联动 Obsidian 主题 | 属于确认过的设计决策，非 bug；如需恢复实时联动可参考 8.8 提到的 `readCalloutStyle` 实时读取路径 |
-| 橙心标题换行时三角旗高度对不上 | 徽标和三角旗的高度都是同一个写死的像素数字（`badgeHeight`，按单行标题设计），标题换行到 2 行及以上时徽标会被内容撑高（`min-height:auto` 是 flex 子项默认行为，避免文字被裁切），但三角旗的 `<img>` 没有这种"被内容撑高"的机制，高度不会跟着变，盖不住整个徽标 | `clip-path`、零尺寸 border 三角形、`background-image`、`calc()`、依赖 `align-items:stretch` 去猜测徽标真实高度这几种方案均已确认不可靠或治标不治本（详见 4.3），目前没有可靠解法；如标题较长建议手动控制在一行内 |
 | 微信编辑器"行间距"全局设置会放大我们的 `line-height` | 微信公众号编辑器工具栏有一个全局"行间距"倍数设置，新建文章默认是 1.6 倍，会在我们自己设置的 `line-height` 基础上再乘一层——这不是我们粘贴内容自带的 CSS，是编辑器本身的文章级设置，粘贴进来的内容也会被套用。简约黑白 H2 票据盒子（`headingBox`）这类"文字行紧密堆叠"的设计对这个放大效应特别敏感，表现为盒子在微信里比 Obsidian 预览明显偏高——这很可能也是本节其它"预览正常、微信里偏高"问题背后的部分成因 | 用户实测确认：粘贴后把微信编辑器工具栏的"行间距"手动调成 1.0，高度就恢复正常。这是编辑器级别的全局设置，不是我们能通过调整生成的 HTML/CSS 覆盖掉的（除非反向猜一个固定倍数去抵消，但这个倍数既不保证所有账号/文章一致，也会让 Obsidian 预览跟着跑偏，权衡后选择了"粘贴后手动调一次"这个更稳妥的工作流方案，没有在代码里做任何针对性补偿） |
 
 ---
@@ -681,7 +695,7 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
   - H1–H6 各级标题色独立读取（`--h1-color` … `--h6-color`），部分主题的元素级作用域变量（真实插入 `<h1>`–`<h6>`/`<blockquote>` 读取）
   - 表格表头背景/文字色、边框色改为读取实际生效值/专用变量（见 8.9）
   - 任务列表样式与主题解耦（固定配色）
-  - 橙心主题的色块横幅标题（`headingBanner`）+ SVG-as-`<img>` 三角旗（徽标和旗子共用同一个显式像素高度，不再依赖 `align-items:stretch` 猜测对方真实渲染高度；标题换行 2+ 行时高度对不上是已知限制，详见 4.3 的踩坑记录与 §9）
+  - 橙心主题的色块横幅标题（`headingBanner`）；三角旗机制已实现但橙心已不再启用（微信深色模式下效果不好），详见 4.3
   - 预览弹窗/预览面板均可直接切换主题，无需前往设置页
 - [x] 数学公式（`$...$` / `$$...$$`，MathJax CHTML + html2canvas，编辑/阅读模式均支持，iframe 隔离批量渲染，2x PNG）
 - [x] Mermaid 图表（MarkdownRenderer offscreen → SVG → Canvas 2x PNG，深/浅色模式自动切换，静态主题按自身色值映射 themeVariables，fallback 样式化文本块）
