@@ -14,6 +14,7 @@
 
 import { App, MarkdownRenderer, Component } from 'obsidian';
 import { getStaticTheme, buildMermaidInit } from '../style/themes';
+import { rasterizeSvg } from '../utils/svg-raster';
 
 const MERMAID_BLOCK = /^```mermaid[ \t]*\r?\n([\s\S]*?)^```[ \t]*$/gm;
 
@@ -196,36 +197,12 @@ async function svgToPng(svg: SVGSVGElement, textColorOverride?: string): Promise
 		return `<svg${attrs}${hasW ? '' : ` width="${w}"`}${hasH ? '' : ` height="${h}"`}>`;
 	});
 
-	const blob = new Blob([sized], { type: 'image/svg+xml;charset=utf-8' });
-	const url  = URL.createObjectURL(blob);
-
-	return new Promise((resolve) => {
-		const img = new Image();
-		img.onload = () => {
-			const scale  = 2;
-			const canvas = document.createElement('canvas');
-			canvas.width  = w * scale;
-			canvas.height = h * scale;
-			const ctx = canvas.getContext('2d');
-			if (!ctx) { URL.revokeObjectURL(url); resolve(null); return; }
-			ctx.scale(scale, scale);
-			ctx.drawImage(img, 0, 0, w, h);
-			URL.revokeObjectURL(url);
-			try {
-				resolve({ dataUrl: canvas.toDataURL('image/png'), w, h });
-			} catch (e) {
-				console.error('[obsidian-publisher] Mermaid canvas tainted. SVG snippet:', sized.slice(0, 800));
-				console.error(e);
-				resolve(null);
-			}
-		};
-		img.onerror = (e) => {
-			console.error('[obsidian-publisher] Mermaid SVG image load failed:', e);
-			URL.revokeObjectURL(url);
-			resolve(null);
-		};
-		img.src = url;
-	});
+	const dataUrl = await rasterizeSvg(sized, w, h);
+	if (!dataUrl) {
+		console.error('[obsidian-publisher] Mermaid SVG rasterization failed (load error or tainted canvas). SVG snippet:', sized.slice(0, 800));
+		return null;
+	}
+	return { dataUrl, w, h };
 }
 
 function buildFallback(definition: string): string {

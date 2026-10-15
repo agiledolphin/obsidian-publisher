@@ -586,7 +586,8 @@ export class StyleEngine {
 			return base + ` color: ${vars.textNormal};${bg}`;
 		}
 		const staticTheme = getStaticTheme(this.theme) ?? getStaticTheme('catppuccin-latte')!;
-		return base + ` color: ${staticTheme.textNormal}; background-color: ${staticTheme.bgPrimary};`;
+		const bg = staticTheme.transparentPage ? '' : ` background-color: ${staticTheme.bgPrimary};`;
+		return base + ` color: ${staticTheme.textNormal};${bg}`;
 	}
 
 	/** Full pipeline: theme overrides → WeChat sanitize → wrapper section. */

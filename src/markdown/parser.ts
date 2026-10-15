@@ -113,6 +113,18 @@ function applyBashFlags(html: string): string {
 /**
  * Replaces class="hljs-*" spans with inline style equivalents.
  */
+// WeChat ignores white-space: pre on paste and collapses code whitespace; make it explicit.
+function preserveCodeWhitespace(html: string): string {
+	return html
+		.replace(/\n$/, '')
+		.split(/(<[^>]+>)/)
+		.map(part => part.startsWith('<') ? part : part
+			.replace(/\t/g, '    ')
+			.replace(/ /g, '&nbsp;')
+			.replace(/\n/g, '<br>'))
+		.join('');
+}
+
 function applyHljsTheme(html: string): string {
 	return html.replace(/<span class="([^"]+)">/g, (_match, classes: string) => {
 		const style = HLJS_GITHUB_THEME[classes] ?? HLJS_GITHUB_THEME[classes.split(' ')[0] ?? ''];
@@ -146,6 +158,7 @@ export class MarkdownParser {
 				if (lang === 'bash' || lang === 'sh') {
 					themedCode = applyBashFlags(themedCode);
 				}
+				themedCode = preserveCodeWhitespace(themedCode);
 				return (
 					`<pre style="background-color: #f6f8fa; border-radius: 6px; padding: 16px; ` +
 					`overflow-x: auto; font-size: 14px; line-height: 1.6; margin: 1em 0; ` +
