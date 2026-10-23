@@ -1,5 +1,6 @@
 import { sanitizeForWeChat } from './sanitizer';
 import { taskBoxesToImages } from './task-icons';
+import type { LiveTaskIcons } from './live-task-icons';
 import { logger } from '../utils/logger';
 import { toHex6, mixColors } from './color-utils';
 import { getStaticTheme, buildStaticThemeMap, type ThemeName } from './themes';
@@ -592,10 +593,10 @@ export class StyleEngine {
 	}
 
 	/** Full pipeline: theme overrides → WeChat sanitize → wrapper section. */
-	process(html: string, vars?: ObsidianVars): string {
+	process(html: string, vars?: ObsidianVars, taskIcons?: LiveTaskIcons | null): string {
 		logger.debug('StyleEngine.process: theme =', this.theme);
 		let result = this.applyTheme(html, vars);
-		result = taskBoxesToImages(result); // needs themed colors + data-pub-task, which sanitize strips
+		result = taskBoxesToImages(result, taskIcons); // needs themed colors + data-pub-task, which sanitize strips
 		result = sanitizeForWeChat(result);
 		const wrapperStyle = this.getWrapperStyle(vars);
 		logger.debug('StyleEngine: wrapperStyle =', wrapperStyle);

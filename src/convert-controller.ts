@@ -11,6 +11,7 @@ import { setCalloutTheme } from './markdown/plugins/callout';
 import { getStaticTheme } from './style/themes';
 import { logger } from './utils/logger';
 import { rasterizeSvgImages, padSmallPngs } from './utils/svg-raster';
+import { captureLiveTaskIcons } from './style/live-task-icons';
 import type { PluginSettings } from './settings';
 
 export class ConvertController {
@@ -113,7 +114,9 @@ export class ConvertController {
 		//    For 'obsidian' theme, read live CSS variables from the current theme.
 		const vars: ObsidianVars | undefined =
 			this.settings.theme === 'obsidian' ? readObsidianVars() : undefined;
-		const styledHtml = this.styleEngine.process(html, vars);
+		// Live theme: use Obsidian's own rendered task checkboxes (null → drawn ones).
+		const taskIcons = this.settings.theme === 'obsidian' ? await captureLiveTaskIcons() : null;
+		const styledHtml = this.styleEngine.process(html, vars, taskIcons);
 
 		// 10. Saving a WeChat draft drops SVG data-URI images and images under
 		//     ~1KB — rasterize SVGs to PNG, then pad small PNGs past the floor.
