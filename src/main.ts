@@ -5,6 +5,7 @@ import { PublisherSettingTab } from './ui/settings-tab';
 import { PreviewModal } from './ui/preview-modal';
 import { PublisherPreviewView, VIEW_TYPE_PUBLISHER_PREVIEW } from './ui/preview-view';
 import { logger } from './utils/logger';
+import { invalidateLiveTaskIcons } from './style/live-task-icons';
 
 export default class ObsidianPublisher extends Plugin {
 	settings: PluginSettings;
@@ -67,6 +68,9 @@ export default class ObsidianPublisher extends Plugin {
 				new Notice('请先打开一个 Markdown 文件');
 			}
 		});
+
+		// Captured task checkboxes reflect the active Obsidian theme/mode.
+		this.registerEvent(this.app.workspace.on('css-change', invalidateLiveTaskIcons));
 
 		// ── Context menu ──────────────────────────────────────────────
 		this.registerEvent(

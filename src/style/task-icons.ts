@@ -1,3 +1,5 @@
+import type { LiveTaskIcons } from './live-task-icons';
+
 // Task checkboxes as SVG <img>s: WeChat drops the text-less unchecked box and
 // misplaces the glyph inside filled ones when they're styled <span>s.
 
@@ -29,19 +31,33 @@ function boxSvg(task: string, style: string): string | null {
 	return `<rect width="${SIZE}" height="${SIZE}" rx="3" fill="${bg}"/>${glyph}`;
 }
 
-/** Replaces themed task-checkbox <span>s with SVG <img>s of the same box. Run after theming, before sanitizing. */
-export function taskBoxesToImages(html: string): string {
+// Half the cap height of 16px body text, measured above the baseline.
+const CAP_CENTER = 5.7;
+
+// Placed relative to the text baseline (inside a body-size inline-block the
+// <li> baseline-aligns with the task text), so it tracks the text whatever
+// line-height WeChat applies; the offset centers the box on the cap height
+// (`middle` aligns to the x-height and reads low). The trailing &nbsp; gives
+// the wrapper a text baseline and doubles as the gap.
+function boxHtml(src: string, w: number, h: number): string {
+	const align = Math.round(CAP_CENTER - h / 2);
+	return `<span style="flex-shrink: 0; display: inline-block; font-size: 16px; line-height: 1; margin-right: 4px;">` +
+		`<img src="${src}" width="${w}" height="${h}" ` +
+		`style="display: inline-block; vertical-align: ${align}px; width: ${w}px; height: ${h}px;">&nbsp;</span>`;
+}
+
+/**
+ * Replaces themed task-checkbox <span>s with <img>s. Run after theming, before
+ * sanitizing. `captured` (live 'obsidian' theme) supplies Obsidian's own
+ * rendered boxes; otherwise, or for any state it lacks, the box is drawn here.
+ */
+export function taskBoxesToImages(html: string, captured?: LiveTaskIcons | null): string {
 	return html.replace(TASK_SPAN_RE, (full, task: string, style: string) => {
+		const cap = captured?.[task];
+		if (cap) return boxHtml(cap.dataUrl, cap.w, cap.h);
 		const inner = boxSvg(task, style);
 		if (!inner) return full;
 		const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}">${inner}</svg>`;
-		// Positioned relative to the text baseline (inside a body-size
-		// inline-block the <li> baseline-aligns with the task text), so it
-		// tracks the text whatever line-height WeChat applies. -2px centers the
-		// 15px box on the cap height; `middle` (x-height) read a bit low.
-		// The trailing &nbsp; gives the wrapper a text baseline and the gap.
-		return `<span style="flex-shrink: 0; display: inline-block; font-size: 16px; line-height: 1; margin-right: 4px;">` +
-			`<img src="data:image/svg+xml,${encodeURIComponent(svg)}" width="${SIZE}" height="${SIZE}" ` +
-			`style="display: inline-block; vertical-align: -2px; width: ${SIZE}px; height: ${SIZE}px;">&nbsp;</span>`;
+		return boxHtml(`data:image/svg+xml,${encodeURIComponent(svg)}`, SIZE, SIZE);
 	});
 }

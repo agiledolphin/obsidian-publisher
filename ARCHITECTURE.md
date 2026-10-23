@@ -456,7 +456,8 @@ obsidian-publisher/
 │   │   ├── engine.ts                  # StyleEngine：主题覆盖分发 + Obsidian CSS 变量读取
 │   │   ├── themes.ts                  # 静态主题注册表（11 款预设）+ 主题色值→regex 替换表生成
 │   │   ├── color-utils.ts             # mixColors / hexToRgbTriplet / normalizeRgbTriplet
-│   │   ├── task-icons.ts              # 任务列表勾选框 <span> → SVG 图片（主题配色之后）
+│   │   ├── task-icons.ts              # 任务列表勾选框 <span> → 图片（主题配色之后）
+│   │   ├── live-task-icons.ts         # "当前 Obsidian 主题"：截取 Obsidian 实际渲染的勾选框（Electron capturePage）
 │   │   └── sanitizer.ts               # 微信兼容性清理（移除 position/class/id 等）
 │   ├── clipboard/
 │   │   └── writer.ts                  # ClipboardItem API 写入富文本
@@ -609,6 +610,8 @@ markdown-it 渲染 `![alt](path with spaces)` 时会 URL 编码空格，导致 `
 `insideDoneTask` 状态变量控制 `done` 和 `cancelled` 两种状态下段落渲染规则（灰色 + 删除线）。`task-list.ts` 使用 `taskPatterns` 数组按序匹配，命中后写入 `data-task` 属性，`parser.ts` 的 `list_item_open` renderer 根据该属性分支渲染。
 
 **勾选框最终输出为图片**：`parser.ts` 先把勾选框输出成带 `data-pub-task` 标记、带内联背景色/边框色的 `<span>`（这样各主题仍能用占位符替换给它上色），`StyleEngine.process()` 在主题替换之后、`sanitizeForWeChat()` 删掉 `data-*` 之前，由 `taskBoxesToImages()`（`src/style/task-icons.ts`）把它换成一个 15×15 的 SVG `<img>`：圆角方块 + 用路径画的白色符号（不用文字字形）；之后和其它 SVG 图片一样被转成 PNG、补足体积（见 8.12）。原因：用 `<span>` 的时候，粘贴进微信后未勾选的空心框（没有任何文字的空标签）整个消失，其它框里的符号被挤到顶部、被切掉一半（微信改动了小方块里的行高排版），而 Obsidian 预览一切正常。对齐方式：图片放在一个正文字号（16px）的 `inline-block` 小容器里、`vertical-align: -2px`（图片底边比文字基线低 2px，正好让 15px 方块的中心对准大写字母高度的中线），容器末尾带一个 `&nbsp;` 提供文字基线（兼作间距），`<li>` 用 `align-items: baseline` 把这个容器和任务文字按基线对齐。这样勾选框始终跟着文字走，与行高无关。第一版用 `align-items: flex-start` + 固定 `margin-top: 4px`，按 Obsidian 的行高算好；粘贴进公众号后行高被"行间距"放大，文字下移而勾选框不动，看起来偏高（预览里原本还有一段按主题行高动态算 `margin-top` 的代码，也一并删掉了）。在预览里把行高强行放大到 2.8 倍验证过，偏差不变。第二版用的是 `vertical-align: middle`，但 `middle` 对准的是小写字母 x 高度的中线，比人眼感受到的文字中心（英文标题以大写字母开头、多有 l/t/k 这类高笔画）低 1～2px，用户目测"图标略低"；改成按基线下沉固定像素，量得图标中心与大写字母中线的偏差约 0.2px。callout 标题图标（`callout.ts` 的 `buildIconImg`）有同样的问题，同样从 `middle` 改成了 `vertical-align: -3px`（16px 图标、15px 标题字），偏差约 0.4px。
+
+**"当前 Obsidian 主题"下的勾选框直接截取 Obsidian 的实际渲染**（`src/style/live-task-icons.ts`）：各 Obsidian 主题画勾选框的手法五花八门（圆形/方形、`::before` 文字符号、`mask-image` 遮罩、半填充色块……），逐个解读 CSS 去复刻不现实。插件是桌面版，Obsidian 桌面端开放了 Electron 的 `remote.getCurrentWebContents().capturePage()`：转换时在页面最上层临时放一个和阅读视图同结构的 `.markdown-preview-view.markdown-rendered > ul.contains-task-list > li.task-list-item[data-task]` 探针，7 种状态各一个真实的 `<input type="checkbox">`，逐个截图（按 `webFrame` 缩放系数换算坐标，Retina 下是 2 倍像素）。截图会带上页面底色，所以分别在白底、黑底上各截一次，用"双底色抠图"算出每个像素的透明度（alpha = 1 −（白底值 − 黑底值），颜色 = 黑底值 / alpha），得到边缘柔和的透明 PNG。结果按 Obsidian 主题/深浅模式缓存，`css-change` 事件（换主题、切深浅色、开关 CSS 片段）时作废，所以只有第一次转换会在屏幕上闪一下。截不到（拿不到 Electron 接口、窗口最小化等）就退回插件自己画的勾选框。截下来的图片直接作为 `taskBoxesToImages()` 的输入，尺寸用实际渲染尺寸（含 1px 边距），对齐偏移按图片高度换算（`CAP_CENTER − h/2`），保证不同尺寸的勾选框都对准文字的大写字母中线。静态预设主题仍用插件自己画的勾选框。
 
 ### 8.7 String.replace 特殊字符
 
