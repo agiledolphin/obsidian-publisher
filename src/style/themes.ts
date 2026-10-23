@@ -82,7 +82,7 @@ export interface StaticTheme {
 	 * this file). `iconSvg` is the inner markup only (paths/shapes), wrapped
 	 * in a standard `<svg viewBox="0 0 24 24">` automatically.
 	 */
-	headingIcon?: { level: 1 | 2; iconSvg: string; textColor: string; textBg: string };
+	headingIcon?: { level: 1 | 2; iconSvg: string; textColor: string; textBg: string; barColor?: string };
 	/**
 	 * Heading levels that should drop the default underline (an accent-colored
 	 * border-bottom, normally applied to H1/H2 automatically) entirely, with
@@ -452,15 +452,12 @@ const ORANGE_HEART: StaticTheme = {
 };
 
 // ── 冷酷的仙境 (Hard-Boiled Wonderland) ───────────────────────────────────
-// Named after Murakami's 世界の終りとハードボイルド・ワンダーランド — a novel
-// that splits between a shadowy, noir-tinged "Hard-Boiled Wonderland" and a
-// silent, dreamlike walled town at "The End of the World". "冷酷" (cold) is
-// carried by hue and temperature, not darkness — a pale frost-white page
-// (not the warm off-whites the other light themes use) lit by two cold
-// accents, a deep icy teal (frost/clarity, the noir half) and a muted violet
-// (the surreal, dreamlike half) — instead of either one alone. Suited to
-// essays, fiction, and personal writing that wants an atmospheric, literary
-// register rather than a business/tech one.
+// Named after Murakami's 世界の終りとハードボイルド・ワンダーランド. "Cold" is
+// carried by hue, not darkness: a cool page, a steel-blue family for every
+// heading level (deep navy → steel → slate), icy teal only as a sparse accent
+// (links, H1 underline), and one muted slate-violet as the sole trace of the
+// dreamlike half. Warning is the one deliberate warm note (cool brass) so it
+// stays distinguishable. All heading/callout colors are ≥4.4:1 on white.
 
 const HARDBOILED_WONDERLAND: StaticTheme = {
 	id: 'hardboiled-wonderland',
@@ -472,34 +469,39 @@ const HARDBOILED_WONDERLAND: StaticTheme = {
 	textItalic: '#44536B',
 	linkColor: '#1E9E8F',
 	accent: '#1E9E8F',
-	headings: ['#1E9E8F', '#7A6BC4', '#3B6FA0', '#2B9388', '#9583C9', '#8C97A8'],
+	headings: ['#22466E', '#2F5A84', '#3B6FA0', '#1D7F74', '#56708C', '#6B7A8F'],
 	highlightBg: '#D6EDE9',
 	codeBackground: '#E8EDF3',
 	borderColor: '#D5DCE6',
 	code: {
-		normal: '#24314A', comment: '#8C97A8', keyword: '#7A6BC4', function: '#1E9E8F',
-		string: '#3B6FA0', value: '#9583C9', tag: '#2B9388', property: '#3B6FA0',
+		normal: '#24314A', comment: '#8C97A8', keyword: '#5E5A9A', function: '#1E9E8F',
+		string: '#3B6FA0', value: '#2A7A96', tag: '#2B9388', property: '#3B6FA0',
 		variable: '#5C6B82', inline: '#2B9388',
 	},
 	calloutAccent: {
-		note: '#3B6FA0', abstract: '#1E9E8F', info: '#2B9388', todo: '#6B7FA8',
-		tip: '#1E9E8F', success: '#1E9E8F', question: '#7A6BC4', warning: '#7A6BC4',
-		// Cold rose/mauve, not warm red — even "danger" stays inside the
-		// theme's cold palette rather than breaking it for an alarm color.
+		note: '#3B6FA0', abstract: '#1D7F74', info: '#2A7A96', todo: '#56708C',
+		tip: '#1D7F74', success: '#1D7F74', question: '#5E5A9A', warning: '#8A6A2A',
 		failure: '#A85B7D', danger: '#A85B7D', bug: '#8C5570',
-		example: '#7A6BC4', quote: '#8C97A8',
+		example: '#5E5A9A', quote: '#6B7A8F',
 	},
-	// A single combined SVG (one sparkle + one dot, not separately-positioned
-	// shapes) in the theme's two accent colors — a small, literal nod to the
-	// reference design's star cluster, recolored cold instead of kawaii-warm.
+	// Thin-stroked six-armed ice crystal (one SVG, not separate shapes) on a
+	// near-colorless tag with a hard left edge — colder than the earlier soft
+	// sparkle + lavender tag. Snow anchors the novel's walled-town winter.
 	headingIcon: {
 		level: 2,
-		iconSvg: '<path d="M12 2 L14.5 9.5 L22 12 L14.5 14.5 L12 22 L9.5 14.5 L2 12 L9.5 9.5 Z" fill="#1E9E8F"/>' +
-			'<circle cx="19" cy="5" r="2.2" fill="#7A6BC4"/>',
-		textColor: '#7A6BC4',
-		textBg: '#EDE9F7',
+		iconSvg: '<g fill="none" stroke="#4F86A8" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">' +
+			[0, 60, 120, 180, 240, 300].map(a =>
+				`<g transform="rotate(${a} 12 12)">` +
+				'<path d="M12 12V2M12 6L9.5 3.5M12 6L14.5 3.5"/></g>',
+			).join('') + '</g>',
+		textColor: '#2F5A84',
+		textBg: '#EEF2F6',
+		barColor: '#2F5A84',
 	},
-	boldColor: '#1E9E8F',
+	// Matches the H2 tag; not the teal accent, which links also use.
+	boldColor: '#2F5A84',
+	// Same colors as the matching callout types (note/todo/question/danger).
+	taskAccent: { inProgress: '#3B6FA0', rescheduled: '#56708C', question: '#5E5A9A', important: '#A85B7D' },
 	transparentPage: true,
 };
 
@@ -727,7 +729,7 @@ export function buildStaticThemeMap(theme: StaticTheme): [RegExp, string][] {
 		);
 	}
 	if (theme.headingIcon) {
-		const { level, iconSvg, textColor, textBg } = theme.headingIcon;
+		const { level, iconSvg, textColor, textBg, barColor } = theme.headingIcon;
 		const fontSize = level === 1 ? '22px' : '18px';
 		const margin = level === 1 ? '1.5em 0 0.8em 0' : '1.3em 0 0.6em 0';
 		const [openSource, closeSource] = level === 1
@@ -746,7 +748,8 @@ export function buildStaticThemeMap(theme: StaticTheme): [RegExp, string][] {
 			`<img src="data:image/svg+xml,${encodeURIComponent(svg)}" ` +
 			`style="width: 22px; height: 22px; margin-right: 8px; display: block;">`;
 		const badgeStyle =
-			`display: inline-flex; align-items: center; background-color: ${textBg}; padding: 3px 10px;`;
+			`display: inline-flex; align-items: center; background-color: ${textBg}; padding: 4px 12px;` +
+			(barColor ? ` border-left: 3px solid ${barColor};` : '');
 		const textStyle = `font-size: ${fontSize}; font-weight: 700; color: ${textColor}; line-height: 1.3;`;
 		map.push(
 			[openSource, `<${tag} style="${headingStyle}"><span style="${badgeStyle}">${iconHtml}<span style="${textStyle}">`],

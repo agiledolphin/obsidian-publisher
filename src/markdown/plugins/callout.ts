@@ -134,9 +134,10 @@ function buildIconImg(iconName: string, color: string): string {
 		// (CSS color inheritance does not apply inside img src).
 		const svgStr = svg.outerHTML.replace(/currentColor/g, color);
 		const encoded = encodeURIComponent(svgStr);
+		// -3px from the baseline centers it on the cap height; `middle` read low.
 		return (
 			`<img src="data:image/svg+xml,${encoded}" width="16" height="16" ` +
-			`style="display:inline-block;vertical-align:middle;margin-right:6px;">`
+			`style="display:inline-block;vertical-align:-3px;margin-right:6px;">`
 		);
 	} catch {
 		return '';

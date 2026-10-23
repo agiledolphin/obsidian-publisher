@@ -303,13 +303,13 @@ export class MarkdownParser {
 		md.renderer.rules['list_item_open'] = (tokens, idx) => {
 			const task = tokens[idx]?.attrGet('data-task');
 			// Flex layout: icon (flex-shrink:0) + content div (flex:1).
-			const liBase = `font-size: 16px; line-height: 1.75; margin: 0.3em 0; list-style: none; margin-left: -1.5em; display: flex; align-items: flex-start;`;
+			const liBase = `font-size: 16px; line-height: 1.75; margin: 0.3em 0; list-style: none; margin-left: -1.5em; display: flex; align-items: baseline;`;
 			const boxBase = `flex-shrink: 0; display: inline-block; width: 15px; height: 15px; border-radius: 3px; margin-right: 8px; margin-top: 4px; box-sizing: border-box; text-align: center; line-height: 15px; color: #ffffff; font-size: 11px; font-weight: normal;`;
 			if (task === 'done') {
 				this.insideDoneTask = true;
 				return (
 					`<li style="${liBase}">` +
-					`<span style="${boxBase} background-color: #7c3aed;">✓</span>` +
+					`<span data-pub-task="done" style="${boxBase} background-color: #7c3aed;">✓</span>` +
 					`<div style="flex: 1; min-width: 0; color: #888888; text-decoration: line-through;">`
 				);
 			}
@@ -317,42 +317,42 @@ export class MarkdownParser {
 				this.insideDoneTask = true;
 				return (
 					`<li style="${liBase}">` +
-					`<span style="${boxBase} background-color: #9a9a9a;">–</span>` +
+					`<span data-pub-task="cancelled" style="${boxBase} background-color: #9a9a9a;">–</span>` +
 					`<div style="flex: 1; min-width: 0; color: #888888; text-decoration: line-through;">`
 				);
 			}
 			if (task === 'todo') {
 				return (
 					`<li style="${liBase}">` +
-					`<span style="flex-shrink: 0; display: inline-block; width: 15px; height: 15px; border-radius: 3px; margin-right: 8px; margin-top: 4px; box-sizing: border-box; border: 1.5px solid #c8ccd0;"></span>` +
+					`<span data-pub-task="todo" style="flex-shrink: 0; display: inline-block; width: 15px; height: 15px; border-radius: 3px; margin-right: 8px; margin-top: 4px; box-sizing: border-box; border: 1.5px solid #c8ccd0;"></span>` +
 					`<div style="flex: 1; min-width: 0;">`
 				);
 			}
 			if (task === 'in-progress') {
 				return (
 					`<li style="${liBase}">` +
-					`<span style="${boxBase} background-color: #4e96e0;">/</span>` +
+					`<span data-pub-task="in-progress" style="${boxBase} background-color: #4e96e0;">/</span>` +
 					`<div style="flex: 1; min-width: 0;">`
 				);
 			}
 			if (task === 'rescheduled') {
 				return (
 					`<li style="${liBase}">` +
-					`<span style="${boxBase} background-color: #d4820a; font-size: 15px; padding-left: 2px;">›</span>` +
+					`<span data-pub-task="rescheduled" style="${boxBase} background-color: #d4820a; font-size: 15px; padding-left: 2px;">›</span>` +
 					`<div style="flex: 1; min-width: 0;">`
 				);
 			}
 			if (task === 'question') {
 				return (
 					`<li style="${liBase}">` +
-					`<span style="${boxBase} background-color: #ba8f00;">?</span>` +
+					`<span data-pub-task="question" style="${boxBase} background-color: #ba8f00;">?</span>` +
 					`<div style="flex: 1; min-width: 0;">`
 				);
 			}
 			if (task === 'important') {
 				return (
 					`<li style="${liBase}">` +
-					`<span style="${boxBase} background-color: #d44030;">!</span>` +
+					`<span data-pub-task="important" style="${boxBase} background-color: #d44030;">!</span>` +
 					`<div style="flex: 1; min-width: 0;">`
 				);
 			}

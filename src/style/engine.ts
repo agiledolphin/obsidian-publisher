@@ -1,4 +1,5 @@
 import { sanitizeForWeChat } from './sanitizer';
+import { taskBoxesToImages } from './task-icons';
 import { logger } from '../utils/logger';
 import { toHex6, mixColors } from './color-utils';
 import { getStaticTheme, buildStaticThemeMap, type ThemeName } from './themes';
@@ -594,6 +595,7 @@ export class StyleEngine {
 	process(html: string, vars?: ObsidianVars): string {
 		logger.debug('StyleEngine.process: theme =', this.theme);
 		let result = this.applyTheme(html, vars);
+		result = taskBoxesToImages(result); // needs themed colors + data-pub-task, which sanitize strips
 		result = sanitizeForWeChat(result);
 		const wrapperStyle = this.getWrapperStyle(vars);
 		logger.debug('StyleEngine: wrapperStyle =', wrapperStyle);
