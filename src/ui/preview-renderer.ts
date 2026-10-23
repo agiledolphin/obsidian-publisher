@@ -113,7 +113,7 @@ export function readThemeVars(): Record<string, string> {
 
 /**
  * Inserts rendered HTML into container and applies all theme-based post-processing:
- * line-height, li margins/padding, nested list margins, checkbox alignment.
+ * line-height, li margins/padding, nested list margins.
  */
 export function applyPreviewContent(
 	container: HTMLElement,
@@ -181,12 +181,6 @@ export function applyPreviewContent(
 		for (const [p, v] of Object.entries(nestedListStyle)) {
 			(el as HTMLElement).style.setProperty(p, v);
 		}
-	});
-
-	const lineHeightPx = parseFloat(lineHeight) * 16;
-	const checkboxMarginTop = `${Math.max(0, Math.round((lineHeightPx - 15) / 2))}px`;
-	container.querySelectorAll<HTMLElement>('li > span:first-child').forEach((el) => {
-		el.style.setProperty('margin-top', checkboxMarginTop);
 	});
 
 	// For the 'obsidian' theme, override mark and del colors with the live Obsidian

@@ -243,7 +243,7 @@ new MarkdownIt({
 | `sakura-pink` | 樱语粉 | 柔和樱花粉，情感/生活方式/女性向账号 |
 | `graphite-dark` | 深空灰 | **首款暗色背景主题**，科技数码、深夜阅读 |
 | `orange-heart` | 橙心 | 参考"墨滴"同名主题：珊瑚橙 + 墨绿双色，H2 采用色块横幅（`headingBanner`），见下；**不带三角旗**（曾经有，见下） |
-| `hardboiled-wonderland` | 冷酷的仙境 | 取名自村上春树《世界尽头与冷酷仙境》，冷调双强调色（冰蓝 + 浅紫）而非单一色系，呼应小说"硬汉奇境"与"世界尽头"两条故事线；冷底色不是靠深色，而是刻意选了偏冷调的浅灰白（区别于其它浅色主题的暖白/米白）；H2 用图标+柔和背景色标签（`headingIcon`），见下 |
+| `hardboiled-wonderland` | 冷酷的仙境 | 取名自村上春树《世界尽头与冷酷仙境》。"冷"靠色相而不是深色：标题从深海军蓝到灰蓝都在钢蓝家族里，冰蓝只做点缀（链接、H1 下划线），浅紫收成一点灰紫（疑问/示例 callout、代码关键字）作为"仙境"的痕迹，警告 callout 用冷调黄铜作为唯一的暖色以便醒目；粗体同 H2 的深钢蓝（不和链接同色）；任务列表的进行中/改期/存疑/重要四个状态和同语义的 callout 同色（`taskAccent`），不再用默认的亮蓝/橙/黄/红。H2 是冰晶图标 + 冷灰标签 + 左侧钢蓝竖线（`headingIcon`）。第一版是冰蓝 + 浅紫双强调色、星芒图标配浅紫标签，用户觉得"仙境"有了但缺"冷酷"，重做成现在这样；同时把所有标题/callout 色在白底上的对比度提到约 4.4:1 以上 |
 
 **`StaticTheme` 接口**（`themes.ts`）统一描述一款静态主题的全部色值：`bgPrimary`/`textNormal`/`textMuted`/`textFaint`/`textItalic`/`linkColor`/`accent`/`headings`（H1–H6 六色）/`highlightBg`/`codeBackground`/`borderColor`/`code`（10 个语法高亮 token 色）/`calloutAccent`（13 种 callout 类型强调色）。新增一款主题只需要在 `themes.ts` 里补一份这样的配置对象，`buildStaticThemeMap()` 会自动生成对应的 regex 替换表，其余模块（`callout.ts`/`mermaid.ts`/`math.ts`）都通过 `getStaticTheme(themeId)` 统一查表，不需要逐个文件加 if/else。
 
@@ -260,7 +260,7 @@ new MarkdownIt({
   **现状**：确认能稳定显示三角旗的技术是 `<img>` + 纯像素 `height`（不用 `calc()`/`em`）。代码里三角旗仍然先按 SVG data URI 生成，但输出前会被统一转成 PNG——SVG 图片粘贴后能显示，**保存草稿时会被微信丢掉**，见 8.12。`clip-path`、零尺寸 `border` 三角形、`background-image` 全部已确认在微信粘贴场景下不可靠。高度匹配问题通过"两边都用显式高度、共享同一个字面量数字"解决，不再依赖 `align-items:stretch` 去猜测/追赶一个不受控制的真实渲染高度。
 - `headingBox?: { level: 1 | 2; borderColor: string; quoteMarks?: boolean }`：另一种标题装饰——边框盒子（目前简约黑白的 H2 在用）。结构很简单：一个 `<section>` 画 `border` + `background-color`，左右各缩进 20px（`inset`），内含左上角"+"、居中加粗的 `<h${level}>` 标题、右下角"+"（`text-align:left/right` 摆位，不用 `position:absolute`）。标题的 padding 刻意做成上下对称（`1px 20px`），不对称的 padding 会让标题看起来没有垂直居中。全部用 `<section>` 而非 `<div>`——确认过 `<div>` 在微信粘贴时可能连标签带内容一起消失。`quoteMarks: true` 给标题文字两侧加中文书名号「」（简约黑白一在用）——纯文字拼接进标题内容本身，不是额外的标签元素，不会有上面"空标签被微信清掉"那个问题。
 - `headingBar?: { level: 1 | 2; bgColor: string; textColor: string }`：另一种标题装饰——实心色块徽标（简约黑白二的 H2 在用）。`<h${level}>` 本身只负责 `text-align:center`，真正的色块是内层包住标题文字的 `<span style="display:inline-block; background-color...">`，这样背景色只贴着文字宽度，不会铺满整行（最早的版本是直接在 `<h2>` 自己身上设 `background-color`，整行铺满、左对齐，用户反馈要改成"居中 + 背景只包文字"后才加了这层 `<span>`）。仍然只有一个额外元素（`headingBanner` 的徽标、`headingBox` 的"+"号也是同样数量级），比那两个更简单的地方在于不需要任何定位/尺寸匹配逻辑，是这几种标题装饰里结构最简单的一种。
-- `headingIcon?: { level: 1 | 2; iconSvg: string; textColor: string; textBg: string }`：图标 + 柔和背景色标签（冷酷的仙境的 H2 在用）。`<h${level}>` 只负责 `display:flex; justify-content:center` 把整个标签居中；真正的标签是内层 `display:inline-flex; align-items:center` 的 `<span>`，背景色挂在**这一层**，`<img>` 图标和标题文字（自己又包了一层 `<span>` 管颜色）都是它的子元素——这样背景色能同时盖住图标和文字（最早的版本背景色只包文字、图标露在外面，用户反馈改成"背景也盖住图标"后才加了这层外层 `<span>`，顺带把 `<h2>` 自己从 `align-items:center` 改成 `justify-content:center` 实现整体居中）。不依赖任何高度匹配/stretch 逻辑（这点和三角旗、票据盒子的教训不一样：图标是固定尺寸，文字是自然高度，`align-items:center` 只是把两者居中对齐，不要求精确等高，风险低很多）。`iconSvg` 只传内部的 path/shape 标记，外层 `<svg viewBox="0 0 24 24">` 由代码统一包裹。参考图里标题左侧是三四个分别定位的彩色小图案（星星/圆点），这里刻意合并成**一个** `<img>`（SVG 内部画多个形状），不是多个分别定位的小元素——这个会话已经反复验证"多个零散定位的装饰小元素"在微信里不可靠，合并成单一 `<img>` 更稳。
+- `headingIcon?: { level: 1 | 2; iconSvg: string; textColor: string; textBg: string; barColor?: string }`：图标 + 柔和背景色标签（冷酷的仙境的 H2 在用）。`<h${level}>` 只负责 `display:flex; justify-content:center` 把整个标签居中；真正的标签是内层 `display:inline-flex; align-items:center` 的 `<span>`，背景色挂在**这一层**，`<img>` 图标和标题文字（自己又包了一层 `<span>` 管颜色）都是它的子元素——这样背景色能同时盖住图标和文字（最早的版本背景色只包文字、图标露在外面，用户反馈改成"背景也盖住图标"后才加了这层外层 `<span>`，顺带把 `<h2>` 自己从 `align-items:center` 改成 `justify-content:center` 实现整体居中）。不依赖任何高度匹配/stretch 逻辑（这点和三角旗、票据盒子的教训不一样：图标是固定尺寸，文字是自然高度，`align-items:center` 只是把两者居中对齐，不要求精确等高，风险低很多）。`iconSvg` 只传内部的 path/shape 标记，外层 `<svg viewBox="0 0 24 24">` 由代码统一包裹。参考图里标题左侧是三四个分别定位的彩色小图案（星星/圆点），这里刻意合并成**一个** `<img>`（SVG 内部画多个形状），不是多个分别定位的小元素——这个会话已经反复验证"多个零散定位的装饰小元素"在微信里不可靠，合并成单一 `<img>` 更稳。 可选的 `barColor` 给标签左边加一条 3px 竖线（冷酷的仙境用它做出"切割感"）。
   **曾经有过、后来放弃的设计**：参考截图原本还要求盒子上下各加一条比盒子更宽、朝相反方向偏移的横线（"票据/印章"效果）。这条线只能是空 `<section>`（只有 `border-top`，没有文字内容），实测发现这类纯空标签会被微信的粘贴净化器不可预测地清掉——不是像 `clip-path` 那样每次都稳定剥离，而是随着文档里重复出现的次数增多，丢失情况逐渐变严重（第一个 H2 只丢一条，往后的 H2 两条全丢）。给每条线塞一个不可见文字节点（`&nbsp;` + `color:transparent`，并且这个 `font-size`/`line-height` 必须直接设在 `<section>` 自己身上而不是内部再包一层 `<span>`，否则 `<section>` 会继承外层约 16px/1.75 倍行距撑出一大截空白）试图让它不再是"空标签"，仍然没能解决。用户帮忙跑 Console 脚本转储粘贴后的真实 DOM 确认了这一点，也确认了我们自己生成的原始 HTML 字符串标签闭合完全正常（不是己方 bug）。最终判断这是微信自己对这种重复结构的不稳定处理，不是能靠调整 HTML/CSS 可靠解决的问题，于是去掉这两条线，只保留边框盒子本身——盒子、"+"号、标题文字这些都是本节反复验证过确实稳定的元素。
 - `noUnderline?: (1 | 2)[]`：让指定层级的标题彻底不带下划线（既不要 `headingBanner`/`headingBox` 的装饰，也不要默认的 accent 色下划线）。H1/H2 默认都会有一条用 `theme.accent` 上色的 `border-bottom`（parser.ts 占位样式 + 通用替换），简约黑白给 H1 配了这个字段去掉它（H1 用纯文字即可，下划线留给 H2 的票据盒子去做视觉锚点，两级标题都带下划线会太满）。实现上要注意顺序：必须匹配**占位符原文**（`#7c3aed`/`#e5e5e5`）并在 `border-bottom: 2px solid #7c3aed → theme.accent` 这条通用替换之前执行，不然占位色已经被换成主题色，正则就匹配不上了。
 - `taskAccent?: { inProgress?; rescheduled?; question?; important? }`：任务列表 checkbox 的填充色，`parser.ts` 里这几种状态一直是硬编码的固定色号（蓝/橙/黄/红），不像标题/callout 那样天生走占位符替换体系——之前没人注意到这几个状态其实不跟随主题，静态主题切换时它们一直是同一套颜色。`done` 不需要这个字段，它恰好复用了 `#7c3aed` 这个和主题 accent 通用替换共享的占位色，本来就跟随主题；`todo` 是空心边框，没有填充色可换。简约黑白给这四个状态配了灰阶值，复用 callout 那套"轻重分级"逻辑（最严重的 `important` 最深）。
@@ -456,6 +456,7 @@ obsidian-publisher/
 │   │   ├── engine.ts                  # StyleEngine：主题覆盖分发 + Obsidian CSS 变量读取
 │   │   ├── themes.ts                  # 静态主题注册表（11 款预设）+ 主题色值→regex 替换表生成
 │   │   ├── color-utils.ts             # mixColors / hexToRgbTriplet / normalizeRgbTriplet
+│   │   ├── task-icons.ts              # 任务列表勾选框 <span> → SVG 图片（主题配色之后）
 │   │   └── sanitizer.ts               # 微信兼容性清理（移除 position/class/id 等）
 │   ├── clipboard/
 │   │   └── writer.ts                  # ClipboardItem API 写入富文本
@@ -593,7 +594,7 @@ markdown-it 渲染 `![alt](path with spaces)` 时会 URL 编码空格，导致 `
 
 ### 8.6 任务列表实现
 
-使用 flex 布局：左侧固定宽度图标（`flex-shrink: 0`）+ 右侧 `flex: 1` 内容区。支持 7 种任务状态，均为公众号自有固定样式，不跟随 Obsidian 主题：
+使用 flex 布局：左侧固定宽度图标（`flex-shrink: 0`）+ 右侧 `flex: 1` 内容区。支持 7 种任务状态，下表是默认配色；`[x]` 跟随主题强调色，静态主题可用 `taskAccent` 覆盖进行中/改期/存疑/重要四种：
 
 | 状态 | 图标 | 颜色 | 内容样式 |
 |------|------|------|----------|
@@ -606,6 +607,8 @@ markdown-it 渲染 `![alt](path with spaces)` 时会 URL 编码空格，导致 `
 | `[!]` | ! | 红色 | 正常 |
 
 `insideDoneTask` 状态变量控制 `done` 和 `cancelled` 两种状态下段落渲染规则（灰色 + 删除线）。`task-list.ts` 使用 `taskPatterns` 数组按序匹配，命中后写入 `data-task` 属性，`parser.ts` 的 `list_item_open` renderer 根据该属性分支渲染。
+
+**勾选框最终输出为图片**：`parser.ts` 先把勾选框输出成带 `data-pub-task` 标记、带内联背景色/边框色的 `<span>`（这样各主题仍能用占位符替换给它上色），`StyleEngine.process()` 在主题替换之后、`sanitizeForWeChat()` 删掉 `data-*` 之前，由 `taskBoxesToImages()`（`src/style/task-icons.ts`）把它换成一个 15×15 的 SVG `<img>`：圆角方块 + 用路径画的白色符号（不用文字字形）；之后和其它 SVG 图片一样被转成 PNG、补足体积（见 8.12）。原因：用 `<span>` 的时候，粘贴进微信后未勾选的空心框（没有任何文字的空标签）整个消失，其它框里的符号被挤到顶部、被切掉一半（微信改动了小方块里的行高排版），而 Obsidian 预览一切正常。对齐方式：图片放在一个正文字号（16px）的 `inline-block` 小容器里、`vertical-align: -2px`（图片底边比文字基线低 2px，正好让 15px 方块的中心对准大写字母高度的中线），容器末尾带一个 `&nbsp;` 提供文字基线（兼作间距），`<li>` 用 `align-items: baseline` 把这个容器和任务文字按基线对齐。这样勾选框始终跟着文字走，与行高无关。第一版用 `align-items: flex-start` + 固定 `margin-top: 4px`，按 Obsidian 的行高算好；粘贴进公众号后行高被"行间距"放大，文字下移而勾选框不动，看起来偏高（预览里原本还有一段按主题行高动态算 `margin-top` 的代码，也一并删掉了）。在预览里把行高强行放大到 2.8 倍验证过，偏差不变。第二版用的是 `vertical-align: middle`，但 `middle` 对准的是小写字母 x 高度的中线，比人眼感受到的文字中心（英文标题以大写字母开头、多有 l/t/k 这类高笔画）低 1～2px，用户目测"图标略低"；改成按基线下沉固定像素，量得图标中心与大写字母中线的偏差约 0.2px。callout 标题图标（`callout.ts` 的 `buildIconImg`）有同样的问题，同样从 `middle` 改成了 `vertical-align: -3px`（16px 图标、15px 标题字），偏差约 0.4px。
 
 ### 8.7 String.replace 特殊字符
 
