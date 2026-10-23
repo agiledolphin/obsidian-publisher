@@ -6,9 +6,7 @@ import { sanitizeHTMLToDom } from 'obsidian';
  * container so that styles.css rules (which use var(--pub-*)) pick them up.
  */
 export function readThemeVars(): Record<string, string> {
-	const result: Record<string, string> = {
-		'--pub-line-height': '1.75',
-	};
+	const result: Record<string, string> = {};
 
 	const viewEl = document.querySelector('.markdown-preview-view');
 	if (!viewEl) return result;
@@ -41,29 +39,14 @@ export function readThemeVars(): Record<string, string> {
 		viewEl.removeChild(delProbe);
 	}
 
-	// Body line-height, read from a list item (themes often set it there).
-	const probeUl = document.createElement('ul');
-	probeUl.classList.add('publisher-offscreen', 'has-list-bullet');
-	const probeLi = document.createElement('li');
-	probeLi.textContent = 'X';
-	probeUl.appendChild(probeLi);
-	viewEl.appendChild(probeUl);
-	try {
-		const liCs = getComputedStyle(probeLi);
-		const lhPx = parseFloat(liCs.lineHeight);
-		const fsPx = parseFloat(liCs.fontSize) || 16;
-		if (!isNaN(lhPx) && lhPx > 0) {
-			result['--pub-line-height'] = String(+(lhPx / fsPx).toFixed(4));
-		}
-	} finally {
-		viewEl.removeChild(probeUl);
-	}
 	return result;
 }
 
 /**
  * Inserts rendered HTML into container and applies all theme-based post-processing:
- * paragraph line-height and live-theme mark/del colors.
+ * live-theme mark/del colors. Line-heights are left exactly as converted
+ * (the live theme's own line-height is already written in by the style
+ * engine), so the preview matches what every copy entry puts on the clipboard.
  */
 export function applyPreviewContent(
 	container: HTMLElement,
@@ -105,13 +88,6 @@ export function applyPreviewContent(
 	const rootBg = root?.style.backgroundColor ?? '';
 	if (rootBg) container.style.setProperty('background-color', rootBg);
 	else container.style.removeProperty('background-color');
-
-	// Paragraphs and list rows (parser.ts draws each list item as a flex
-	// <section> row) follow the theme's line-height, as the copy does.
-	const lineHeight = themeVars['--pub-line-height'] ?? '1.75';
-	container.querySelectorAll('p, section[style*="align-items: baseline"]').forEach((el) => {
-		(el as HTMLElement).style.setProperty('line-height', lineHeight);
-	});
 
 	// For the 'obsidian' theme, override mark and del colors with the live Obsidian
 	// theme values so the preview matches reading view exactly.
