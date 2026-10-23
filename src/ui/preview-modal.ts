@@ -136,9 +136,8 @@ export class PreviewModal extends Modal {
 			cls: 'publisher-btn-primary',
 		});
 		copyBtn.addEventListener('click', () => {
-			const lh = readThemeVars()['--pub-line-height'] ?? '1.75';
-			const synced = this.html.replace(/\bline-height:\s*[\d.]+/g, `line-height: ${lh}`);
-			copyRichText(synced)
+			// Same HTML as the copy command — what the preview shows.
+			copyRichText(this.html)
 				.then(() => {
 					new Notice('✅ 已复制！请到公众号编辑器中粘贴。');
 					this.close();

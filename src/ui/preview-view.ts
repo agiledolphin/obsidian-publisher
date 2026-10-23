@@ -64,9 +64,8 @@ export class PublisherPreviewView extends ItemView {
 		});
 		copyBtn.addEventListener('click', () => {
 			if (!this.currentHtml) return;
-			const lh = readThemeVars()['--pub-line-height'] ?? '1.75';
-			const synced = this.currentHtml.replace(/\bline-height:\s*[\d.]+/g, `line-height: ${lh}`);
-			copyRichText(synced)
+			// Same HTML as the copy command — what the preview shows.
+			copyRichText(this.currentHtml)
 				.then(() => new Notice('✅ 已复制！请到公众号编辑器中粘贴。'))
 				.catch(() => new Notice('❌ 复制失败，请检查浏览器权限。'));
 		});
