@@ -135,6 +135,8 @@ function applyHljsTheme(html: string): string {
 export class MarkdownParser {
 	private md: MarkdownIt;
 	private insideDoneTask = false;
+	private listStack: { ordered: boolean; next: number }[] = [];
+	private itemTasks: (string | null)[] = [];
 	private insideLink = false;
 
 	constructor() {
@@ -194,15 +196,20 @@ export class MarkdownParser {
 			);
 		};
 
+		// Tight-list paragraphs are hidden (markdown-it marks them) — no <p>,
+		// so items don't pick up paragraph margins. Paragraphs in loose
+		// lists drop their bottom margin; the list rows space themselves.
 		md.renderer.rules['paragraph_open'] = (tokens, idx) => {
-			if (isEmptyInline(tokens, idx)) return '';
+			if (tokens[idx]?.hidden || isEmptyInline(tokens, idx)) return '';
+			const margin = this.listStack.length > 0 ? '0' : '0 0 1em 0';
 			if (this.insideDoneTask) {
-				return `<p style="font-size: 16px; color: #888888; text-decoration: line-through; line-height: 1.75; margin: 0 0 1em 0;">`;
+				return `<p style="font-size: 16px; color: #888888; text-decoration: line-through; line-height: 1.75; margin: ${margin};">`;
 			}
-			return `<p style="font-size: 16px; color: inherit; line-height: 1.75; margin: 0 0 1em 0;">`;
+			return `<p style="font-size: 16px; color: inherit; line-height: 1.75; margin: ${margin};">`;
 		};
 
 		md.renderer.rules['paragraph_close'] = (tokens, idx) => {
+			if (tokens[idx]?.hidden) return '';
 			// Walk back to find the matching paragraph_open
 			let depth = 0;
 			for (let i = idx - 1; i >= 0; i--) {
@@ -293,89 +300,78 @@ export class MarkdownParser {
 			`<td style="text-align: ${columnAlign(tokens, idx)}; padding: 10px 12px; border: 1px solid #ddd; vertical-align: top;">`;
 
 		// ── Lists ─────────────────────────────────────────────────────
-		md.renderer.rules['bullet_list_open'] = () =>
-			`<ul style="padding-left: 2em; margin: 0.5em 0;">`;
-		md.renderer.rules['ordered_list_open'] = (tokens, idx) => {
-			const start = tokens[idx]?.attrGet('start') ?? '1';
-			return `<ol start="${start}" style="padding-left: 2em; margin: 0.5em 0;">`;
+		// Drawn with <section>s instead of <ul>/<ol>/<li>: WeChat re-parses
+		// pasted lists and mangles nesting (a third-level item got hoisted to
+		// the second level, ahead of its siblings), and its native markers
+		// ignore the theme. Each item is a flex row: a fixed marker column
+		// (bullet, number or task checkbox) + a content column. A nested list
+		// sits in its parent's content column and pulls back under the parent
+		// marker, where its left border draws the indent guide.
+		// Placeholders: #b0b0b1 = marker color, #c0c0c1 = guide color.
+		const MARKER_COL = 32;   // marker column width; content starts here
+		const MARKER_MID = 19;   // marker center, from the row's left edge
+		const GUIDE = MARKER_COL - MARKER_MID;
+		const markerBase = `flex-shrink: 0; width: ${MARKER_COL}px; box-sizing: border-box;`;
+		const centered = `${markerBase} padding-left: ${2 * MARKER_MID - MARKER_COL}px; text-align: center;`;
+
+		const openList = (ordered: boolean, start: number): string => {
+			const nested = this.listStack.length > 0;
+			this.listStack.push({ ordered, next: start });
+			return nested
+				? `<section style="margin: 0 0 0 -${GUIDE}px; padding-left: ${GUIDE - 1}px; border-left: 1px solid #c0c0c1;">`
+				: `<section style="margin: 0.5em 0;">`;
+		};
+		const closeList = (): string => {
+			this.listStack.pop();
+			return '</section>';
+		};
+		md.renderer.rules['bullet_list_open'] = () => openList(false, 1);
+		md.renderer.rules['ordered_list_open'] = (tokens, idx) =>
+			openList(true, parseInt(tokens[idx]?.attrGet('start') ?? '1', 10) || 1);
+		md.renderer.rules['bullet_list_close'] = closeList;
+		md.renderer.rules['ordered_list_close'] = closeList;
+
+		// Task checkbox placeholders: taskBoxesToImages() (style/task-icons.ts)
+		// swaps each data-pub-task <span> for an image, reading its colors.
+		const boxBase = `display: inline-block; width: 15px; height: 15px; border-radius: 3px; box-sizing: border-box; text-align: center; line-height: 15px; color: #ffffff; font-size: 11px; font-weight: normal;`;
+		const taskBox: Record<string, string> = {
+			'done':        `<span data-pub-task="done" style="${boxBase} background-color: #7c3aed;">✓</span>`,
+			'cancelled':   `<span data-pub-task="cancelled" style="${boxBase} background-color: #9a9a9a;">–</span>`,
+			'todo':        `<span data-pub-task="todo" style="display: inline-block; width: 15px; height: 15px; border-radius: 3px; box-sizing: border-box; border: 1.5px solid #c8ccd0;"></span>`,
+			'in-progress': `<span data-pub-task="in-progress" style="${boxBase} background-color: #4e96e0;">/</span>`,
+			'rescheduled': `<span data-pub-task="rescheduled" style="${boxBase} background-color: #d4820a; font-size: 15px; padding-left: 2px;">›</span>`,
+			'question':    `<span data-pub-task="question" style="${boxBase} background-color: #ba8f00;">?</span>`,
+			'important':   `<span data-pub-task="important" style="${boxBase} background-color: #d44030;">!</span>`,
 		};
 
 		md.renderer.rules['list_item_open'] = (tokens, idx) => {
-			const task = tokens[idx]?.attrGet('data-task');
-			// Flex layout: icon (flex-shrink:0) + content div (flex:1).
-			const liBase = `font-size: 16px; line-height: 1.75; margin: 0.3em 0; list-style: none; margin-left: -1.5em; display: flex; align-items: baseline;`;
-			const boxBase = `flex-shrink: 0; display: inline-block; width: 15px; height: 15px; border-radius: 3px; margin-right: 8px; margin-top: 4px; box-sizing: border-box; text-align: center; line-height: 15px; color: #ffffff; font-size: 11px; font-weight: normal;`;
-			if (task === 'done') {
-				this.insideDoneTask = true;
-				return (
-					`<li style="${liBase}">` +
-					`<span data-pub-task="done" style="${boxBase} background-color: #7c3aed;">✓</span>` +
-					`<div style="flex: 1; min-width: 0; color: #888888; text-decoration: line-through;">`
-				);
+			const list = this.listStack[this.listStack.length - 1] ?? { ordered: false, next: 1 };
+			const attr = tokens[idx]?.attrGet('data-task');
+			const task = attr && taskBox[attr] ? attr : null;
+			this.itemTasks.push(task);
+
+			let marker: string;
+			if (task) {
+				marker = `<span style="${centered}">${taskBox[task]}</span>`;
+			} else if (list.ordered) {
+				marker = `<span style="${markerBase} padding-right: 6px; text-align: right; color: #b0b0b1;">${list.next++}.</span>`;
+			} else {
+				marker = `<span style="${centered} color: #b0b0b1;">•</span>`;
 			}
-			if (task === 'cancelled') {
-				this.insideDoneTask = true;
-				return (
-					`<li style="${liBase}">` +
-					`<span data-pub-task="cancelled" style="${boxBase} background-color: #9a9a9a;">–</span>` +
-					`<div style="flex: 1; min-width: 0; color: #888888; text-decoration: line-through;">`
-				);
-			}
-			if (task === 'todo') {
-				return (
-					`<li style="${liBase}">` +
-					`<span data-pub-task="todo" style="flex-shrink: 0; display: inline-block; width: 15px; height: 15px; border-radius: 3px; margin-right: 8px; margin-top: 4px; box-sizing: border-box; border: 1.5px solid #c8ccd0;"></span>` +
-					`<div style="flex: 1; min-width: 0;">`
-				);
-			}
-			if (task === 'in-progress') {
-				return (
-					`<li style="${liBase}">` +
-					`<span data-pub-task="in-progress" style="${boxBase} background-color: #4e96e0;">/</span>` +
-					`<div style="flex: 1; min-width: 0;">`
-				);
-			}
-			if (task === 'rescheduled') {
-				return (
-					`<li style="${liBase}">` +
-					`<span data-pub-task="rescheduled" style="${boxBase} background-color: #d4820a; font-size: 15px; padding-left: 2px;">›</span>` +
-					`<div style="flex: 1; min-width: 0;">`
-				);
-			}
-			if (task === 'question') {
-				return (
-					`<li style="${liBase}">` +
-					`<span data-pub-task="question" style="${boxBase} background-color: #ba8f00;">?</span>` +
-					`<div style="flex: 1; min-width: 0;">`
-				);
-			}
-			if (task === 'important') {
-				return (
-					`<li style="${liBase}">` +
-					`<span data-pub-task="important" style="${boxBase} background-color: #d44030;">!</span>` +
-					`<div style="flex: 1; min-width: 0;">`
-				);
-			}
-			return `<li style="font-size: 16px; line-height: 1.75; margin: 0.3em 0;">`;
+
+			const struck = task === 'done' || task === 'cancelled';
+			if (struck) this.insideDoneTask = true;
+			return (
+				`<section style="display: flex; align-items: baseline; font-size: 16px; line-height: 1.75; padding: 0.1em 0;">` +
+				marker +
+				`<section style="flex: 1; min-width: 0;${struck ? ' color: #888888; text-decoration: line-through;' : ''}">`
+			);
 		};
 
-		const TASK_TYPES_WITH_DIV = new Set(['done', 'cancelled', 'todo', 'in-progress', 'rescheduled', 'question', 'important']);
-		md.renderer.rules['list_item_close'] = (tokens, idx) => {
-			let depth = 0;
-			for (let i = idx - 1; i >= 0; i--) {
-				const t = tokens[i];
-				if (!t) continue;
-				if (t.type === 'list_item_close') depth++;
-				if (t.type === 'list_item_open') {
-					if (depth === 0) {
-						const task = t.attrGet('data-task');
-						if (task === 'done' || task === 'cancelled') this.insideDoneTask = false;
-						return task && TASK_TYPES_WITH_DIV.has(task) ? '</div></li>' : '</li>';
-					}
-					depth--;
-				}
-			}
-			return '</li>';
+		md.renderer.rules['list_item_close'] = () => {
+			const task = this.itemTasks.pop();
+			if (task === 'done' || task === 'cancelled') this.insideDoneTask = false;
+			return '</section></section>';
 		};
 
 		// ── Emphasis / strong ─────────────────────────────────────────
@@ -388,6 +384,9 @@ export class MarkdownParser {
 	}
 
 	render(markdown: string): string {
+		this.listStack = [];
+		this.itemTasks = [];
+		this.insideDoneTask = false;
 		return this.md.render(markdown);
 	}
 }

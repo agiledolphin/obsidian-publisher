@@ -82,7 +82,7 @@ onunload()  → 插件禁用时调用，清理资源
 
 ### 3.2 支持的 HTML 标签
 
-`<p>`、`<h1>`~`<h6>`、`<strong>`/`<b>`、`<em>`/`<i>`、`<u>`、`<br>`、`<hr>`、`<img>`、`<a>`、`<table>`/`<tr>`/`<td>`/`<th>`、`<ul>`/`<ol>`/`<li>`、`<blockquote>`、`<pre>`/`<code>`、`<span>`、`<div>`/`<section>`、`<sub>`/`<sup>`、`<mark>`、`<del>`
+`<p>`、`<h1>`~`<h6>`、`<strong>`/`<b>`、`<em>`/`<i>`、`<u>`、`<br>`、`<hr>`、`<img>`、`<a>`、`<table>`/`<tr>`/`<td>`/`<th>`、`<ul>`/`<ol>`/`<li>`（但多层嵌套会被微信打乱，插件不再输出，见 8.13）、`<blockquote>`、`<pre>`/`<code>`、`<span>`、`<div>`/`<section>`、`<sub>`/`<sup>`、`<mark>`、`<del>`
 
 ### 3.3 富文本粘贴机制
 
@@ -595,7 +595,7 @@ markdown-it 渲染 `![alt](path with spaces)` 时会 URL 编码空格，导致 `
 
 ### 8.6 任务列表实现
 
-使用 flex 布局：左侧固定宽度图标（`flex-shrink: 0`）+ 右侧 `flex: 1` 内容区。支持 7 种任务状态，下表是默认配色；`[x]` 跟随主题强调色，静态主题可用 `taskAccent` 覆盖进行中/改期/存疑/重要四种：
+任务项和普通列表项一样是一行 flex `<section>`（见 8.13）：左侧固定宽度的标记列放勾选框，右侧 `flex: 1` 内容区。支持 7 种任务状态，下表是默认配色；`[x]` 跟随主题强调色，静态主题可用 `taskAccent` 覆盖进行中/改期/存疑/重要四种：
 
 | 状态 | 图标 | 颜色 | 内容样式 |
 |------|------|------|----------|
@@ -609,7 +609,7 @@ markdown-it 渲染 `![alt](path with spaces)` 时会 URL 编码空格，导致 `
 
 `insideDoneTask` 状态变量控制 `done` 和 `cancelled` 两种状态下段落渲染规则（灰色 + 删除线）。`task-list.ts` 使用 `taskPatterns` 数组按序匹配，命中后写入 `data-task` 属性，`parser.ts` 的 `list_item_open` renderer 根据该属性分支渲染。
 
-**勾选框最终输出为图片**：`parser.ts` 先把勾选框输出成带 `data-pub-task` 标记、带内联背景色/边框色的 `<span>`（这样各主题仍能用占位符替换给它上色），`StyleEngine.process()` 在主题替换之后、`sanitizeForWeChat()` 删掉 `data-*` 之前，由 `taskBoxesToImages()`（`src/style/task-icons.ts`）把它换成一个 15×15 的 SVG `<img>`：圆角方块 + 用路径画的白色符号（不用文字字形）；之后和其它 SVG 图片一样被转成 PNG、补足体积（见 8.12）。原因：用 `<span>` 的时候，粘贴进微信后未勾选的空心框（没有任何文字的空标签）整个消失，其它框里的符号被挤到顶部、被切掉一半（微信改动了小方块里的行高排版），而 Obsidian 预览一切正常。对齐方式：图片放在一个正文字号（16px）的 `inline-block` 小容器里、`vertical-align: -2px`（图片底边比文字基线低 2px，正好让 15px 方块的中心对准大写字母高度的中线），容器末尾带一个 `&nbsp;` 提供文字基线（兼作间距），`<li>` 用 `align-items: baseline` 把这个容器和任务文字按基线对齐。这样勾选框始终跟着文字走，与行高无关。第一版用 `align-items: flex-start` + 固定 `margin-top: 4px`，按 Obsidian 的行高算好；粘贴进公众号后行高被"行间距"放大，文字下移而勾选框不动，看起来偏高（预览里原本还有一段按主题行高动态算 `margin-top` 的代码，也一并删掉了）。在预览里把行高强行放大到 2.8 倍验证过，偏差不变。第二版用的是 `vertical-align: middle`，但 `middle` 对准的是小写字母 x 高度的中线，比人眼感受到的文字中心（英文标题以大写字母开头、多有 l/t/k 这类高笔画）低 1～2px，用户目测"图标略低"；改成按基线下沉固定像素，量得图标中心与大写字母中线的偏差约 0.2px。callout 标题图标（`callout.ts` 的 `buildIconImg`）有同样的问题，同样从 `middle` 改成了 `vertical-align: -3px`（16px 图标、15px 标题字），偏差约 0.4px。
+**勾选框最终输出为图片**：`parser.ts` 先把勾选框输出成带 `data-pub-task` 标记、带内联背景色/边框色的 `<span>`（这样各主题仍能用占位符替换给它上色），`StyleEngine.process()` 在主题替换之后、`sanitizeForWeChat()` 删掉 `data-*` 之前，由 `taskBoxesToImages()`（`src/style/task-icons.ts`）把它换成一个 15×15 的 SVG `<img>`：圆角方块 + 用路径画的白色符号（不用文字字形）；之后和其它 SVG 图片一样被转成 PNG、补足体积（见 8.12）。原因：用 `<span>` 的时候，粘贴进微信后未勾选的空心框（没有任何文字的空标签）整个消失，其它框里的符号被挤到顶部、被切掉一半（微信改动了小方块里的行高排版），而 Obsidian 预览一切正常。对齐方式：图片放在一个正文字号（16px）的 `inline-block` 小容器里、`vertical-align: -2px`（图片底边比文字基线低 2px，正好让 15px 方块的中心对准大写字母高度的中线），容器末尾带一个 `&nbsp;` 提供文字基线（兼作间距），列表行用 `align-items: baseline` 把这个容器和任务文字按基线对齐。这样勾选框始终跟着文字走，与行高无关。第一版用 `align-items: flex-start` + 固定 `margin-top: 4px`，按 Obsidian 的行高算好；粘贴进公众号后行高被"行间距"放大，文字下移而勾选框不动，看起来偏高（预览里原本还有一段按主题行高动态算 `margin-top` 的代码，也一并删掉了）。在预览里把行高强行放大到 2.8 倍验证过，偏差不变。第二版用的是 `vertical-align: middle`，但 `middle` 对准的是小写字母 x 高度的中线，比人眼感受到的文字中心（英文标题以大写字母开头、多有 l/t/k 这类高笔画）低 1～2px，用户目测"图标略低"；改成按基线下沉固定像素，量得图标中心与大写字母中线的偏差约 0.2px。callout 标题图标（`callout.ts` 的 `buildIconImg`）有同样的问题，同样从 `middle` 改成了 `vertical-align: -3px`（16px 图标、15px 标题字），偏差约 0.4px。
 
 **"当前 Obsidian 主题"下的勾选框直接截取 Obsidian 的实际渲染**（`src/style/live-task-icons.ts`）：各 Obsidian 主题画勾选框的手法五花八门（圆形/方形、`::before` 文字符号、`mask-image` 遮罩、半填充色块……），逐个解读 CSS 去复刻不现实。插件是桌面版，Obsidian 桌面端开放了 Electron 的 `remote.getCurrentWebContents().capturePage()`：转换时在页面最上层临时放一个和阅读视图同结构的 `.markdown-preview-view.markdown-rendered > ul.contains-task-list > li.task-list-item[data-task]` 探针，7 种状态各一个真实的 `<input type="checkbox">`，逐个截图（按 `webFrame` 缩放系数换算坐标，Retina 下是 2 倍像素）。截图会带上页面底色，所以分别在白底、黑底上各截一次，用"双底色抠图"算出每个像素的透明度（alpha = 1 −（白底值 − 黑底值），颜色 = 黑底值 / alpha），得到边缘柔和的透明 PNG。结果按 Obsidian 主题/深浅模式缓存，`css-change` 事件（换主题、切深浅色、开关 CSS 片段）时作废，所以只有第一次转换会在屏幕上闪一下。截不到（拿不到 Electron 接口、窗口最小化等）就退回插件自己画的勾选框。截下来的图片直接作为 `taskBoxesToImages()` 的输入，尺寸用实际渲染尺寸（含 1px 边距），对齐偏移按图片高度换算（`CAP_CENTER − h/2`），保证不同尺寸的勾选框都对准文字的大写字母中线。静态预设主题仍用插件自己画的勾选框。
 
@@ -664,6 +664,21 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 **教训**：微信"粘贴后能显示"不等于"能发布"。粘贴时编辑器只是渲染这段 HTML；保存草稿时服务器还会再处理一遍，有些东西是在这一步才被丢掉的。以后验证微信兼容性，要**保存草稿后再看**，不能只看粘贴后的编辑器。
 
 ---
+
+### 8.13 列表不用 `<ul>`/`<ol>`/`<li>`，改成插件自己画的 `<section>` 行
+
+**问题**：三层嵌套的无序列表粘贴进公众号后结构被打乱——第 3 层的项被提到第 2 层，还挪到了同级各项的最前面。插件生成的 `<ul>` 嵌套是正确的（转储过 HTML 确认），是微信粘贴时重新整理列表造成的。另外微信里的列表符号用的是浏览器自带样式：颜色与正文相同、第 2 层变成空心圆、没有缩进线，和预览不一致——预览之所以"对"，是因为预览区在 Obsidian 页面里，Obsidian 的全局 CSS（`ul > li::marker { color: var(--list-marker-color) }`、嵌套 `ul` 一律 `disc`）顺带作用到了它上面，这些 CSS 不会跟着复制出去。紧凑列表还多出了 `<p>`（自定义的 `paragraph_open` 规则没理会 markdown-it 的 `hidden` 标记），预览里靠 `styles.css` 的 `li p { margin: 0 }` 掩盖，微信里却多出段落间距。
+
+**做法**（`parser.ts` 的列表渲染规则）：
+- 每个列表是一个 `<section>`，每一项是一行 flex `<section>`：左边 32px 宽的标记列 + 右边 `flex: 1` 的内容 `<section>`，按基线对齐。标记列里放圆点 `•`（居中在 19px 处）、有序序号（右对齐，与正文间隔 6px）或任务勾选框。圆点和序号是**文字字符**，不用空标签画（空标签在微信里会丢）。
+- 嵌套列表在父项的内容列里，用 `margin-left: -13px` 退回到父项标记的中心，`border-left: 1px` 画缩进线、`padding-left: 12px` 把内容推回原位。几何尺寸和 Obsidian 阅读视图一致（正文距左 32px、圆点中心 19px、缩进线在父级圆点正下方）。
+- 颜色用占位符：`#b0b0b1` 标记色、`#c0c0c1` 缩进线色。"当前 Obsidian 主题"分别读 `--list-marker-color`、`--indentation-guide-color`（后者通常是半透明色，按透明度混合到页面背景色上，得到不透明的颜色）；静态主题用 `textFaint`、`borderColor`。
+- 序号由解析器自己数（列表栈记录有序与否和下一个序号，支持 `start`）。
+- 紧凑列表的段落标记为 `hidden` 时不输出 `<p>`；列表里的段落去掉下边距。
+
+**配套删除**：`styles.css` 里预览专用的列表缩进线（`li > ul::before`）和 `li p` 规则、`preview-renderer.ts` 里读取主题缩进线/列表边距并改写 `<li>` 的代码都删掉了——这些只作用于预览，导致预览和微信不一致。现在预览看到的就是复制出去的结构。预览只保留给段落和列表行设主题行高（与复制时的行高替换一致）。
+
+**代价**：粘贴到公众号后不再是编辑器认的"列表"，在微信里按回车不会自动续出新的列表项。
 
 ## 9. 已知限制与风险
 

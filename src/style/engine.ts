@@ -66,6 +66,9 @@ export interface ObsidianVars {
 	tableHeaderBg:    string;
 	tableHeaderColor: string;
 	tableBorder:      string; // --table-border-color (distinct from --background-modifier-border)
+	// List markers (bullets/numbers) and nested-list indent guides
+	listMarker:  string;
+	indentGuide: string;
 }
 
 // ── CSS variable resolution ─────────────────────────────────────────────────
@@ -437,6 +440,22 @@ const DARK_CODE_PALETTE = {
 // ── Public API ──────────────────────────────────────────────────────────────
 
 /** Read the live Obsidian theme colors, correctly resolving nested CSS variables. */
+/**
+ * --indentation-guide-color is usually translucent; flatten it onto the page
+ * background so the exported border color looks the same as in Obsidian.
+ */
+function readIndentGuideColor(bg: string, fallback: string): string {
+	const raw = withEl(
+		{ color: 'var(--indentation-guide-color)', ...HIDDEN_STYLE },
+		el => getComputedStyle(el).color,
+	);
+	const m = raw.match(/rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\s*\)/);
+	if (!m) return fallback;
+	const alpha = m[4] === undefined ? 1 : parseFloat(m[4]);
+	if (alpha === 0) return fallback;
+	return mixColors(bg, toHex6(m[1], m[2], m[3]), alpha);
+}
+
 export function readObsidianVars(): ObsidianVars {
 	const FALLBACK_FONT =
 		"-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif";
@@ -553,7 +572,11 @@ export function readObsidianVars(): ObsidianVars {
 		tableHeaderBg:    tableHeaderVars.bg,
 		tableHeaderColor: tableHeaderVars.color,
 		tableBorder:      readComputedColor('--table-border-color', '#dddddd'),
+		listMarker:       '',
+		indentGuide:      '',
 	};
+	vars.listMarker  = readComputedColor('--list-marker-color', vars.textFaint);
+	vars.indentGuide = readIndentGuideColor(vars.bgPrimary, vars.bgBorder);
 	logger.debug('readObsidianVars →', JSON.stringify(vars));
 	return vars;
 }
@@ -717,6 +740,9 @@ export class StyleEngine {
 			[/border: 1px solid #ddd(?![0-9a-f])/gi,          `border: 1px solid ${v.tableBorder}`],
 			[/border-top: 1px solid #e5e5e5/g,                `border-top: 1px solid ${v.bgBorder}`],
 			[/border-bottom: 1px solid #ddd(?![0-9a-f])/gi,   `border-bottom: 1px solid ${v.bgBorder}`],
+			// ── List markers + nested-list indent guides ───────────────────────
+			[/color: #b0b0b1/g,                   `color: ${v.listMarker}`],
+			[/border-left: 1px solid #c0c0c1/g,   `border-left: 1px solid ${v.indentGuide}`],
 			// ── Line height (paragraphs, list items) ───────────────────────────
 			[/line-height: 1\.75/g,                           `line-height: ${v.lineHeight}`],
 		];
