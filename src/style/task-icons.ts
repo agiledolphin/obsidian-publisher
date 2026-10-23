@@ -35,13 +35,14 @@ function boxSvg(task: string, style: string): string | null {
 const CAP_CENTER = 5.7;
 
 // Placed relative to the text baseline (inside a body-size inline-block the
-// <li> baseline-aligns with the task text), so it tracks the text whatever
-// line-height WeChat applies; the offset centers the box on the cap height
-// (`middle` aligns to the x-height and reads low). The trailing &nbsp; gives
-// the wrapper a text baseline and doubles as the gap.
+// list row baseline-aligns with the task text), so it tracks the text
+// whatever line-height WeChat applies; the offset centers the box on the cap
+// height (`middle` aligns to the x-height and reads low). The trailing
+// &nbsp; gives the wrapper a text baseline. Sits in the row's marker column
+// (parser.ts), which handles the spacing.
 function boxHtml(src: string, w: number, h: number): string {
 	const align = Math.round(CAP_CENTER - h / 2);
-	return `<span style="flex-shrink: 0; display: inline-block; font-size: 16px; line-height: 1; margin-right: 4px;">` +
+	return `<span style="display: inline-block; font-size: 16px; line-height: 1;">` +
 		`<img src="${src}" width="${w}" height="${h}" ` +
 		`style="display: inline-block; vertical-align: ${align}px; width: ${w}px; height: ${h}px;">&nbsp;</span>`;
 }

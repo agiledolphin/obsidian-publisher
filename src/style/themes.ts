@@ -855,6 +855,9 @@ export function buildStaticThemeMap(theme: StaticTheme): [RegExp, string][] {
 		[/border: 1px solid #ddd(?![0-9a-f])/gi, `border: 1px solid ${theme.borderColor}`],
 		[/border-top: 1px solid #e5e5e5/g, `border-top: 1px solid ${theme.borderColor}`],
 		[/border-bottom: 1px solid #ddd(?![0-9a-f])/gi, `border-bottom: 1px solid ${theme.borderColor}`],
+		// ── List markers + nested-list indent guides ─────────────────────────
+		[/color: #b0b0b1/g, `color: ${theme.textFaint}`],
+		[/border-left: 1px solid #c0c0c1/g, `border-left: 1px solid ${theme.borderColor}`],
 	);
 	return map;
 }
