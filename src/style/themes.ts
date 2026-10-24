@@ -101,6 +101,13 @@ export interface StaticTheme {
 	 */
 	headingGradient?: { level: 1 | 2; stops: [string, string, string]; color: string };
 	/**
+	 * Optional "book chapter" treatment for one heading level: centered text
+	 * with a rule above and below that hugs the text width (borders on an
+	 * inline-block <span>, so no element has to match another's height).
+	 * `double` draws each rule as a 3px double line instead of 1px solid.
+	 */
+	headingRule?: { level: 1 | 2; color: string; textColor: string; double?: boolean };
+	/**
 	 * Heading levels that should drop the default underline (an accent-colored
 	 * border-bottom, normally applied to H1/H2 automatically) entirely, with
 	 * no replacement decoration — for themes where a level already gets its
@@ -247,35 +254,42 @@ const MINIMAL_MONO_2: StaticTheme = {
 	headingBar: { level: 2, bgColor: '#1F1F1F', textColor: '#FFFFFF' },
 };
 
-// ── 护眼杏仁 (Warm Almond) ───────────────────────────────────────────────
-// Warm cream background with soft brown text — reduces eye strain on long
-// articles. Code palette echoes Gruvbox Light's warm/earthy tone family.
+// ── 杏仁 (Almond) ────────────────────────────────────────────────────────
+// The almond's kernel and shell: the cream page (kept — easy on the eyes is
+// the point of this theme) with almond-shell browns, lower in saturation
+// than 橙心's orange so the two don't read as the same theme, and olive/sage
+// greens from the leaves. Callouts and code keep Gruvbox's earthy families,
+// darkened to ≥ 4.5:1. H2 is a book-chapter title between double rules.
 
 const WARM_ALMOND: StaticTheme = {
 	id: 'warm-almond',
-	label: '护眼杏仁',
+	label: '杏仁',
 	bgPrimary: '#F7F1E1',
 	textNormal: '#4A3B2A',
-	textMuted: '#7A6A52',
-	textFaint: '#A79878',
+	textMuted: '#76664E',
+	textFaint: '#9C8D6E',
 	textItalic: '#6B5A42',
-	linkColor: '#A85C32',
-	accent: '#B5652E',
-	headings: ['#8C4A22', '#A85C32', '#946B2D', '#7C7A34', '#6E6E3B', '#7A6A52'],
-	highlightBg: '#F0DFA0',
+	linkColor: '#8A5A2B',
+	accent: '#A8743F',
+	headings: ['#6E4A26', '#8A5A2B', '#5F6B34', '#80602A', '#5C6646', '#76664E'],
+	highlightBg: '#EBCF86',
 	codeBackground: '#EFE4C9',
-	tableHeaderColor: '#8C4A22',
+	tableHeaderColor: '#6E4A26',
 	borderColor: '#DFCFA8',
 	code: {
-		normal: '#5A4632', comment: '#A08A6C', keyword: '#9D0006', function: '#AF3A03',
-		string: '#79740E', value: '#B57614', tag: '#8F3F71', property: '#427B58',
-		variable: '#076678', inline: '#9D0006',
+		normal: '#5A4632', comment: '#8A7858', keyword: '#9C2F1C', function: '#A2420E',
+		string: '#5F6216', value: '#8A5C10', tag: '#80466A', property: '#3E6A4C',
+		variable: '#2F6672', inline: '#9C2F1C',
 	},
 	calloutAccent: {
-		note: '#458588', abstract: '#427B58', info: '#458588', todo: '#B57614',
-		tip: '#79740E', success: '#79740E', question: '#B57614', warning: '#B57614',
-		failure: '#9D0006', danger: '#9D0006', bug: '#AF3A03', example: '#8F3F71', quote: '#A08A6C',
+		note: '#3F6C6E', abstract: '#46693A', info: '#3F6C6E', todo: '#80602A',
+		tip: '#5B6A1F', success: '#5B6A1F', question: '#8A5C10', warning: '#8A5C10',
+		failure: '#9C2F1C', danger: '#9C2F1C', bug: '#97401A', example: '#80466A', quote: '#76664E',
 	},
+	headingRule: { level: 2, color: '#A8743F', textColor: '#8A5A2B', double: true },
+	noUnderline: [1],
+	// Same colors as the matching callout types (note/example/question/danger).
+	taskAccent: { inProgress: '#3F6C6E', rescheduled: '#80466A', question: '#8A5C10', important: '#9C2F1C' },
 };
 
 // ── 科技蓝 (Tech Blue) ───────────────────────────────────────────────────
@@ -812,6 +826,24 @@ export function buildStaticThemeMap(theme: StaticTheme): [RegExp, string][] {
 		const textStyle =
 			`color: ${color}; background-image: linear-gradient(180deg, ${stops[0]} 0%, ${stops[1]} 55%, ${stops[2]} 100%); ` +
 			`-webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;`;
+		map.push(
+			[openSource, `<${tag} style="${headingStyle}"><span style="${textStyle}">`],
+			[closeSource, `</span></${tag}>`],
+		);
+	}
+	if (theme.headingRule) {
+		const { level, color, textColor, double } = theme.headingRule;
+		const fontSize = level === 1 ? '22px' : '20px';
+		const margin = level === 1 ? '1.5em 0 0.8em 0' : '1.3em 0 0.6em 0';
+		const [openSource, closeSource] = level === 1
+			? [H1_OPEN_SOURCE, H1_CLOSE_SOURCE]
+			: [H2_OPEN_SOURCE, H2_CLOSE_SOURCE];
+		const tag = level === 1 ? 'h1' : 'h2';
+		const rule = double ? `3px double ${color}` : `1px solid ${color}`;
+		const headingStyle = `margin: ${margin}; text-align: center;`;
+		const textStyle =
+			`display: inline-block; font-size: ${fontSize}; font-weight: 700; color: ${textColor}; ` +
+			`letter-spacing: 2px; line-height: 1.4; padding: 6px 20px; border-top: ${rule}; border-bottom: ${rule};`;
 		map.push(
 			[openSource, `<${tag} style="${headingStyle}"><span style="${textStyle}">`],
 			[closeSource, `</span></${tag}>`],
