@@ -19,6 +19,7 @@ import { obsidianCalloutPlugin } from './plugins/callout';
 import { obsidianWikiLinkPlugin } from './plugins/wikilink';
 import { obsidianHighlightPlugin } from './plugins/highlight-mark';
 import { obsidianTaskListPlugin } from './plugins/task-list';
+import { LIST_MARKER_CENTER } from '../style/task-icons';
 
 // Register highlight.js languages
 hljs.registerLanguage('javascript', javascript);
@@ -309,7 +310,7 @@ export class MarkdownParser {
 		// marker, where its left border draws the indent guide.
 		// Placeholders: #b0b0b1 = marker color, #c0c0c1 = guide color.
 		const MARKER_COL = 32;   // marker column width; content starts here
-		const MARKER_MID = 19;   // marker center, from the row's left edge
+		const MARKER_MID = LIST_MARKER_CENTER; // marker center, from the row's left edge
 		const GUIDE = MARKER_COL - MARKER_MID;
 		const markerBase = `flex-shrink: 0; width: ${MARKER_COL}px; box-sizing: border-box;`;
 		const centered = `${markerBase} padding-left: ${2 * MARKER_MID - MARKER_COL}px; text-align: center;`;
@@ -352,7 +353,8 @@ export class MarkdownParser {
 
 			let marker: string;
 			if (task) {
-				marker = `<span style="${centered}">${taskBox[task]}</span>`;
+				// Left-aligned: the checkbox image positions itself (task-icons.ts).
+				marker = `<span style="${markerBase} text-align: left;">${taskBox[task]}</span>`;
 			} else if (list.ordered) {
 				marker = `<span style="${markerBase} padding-right: 6px; text-align: right; color: #b0b0b1;">${list.next++}.</span>`;
 			} else {
