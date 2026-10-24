@@ -266,6 +266,7 @@ new MarkdownIt({
   **曾经有过、后来放弃的设计**：参考截图原本还要求盒子上下各加一条比盒子更宽、朝相反方向偏移的横线（"票据/印章"效果）。这条线只能是空 `<section>`（只有 `border-top`，没有文字内容），实测发现这类纯空标签会被微信的粘贴净化器不可预测地清掉——不是像 `clip-path` 那样每次都稳定剥离，而是随着文档里重复出现的次数增多，丢失情况逐渐变严重（第一个 H2 只丢一条，往后的 H2 两条全丢）。给每条线塞一个不可见文字节点（`&nbsp;` + `color:transparent`，并且这个 `font-size`/`line-height` 必须直接设在 `<section>` 自己身上而不是内部再包一层 `<span>`，否则 `<section>` 会继承外层约 16px/1.75 倍行距撑出一大截空白）试图让它不再是"空标签"，仍然没能解决。用户帮忙跑 Console 脚本转储粘贴后的真实 DOM 确认了这一点，也确认了我们自己生成的原始 HTML 字符串标签闭合完全正常（不是己方 bug）。最终判断这是微信自己对这种重复结构的不稳定处理，不是能靠调整 HTML/CSS 可靠解决的问题，于是去掉这两条线，只保留边框盒子本身——盒子、"+"号、标题文字这些都是本节反复验证过确实稳定的元素。
 - `noUnderline?: (1 | 2)[]`：让指定层级的标题彻底不带下划线（既不要 `headingBanner`/`headingBox` 的装饰，也不要默认的 accent 色下划线）。H1/H2 默认都会有一条用 `theme.accent` 上色的 `border-bottom`（parser.ts 占位样式 + 通用替换），简约黑白给 H1 配了这个字段去掉它（H1 用纯文字即可，下划线留给 H2 的票据盒子去做视觉锚点，两级标题都带下划线会太满）。实现上要注意顺序：必须匹配**占位符原文**（`#7c3aed`/`#e5e5e5`）并在 `border-bottom: 2px solid #7c3aed → theme.accent` 这条通用替换之前执行，不然占位色已经被换成主题色，正则就匹配不上了。
 - `taskAccent?: { inProgress?; rescheduled?; question?; important? }`：任务列表 checkbox 的填充色，`parser.ts` 里这几种状态一直是硬编码的固定色号（蓝/橙/黄/红），不像标题/callout 那样天生走占位符替换体系——之前没人注意到这几个状态其实不跟随主题，静态主题切换时它们一直是同一套颜色。`done` 不需要这个字段，它恰好复用了 `#7c3aed` 这个和主题 accent 通用替换共享的占位色，本来就跟随主题；`todo` 是空心边框，没有填充色可换。简约黑白给这四个状态配了灰阶值，复用 callout 那套"轻重分级"逻辑（最严重的 `important` 最深）。
+- `tableHeaderColor?: string`：覆盖表头文字色，默认用 `accent`；主色在表头底上对比度不足 4.5 时设置（见 8.9）。
 - `boldColor?: string`：覆盖 `**粗体**` 的颜色，默认继承正文色。选色时要避开该主题里标题/callout 已经占用的强调色，避免视觉撞色（例如橙心的粗体用焦橙 `#A84F14`，和 H1、链接、H2 横幅同属一条橙色"品牌色"线，但比横幅的主色深得多，保证正文里的可读性）。
 
 **颜色计算工具**（`color-utils.ts`）：
@@ -633,7 +634,7 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 
 **表头背景色**：`readTableHeaderVars()`（`engine.ts`）不能只读 `--table-header-background` 这个变量本身——有些主题定义了这个变量但实际渲染时并不使用它（背景是加在 `thead tr` 这一整行上，或者干脆加在 `<th>` 自己身上，因主题而异），变量值和真实视觉效果可能对不上。解决方案：往 `.markdown-preview-view` 里插入一个真实的 `<table><thead><tr><th>`，按 `th` 自身 → `tr` → `thead` 的优先级依次读 `getComputedStyle().backgroundColor`，取第一个非透明值——这样不管当前主题把背景画在哪一层，都能读到实际生效的颜色。
 
-**表头文字色**：`th` 之前完全没有单独的文字颜色占位符，一直继承正文色渲染；改为在 `th_open` 里加一个 `color: #2d3748` 占位符，`obsidian` 主题下用 `readTableHeaderVars()` 顺带读到的 `th` computed color 覆盖，静态主题下统一用 `theme.accent`。
+**表头文字色**：`th` 之前完全没有单独的文字颜色占位符，一直继承正文色渲染；改为在 `th_open` 里加一个 `color: #2d3748` 占位符，`obsidian` 主题下用 `readTableHeaderVars()` 顺带读到的 `th` computed color 覆盖，静态主题下默认用 `theme.accent`，主题可用 `tableHeaderColor` 覆盖。原因是表头文字只有 15px 加粗，属于 WCAG 的普通字号（要求对比度 ≥ 4.5:1），而很多主题的主色是给标题、装饰线用的亮色，在 `codeBackground` 表头底上只有 2.5～3.6。目前覆盖的主题：橙心 `#A84F14`（粗体色）、中国红 `#A61B1B`（H1）、冷酷的仙境 `#2F5A84`（H2）、森系绿 `#1B5E3A`（H1）、护眼杏仁 `#8C4A22`（H1）、樱语粉 `#9D4E61`（主色加深 30%）、简约黑白一／二 `#1F1F1F`（正文黑，避免黑白主题里出现蓝色表头），都尽量取自主题已有配色。
 
 **边框色**：改用专门的 `--table-border-color`，不再复用通用的 `--background-modifier-border`（后者是给普通 UI 分隔线用的，颜色未必和表格边框一致，只是恰好在测试主题里数值相同才没被早发现）。
 

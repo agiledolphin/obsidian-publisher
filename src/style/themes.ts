@@ -111,6 +111,12 @@ export interface StaticTheme {
 	/** Optional override for **bold** text color; defaults to textNormal (inherited) when unset. */
 	boldColor?: string;
 	/**
+	 * Optional override for table-header text color; defaults to `accent`.
+	 * Needed when the accent is too light to read as 15px text on the
+	 * codeBackground header fill (WCAG AA wants ≥ 4.5:1).
+	 */
+	tableHeaderColor?: string;
+	/**
 	 * Don't export `bgPrimary` as the article's page background — WeChat's
 	 * own page shows through instead. Only for light themes whose text stays
 	 * readable on white; `bgPrimary` is still used internally (callout tints,
@@ -202,6 +208,7 @@ const MINIMAL_MONO: StaticTheme = {
 	headings: ['#14213D', '#1F1F1F', '#333333', '#404040', '#4D4D4D', '#595959'],
 	highlightBg: '#DCDCD6',
 	codeBackground: '#F1F1EE',
+	tableHeaderColor: '#1F1F1F',
 	borderColor: '#E2E2DE',
 	code: {
 		normal: '#262626', comment: '#9A9A9A', keyword: '#1A1A1A', function: '#404040',
@@ -257,6 +264,7 @@ const WARM_ALMOND: StaticTheme = {
 	headings: ['#8C4A22', '#A85C32', '#946B2D', '#7C7A34', '#6E6E3B', '#7A6A52'],
 	highlightBg: '#F0DFA0',
 	codeBackground: '#EFE4C9',
+	tableHeaderColor: '#8C4A22',
 	borderColor: '#DFCFA8',
 	code: {
 		normal: '#5A4632', comment: '#A08A6C', keyword: '#9D0006', function: '#AF3A03',
@@ -320,6 +328,7 @@ const CHINA_RED: StaticTheme = {
 	headings: ['#A61B1B', '#E44B38', '#C8291E', '#B4442E', '#8E5A3C', '#7A6A63'],
 	highlightBg: '#FCE9C0',
 	codeBackground: '#FAF3F1',
+	tableHeaderColor: '#A61B1B',
 	borderColor: '#EBD9D4',
 	code: {
 		normal: '#2B2422', comment: '#8E7E78', keyword: '#B3261E', function: '#9A6512',
@@ -354,6 +363,7 @@ const FOREST_GREEN: StaticTheme = {
 	headings: ['#1B5E3A', '#009874', '#1B8067', '#566B2F', '#6B8A4E', '#7C8F7E'],
 	highlightBg: '#DCEFC2',
 	codeBackground: '#E6EFE1',
+	tableHeaderColor: '#1B5E3A',
 	borderColor: '#D3E0D0',
 	code: {
 		normal: '#2A3B2E', comment: '#7C8F7E', keyword: '#1B5E3A', function: '#1E7A4C',
@@ -384,6 +394,7 @@ const SAKURA_PINK: StaticTheme = {
 	headings: ['#C2456A', '#E0708A', '#B76E79', '#A66B8F', '#C98A5E', '#8A6067'],
 	highlightBg: '#FBDCE3',
 	codeBackground: '#F5E3E6',
+	tableHeaderColor: '#9D4E61',
 	borderColor: '#EAD0D5',
 	code: {
 		normal: '#4A2E33', comment: '#A98790', keyword: '#C2456A', function: '#B76E79',
@@ -449,6 +460,7 @@ const ORANGE_HEART: StaticTheme = {
 	headings: ['#A84F14', '#DE6F22', '#237563', '#B35512', '#9A6220', '#737373'],
 	highlightBg: '#FDE6D0',
 	codeBackground: '#F8F3EE',
+	tableHeaderColor: '#A84F14',
 	borderColor: '#EFE4DA',
 	code: {
 		normal: '#3A342E', comment: '#8A8077', keyword: '#B35512', function: '#237563',
@@ -501,6 +513,7 @@ const HARDBOILED_WONDERLAND: StaticTheme = {
 	headings: ['#22466E', '#2F5A84', '#3B6FA0', '#1D7F74', '#56708C', '#6B7A8F'],
 	highlightBg: '#D6EDE9',
 	codeBackground: '#E8EDF3',
+	tableHeaderColor: '#2F5A84',
 	borderColor: '#D5DCE6',
 	code: {
 		normal: '#24314A', comment: '#8C97A8', keyword: '#5E5A9A', function: '#1E9E8F',
@@ -910,7 +923,7 @@ export function buildStaticThemeMap(theme: StaticTheme): [RegExp, string][] {
 		[/background-color: #f0f0f0/g, `background-color: ${theme.codeBackground}`],
 		// ── Table header background + text color ────────────────────────────
 		[/background-color: #f2f2f2/g, `background-color: ${theme.codeBackground}`],
-		[/color: #2d3748/g, `color: ${theme.accent}`],
+		[/color: #2d3748/g, `color: ${theme.tableHeaderColor ?? theme.accent}`],
 		// ── Code syntax tokens (HLJS GitHub Light → theme palette) ─────────
 		[/color: #24292f/g, `color: ${theme.code.normal}`],
 		[/color: #6e7781/g, `color: ${theme.code.comment}`],
