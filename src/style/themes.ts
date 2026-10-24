@@ -508,7 +508,9 @@ const HARDBOILED_WONDERLAND: StaticTheme = {
 	textMuted: '#5C6B82',
 	textFaint: '#8C97A8',
 	textItalic: '#44536B',
-	linkColor: '#1E9E8F',
+	// Accent darkened 25%: the bright teal is only 3.3:1 on white, too
+	// light for body-size link text.
+	linkColor: '#17776B',
 	accent: '#1E9E8F',
 	headings: ['#22466E', '#2F5A84', '#3B6FA0', '#1D7F74', '#56708C', '#6B7A8F'],
 	highlightBg: '#D6EDE9',
@@ -540,7 +542,7 @@ const HARDBOILED_WONDERLAND: StaticTheme = {
 		textBg: '#EEF2F6',
 		barColor: '#2F5A84',
 	},
-	// Matches the H2 tag; not the teal accent, which links also use.
+	// Matches the H2 tag; not the teal family, which links use.
 	boldColor: '#2F5A84',
 	// Same colors as the matching callout types (note/todo/question/danger).
 	taskAccent: { inProgress: '#3B6FA0', rescheduled: '#56708C', question: '#5E5A9A', important: '#A85B7D' },
