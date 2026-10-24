@@ -70,6 +70,37 @@ export interface ObsidianVars {
 	listMarker:  string;
 	indentGuide: string;
 	delColor:    string; // ~~strikethrough~~ text, as rendered in reading view
+	fontSizes:   LiveFontSizes;
+	table:       LiveTableMetrics | null;
+}
+
+/** One table cell's borders and padding, as CSS values in top/right/bottom/left order. */
+export interface TableCellBox {
+	border:  [string, string, string, string];
+	padding: [string, string, string, string];
+}
+
+/** Table styling as rendered in reading view (null when it couldn't be read). */
+export interface LiveTableMetrics {
+	lineHeight: string; // unitless ratio, e.g. '1.3'
+	autoWidth:  boolean; // the theme sizes tables to their content instead of full width
+	// The <table> element's own frame (border-collapse, outer border, rounded
+	// corners) — e.g. Wonderland Mod draws its outer border and radius here
+	// and leaves the edge cells borderless.
+	frame:      string;
+	// cells[row][col] sampled from a 3-column probe table: rows are the
+	// header, first, middle and last body row; columns first, middle, last.
+	// Themes often style edge cells differently (Minimal draws no outer frame
+	// and drops the outer padding), so each cell is matched to its position.
+	cells: TableCellBox[][];
+}
+
+/** Element font sizes (CSS px values), scaled to the article's 16px body. */
+export interface LiveFontSizes {
+	h1: string; h2: string; h3: string; h4: string; h5: string; h6: string;
+	inlineCode: string;
+	codeBlock:  string;
+	table:      string;
 }
 
 // ── CSS variable resolution ─────────────────────────────────────────────────
@@ -477,6 +508,196 @@ function readDelColor(fallback: string): string {
 	}
 }
 
+const BODY_PX = 16;
+// Obsidian themes size headings for a desktop window; past these, H1/H2
+// get oversized on a phone screen.
+const FONT_CAPS_PX: Partial<Record<keyof LiveFontSizes, number>> = { h1: 28, h2: 24 };
+const DEFAULT_FONT_SIZES: LiveFontSizes = {
+	h1: '24px', h2: '20px', h3: '18px', h4: '16px', h5: '15px', h6: '14px',
+	inlineCode: '14px', codeBlock: '14px', table: '15px',
+};
+
+/**
+ * Reads the active theme's font sizes from probe elements in the reading
+ * view and keeps their ratio to its body text, applied to our fixed 16px
+ * body — so a theme's heading hierarchy carries over without the user's
+ * desktop font-size setting enlarging the article.
+ */
+function readFontSizes(): LiveFontSizes {
+	const container =
+		document.querySelector('.markdown-preview-view .markdown-rendered') ??
+		document.querySelector('.markdown-preview-view');
+	if (!container) return DEFAULT_FONT_SIZES;
+	// Same structure reading view renders, so theme selectors match.
+	const probe = document.createElement('div');
+	probe.classList.add('publisher-offscreen');
+	const h = (n: 1 | 2 | 3 | 4 | 5 | 6) => probe.createEl(`h${n}`, { text: 'X' });
+	const headings = [h(1), h(2), h(3), h(4), h(5), h(6)] as const;
+	const p = probe.createEl('p', { text: 'X' });
+	const inlineCode = p.createEl('code', { text: 'X' });
+	const codeBlock = probe.createDiv({ cls: 'el-pre' }).createEl('pre').createEl('code', { text: 'X' });
+	const td = probe.createDiv({ cls: 'el-table' }).createEl('table').createEl('tbody').createEl('tr').createEl('td', { text: 'X' });
+	container.appendChild(probe);
+	try {
+		const px = (el: HTMLElement) => parseFloat(getComputedStyle(el).fontSize);
+		const base = px(p);
+		if (!(base > 0)) return DEFAULT_FONT_SIZES;
+		const scaled = (key: keyof LiveFontSizes, el: HTMLElement): string => {
+			const size = px(el);
+			if (!(size > 0)) return DEFAULT_FONT_SIZES[key];
+			const value = Math.round((BODY_PX * size / base) * 10) / 10;
+			return `${Math.min(value, FONT_CAPS_PX[key] ?? Infinity)}px`;
+		};
+		return {
+			h1: scaled('h1', headings[0]), h2: scaled('h2', headings[1]), h3: scaled('h3', headings[2]),
+			h4: scaled('h4', headings[3]), h5: scaled('h5', headings[4]), h6: scaled('h6', headings[5]),
+			inlineCode: scaled('inlineCode', inlineCode),
+			codeBlock:  scaled('codeBlock', codeBlock),
+			table:      scaled('table', td),
+		};
+	} finally {
+		container.removeChild(probe);
+	}
+}
+
+const TABLE_SIDE_PADDING_CAP_PX = 12;
+
+/**
+ * Reads table styling from a 3-column probe table (header + 3 body rows) in
+ * reading view: the cell line-height, whether the table is content-width,
+ * and every sampled cell's borders and padding. Padding is scaled by the
+ * same body ratio as readFontSizes(), since themes often size it in em.
+ */
+function readTableMetrics(bg: string): LiveTableMetrics | null {
+	const container =
+		document.querySelector('.markdown-preview-view .markdown-rendered') ??
+		document.querySelector('.markdown-preview-view');
+	if (!container) return null;
+	const PROBE_WIDTH = 600;
+	const probe = document.createElement('div');
+	probe.classList.add('publisher-offscreen');
+	probe.setCssStyles({ width: `${PROBE_WIDTH}px` });
+	const p = probe.createEl('p', { text: 'X' });
+	const table = probe.createDiv({ cls: 'el-table' }).createEl('table');
+	const addRows = (section: HTMLElement, tag: 'th' | 'td', count: number): HTMLElement[][] =>
+		Array.from({ length: count }, () => {
+			const tr = section.createEl('tr');
+			return [0, 1, 2].map(() => tr.createEl(tag, { text: 'X' }));
+		});
+	const rows = [...addRows(table.createEl('thead'), 'th', 1), ...addRows(table.createEl('tbody'), 'td', 3)];
+	container.appendChild(probe);
+	try {
+		const base = parseFloat(getComputedStyle(p).fontSize);
+		const firstTd = rows[1]?.[1];
+		if (!(base > 0) || !firstTd) return null;
+		const tdStyle = getComputedStyle(firstTd);
+		const fontSize = parseFloat(tdStyle.fontSize);
+		const lineHeight = parseFloat(tdStyle.lineHeight); // NaN for 'normal'
+		const scale = (v: string, cap = Infinity) => `${Math.min(Math.round(parseFloat(v) * BODY_PX / base * 10) / 10, cap)}px`;
+		const border = (width: string, style: string, color: string): string => {
+			if (!(parseFloat(width) > 0) || style === 'none' || style === 'hidden') return 'none';
+			const hex = flattenColor(color, bg);
+			return hex ? `${width} ${style} ${hex}` : 'none';
+		};
+		const box = (el: HTMLElement): TableCellBox => {
+			const c = getComputedStyle(el);
+			return {
+				border: [
+					border(c.borderTopWidth, c.borderTopStyle, c.borderTopColor),
+					border(c.borderRightWidth, c.borderRightStyle, c.borderRightColor),
+					border(c.borderBottomWidth, c.borderBottomStyle, c.borderBottomColor),
+					border(c.borderLeftWidth, c.borderLeftStyle, c.borderLeftColor),
+				],
+				// Left/right capped: a phone-width table rarely has room to
+				// spare, and a theme's wider desktop padding wraps even short headers.
+				padding: [
+					scale(c.paddingTop), scale(c.paddingRight, TABLE_SIDE_PADDING_CAP_PX),
+					scale(c.paddingBottom), scale(c.paddingLeft, TABLE_SIDE_PADDING_CAP_PX),
+				],
+			};
+		};
+		const ts = getComputedStyle(table);
+		const outer = box(table).border;
+		const radius = parseFloat(ts.borderTopLeftRadius) > 0 ? ts.borderRadius : '';
+		const frame =
+			`border-collapse: ${ts.borderCollapse};` +
+			(ts.borderCollapse === 'separate' ? ` border-spacing: ${ts.borderSpacing};` : '') +
+			` border-top: ${outer[0]}; border-right: ${outer[1]}; border-bottom: ${outer[2]}; border-left: ${outer[3]};` +
+			// Rounded corners only clip the cells' backgrounds with separate borders + overflow hidden.
+			(radius ? ` border-radius: ${radius}; overflow: hidden;` : '');
+		return {
+			lineHeight: lineHeight > 0 && fontSize > 0 ? String(Math.round(lineHeight / fontSize * 100) / 100) : '1.75',
+			autoWidth:  isAutoWidth(table, ts.width, PROBE_WIDTH),
+			frame,
+			cells:      rows.map(row => row.map(box)),
+		};
+	} finally {
+		container.removeChild(probe);
+	}
+}
+
+/**
+ * Whether the theme sizes tables to their content. The probe usually sits in
+ * a note's hidden reading view (display: none), where nothing is laid out —
+ * then the computed width is still the declared value ('auto', '100%').
+ */
+function isAutoWidth(table: HTMLElement, computedWidth: string, probeWidth: number): boolean {
+	const laidOut = table.getBoundingClientRect().width;
+	if (laidOut > 0) return laidOut < probeWidth * 0.9;
+	if (computedWidth.endsWith('%')) return parseFloat(computedWidth) < 90;
+	return computedWidth === 'auto';
+}
+
+/** A computed color as opaque hex, blending any alpha over `bg`; null if fully transparent. */
+function flattenColor(css: string, bg: string): string | null {
+	const m = css.match(/rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\s*\)/);
+	if (!m) return cssColorToHex(css);
+	const alpha = m[4] === undefined ? 1 : parseFloat(m[4]);
+	if (alpha === 0) return null;
+	return mixColors(bg, toHex6(m[1], m[2], m[3]), alpha);
+}
+
+/**
+ * Restyles every table cell from the live theme's sampled cells by position:
+ * each side takes the sample on the same edge (first/last column, header,
+ * first/last body row), so outer frames and edge padding match the theme.
+ * Runs before the generic border placeholder replacement.
+ */
+function applyLiveTableCells(html: string, t: LiveTableMetrics): string {
+	const CELL_PLACEHOLDER = /padding: 10px 12px; border: 1px solid #ddd;/;
+	return html.replace(/<table([^>]*)>([\s\S]*?)<\/table>/g, (_match, attrs: string, inner: string) => {
+		let tableAttrs = attrs.replace('border-collapse: collapse;', t.frame);
+		if (t.autoWidth) tableAttrs = tableAttrs.replace('width: 100%', 'width: auto');
+		const bodyCount = (inner.match(/<tr[\s>][\s\S]*?<\/tr>/g) ?? []).filter(row => !row.includes('<th')).length;
+		let bodyIndex = 0;
+		const rows = inner.replace(/<tr[\s>][\s\S]*?<\/tr>/g, row => {
+			const isHeader = row.includes('<th');
+			const b = isHeader ? -1 : bodyIndex++;
+			// Sample rows: 0 header, 1 first body, 2 middle body, 3 last body.
+			const topRow = isHeader ? 0 : b === 0 ? 1 : 2;
+			const bottomRow = isHeader ? 0 : b === bodyCount - 1 ? 3 : 2;
+			const sideRow = isHeader ? 0 : b === 0 ? 1 : b === bodyCount - 1 ? 3 : 2;
+			const cellCount = (row.match(/<t[hd] /g) ?? []).length;
+			let col = 0;
+			return row.replace(/<t[hd] style="[^"]*"/g, cell => {
+				const c = col++;
+				const middleCol = c === 0 ? 0 : c === cellCount - 1 ? 2 : 1;
+				const leftCol = c === 0 ? 0 : 1;
+				const rightCol = c === cellCount - 1 ? 2 : 1;
+				const top = t.cells[topRow]![middleCol]!;
+				const bottom = t.cells[bottomRow]![middleCol]!;
+				const left = t.cells[sideRow]![leftCol]!;
+				const right = t.cells[sideRow]![rightCol]!;
+				const padding = [top.padding[0], right.padding[1], bottom.padding[2], left.padding[3]].join(' ');
+				return cell.replace(CELL_PLACEHOLDER,
+					`padding: ${padding}; border-top: ${top.border[0]}; border-right: ${right.border[1]}; ` +
+					`border-bottom: ${bottom.border[2]}; border-left: ${left.border[3]};`);
+			});
+		});
+		return `<table${tableAttrs}>${rows}</table>`;
+	});
+}
+
 export function readObsidianVars(): ObsidianVars {
 	const FALLBACK_FONT =
 		"-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif";
@@ -596,10 +817,13 @@ export function readObsidianVars(): ObsidianVars {
 		listMarker:       '',
 		indentGuide:      '',
 		delColor:         '',
+		fontSizes:        readFontSizes(),
+		table:            null,
 	};
 	vars.listMarker  = readComputedColor('--list-marker-color', vars.textFaint);
 	vars.indentGuide = readIndentGuideColor(vars.bgPrimary, vars.bgBorder);
 	vars.delColor    = readDelColor(vars.textFaint);
+	vars.table       = readTableMetrics(vars.bgPrimary);
 	logger.debug('readObsidianVars →', JSON.stringify(vars));
 	return vars;
 }
@@ -669,6 +893,7 @@ export class StyleEngine {
 		// Callout backgrounds: blend bgPrimary with theme-read callout accent color
 		// using the theme's own --callout-blend-factor (typically 0.1).
 		const f = v.calloutBlend;
+		const s = v.fontSizes;
 		const calloutBg = {
 			note:    mixColors(v.bgPrimary, v.calloutNote,    f),
 			info:    mixColors(v.bgPrimary, v.calloutInfo,    f),
@@ -700,14 +925,19 @@ export class StyleEngine {
 			[/color: #9c27b0; line-height/g, `color: ${v.calloutExample}; line-height`],
 			[/color: #607d8b; line-height/g, `color: ${v.calloutQuote}; line-height`],
 			[/color: #00bcd4; line-height/g, `color: ${v.calloutAbstract}; line-height`],
-			// ── Headings: per-level color + remove decorative borders ──────────
+			// ── Headings: per-level size + color, remove decorative borders ────
 			// Match font-size+color uniquely per heading level (before generic replacement).
-			[/font-size: 24px; color: #1a1a1a/g, `font-size: 24px; color: ${v.h1Color}`],
-			[/font-size: 20px; color: #1a1a1a/g, `font-size: 20px; color: ${v.h2Color}`],
-			[/font-size: 18px; color: #1a1a1a/g, `font-size: 18px; color: ${v.h3Color}`],
-			[/font-size: 16px; color: #1a1a1a/g, `font-size: 16px; color: ${v.h4Color}`],
-			[/font-size: 15px; color: #1a1a1a/g, `font-size: 15px; color: ${v.h5Color}`],
-			[/font-size: 14px; color: #1a1a1a/g, `font-size: 14px; color: ${v.h6Color}`],
+			[/font-size: 24px; color: #1a1a1a/g, `font-size: ${s.h1}; color: ${v.h1Color}`],
+			[/font-size: 20px; color: #1a1a1a/g, `font-size: ${s.h2}; color: ${v.h2Color}`],
+			[/font-size: 18px; color: #1a1a1a/g, `font-size: ${s.h3}; color: ${v.h3Color}`],
+			[/font-size: 16px; color: #1a1a1a/g, `font-size: ${s.h4}; color: ${v.h4Color}`],
+			[/font-size: 15px; color: #1a1a1a/g, `font-size: ${s.h5}; color: ${v.h5Color}`],
+			[/font-size: 14px; color: #1a1a1a/g, `font-size: ${s.h6}; color: ${v.h6Color}`],
+			// ── Code and table sizes (before their color placeholders are replaced) ─
+			[/font-size: 14px; color: #c7254e/g,                `font-size: ${s.inlineCode}; color: #c7254e`],
+			[/overflow-x: auto; font-size: 14px/g,              `overflow-x: auto; font-size: ${s.codeBlock}`],
+			[/font-size: 14px; background: none/g,              `font-size: ${s.codeBlock}; background: none`],
+			[/(?<=<table[^>]*?)font-size: 15px/g,               `font-size: ${s.table}; line-height: ${v.table?.lineHeight ?? '1.75'}`],
 			// Heading underlines: follow the real theme's border-bottom if it has
 			// one (read via readHeadingBorder), otherwise drop the placeholder
 			// entirely — most themes style headings via color alone.
@@ -770,7 +1000,7 @@ export class StyleEngine {
 			// ── Line height (paragraphs, list items) ───────────────────────────
 			[/line-height: 1\.75/g,                           `line-height: ${v.lineHeight}`],
 		];
-		return this.applyMap(html, map);
+		return this.applyMap(v.table ? applyLiveTableCells(html, v.table) : html, map);
 	}
 
 	private applyMap(html: string, map: [RegExp, string][]): string {
