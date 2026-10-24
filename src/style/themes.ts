@@ -69,8 +69,13 @@ export interface StaticTheme {
 	 * headingBox (a single existing element restyled vs. several new ones),
 	 * since a block tag with real text content and a plain background-color
 	 * is the single most reliably-surviving pattern confirmed this session.
+	 * Optional `prefix`/`suffix` text (HTML) in `affixColor` and a monospace
+	 * font turn it into a terminal line, e.g. 深蓝's `❯ 标题▁`.
 	 */
-	headingBar?: { level: 1 | 2; bgColor: string; textColor: string };
+	headingBar?: {
+		level: 1 | 2; bgColor: string; textColor: string;
+		prefix?: string; suffix?: string; affixColor?: string; mono?: boolean;
+	};
 	/**
 	 * Optional small icon + soft-highlighted text treatment for one heading
 	 * level — an <img> (single combined SVG, not several separately-
@@ -292,34 +297,50 @@ const WARM_ALMOND: StaticTheme = {
 	taskAccent: { inProgress: '#3F6C6E', rescheduled: '#80466A', question: '#8A5C10', important: '#9C2F1C' },
 };
 
-// ── 科技蓝 (Tech Blue) ───────────────────────────────────────────────────
-// Cool light gray-blue background, indigo accents. Crisp and professional —
-// suited to tech/business/finance accounts.
+// ── 深蓝 (Deep Blue) ─────────────────────────────────────────────────────
+// Geeky and a little melancholy — Deep Blue the chess computer, the deep sea
+// at night. Low-saturation ultramarine navies (≈228°, darker and bluer than
+// 冷酷的仙境's 210° steel blues), a dim phosphor cyan only on the H2's
+// terminal prompt, and muted callout/code colors. H2 is a midnight-blue
+// terminal line: `❯ 标题▁` in a monospace font. Was 科技蓝 (`tech-blue`).
 
-const TECH_BLUE: StaticTheme = {
-	id: 'tech-blue',
-	label: '科技蓝',
-	bgPrimary: '#F4F7FB',
-	textNormal: '#1B2733',
-	textMuted: '#526070',
-	textFaint: '#8A97A6',
-	textItalic: '#3E4C5B',
-	linkColor: '#1B5FAE',
-	accent: '#1B5FAE',
-	headings: ['#0B3D91', '#1B5FAE', '#2472C8', '#1F6F6F', '#455A75', '#526070'],
-	highlightBg: '#CDEBFA',
-	codeBackground: '#E7EEF6',
-	borderColor: '#D3DEE9',
+const DEEP_BLUE: StaticTheme = {
+	id: 'deep-blue',
+	label: '深蓝',
+	bgPrimary: '#FFFFFF',
+	textNormal: '#1F2430',
+	textMuted: '#4D5566',
+	textFaint: '#9AA1AE',
+	textItalic: '#3E4558',
+	linkColor: '#2F49C2',
+	accent: '#3A4FA6',
+	headings: ['#1A2550', '#1A2550', '#34479A', '#2C6A8A', '#4D5566', '#6A7282'],
+	highlightBg: '#D5DCF5',
+	codeBackground: '#F1F3F8',
+	tableHeaderColor: '#1A2550',
+	borderColor: '#DDE1EA',
 	code: {
-		normal: '#1B2733', comment: '#8A97A6', keyword: '#A626A4', function: '#1B5FAE',
-		string: '#0B7285', value: '#B0651A', tag: '#C0356C', property: '#2472C8',
-		variable: '#5B6EC7', inline: '#B0365B',
+		normal: '#1F2430', comment: '#6A7282', keyword: '#5E4A9C', function: '#2F49C2',
+		string: '#3D7350', value: '#8E3A5C', tag: '#A0343F', property: '#2C6A8A',
+		variable: '#34479A', inline: '#5E4A9C',
 	},
 	calloutAccent: {
-		note: '#1B5FAE', abstract: '#1F6F6F', info: '#2472C8', todo: '#B0651A',
-		tip: '#2E8B57', success: '#2E8B57', question: '#C08A1A', warning: '#C08A1A',
-		failure: '#C0356C', danger: '#C0356C', bug: '#A83A3A', example: '#5B4EA6', quote: '#7C8CA0',
+		note: '#34479A', abstract: '#2C6A8A', info: '#2F5FA0', todo: '#8A5226',
+		tip: '#3D7350', success: '#3D7350', question: '#7F6418', warning: '#7F6418',
+		failure: '#A0343F', danger: '#A0343F', bug: '#8E3A5C', example: '#5E4A9C', quote: '#6A7282',
 	},
+	headingBar: {
+		level: 2, bgColor: '#141B33', textColor: '#D6DCF0',
+		// Not '>' and '_': the clipboard's plain-text copy then reads as Markdown
+		// (a quote line, and underscores pairing up across headings as
+		// emphasis), and WeChat asks whether to convert the paste.
+		prefix: '❯&nbsp;', suffix: '▁', affixColor: '#6CC4E0', mono: true,
+	},
+	noUnderline: [1],
+	// Same colors as the matching callout types (abstract/example/question/danger);
+	// abstract's deep-sea cyan rather than note's, which is too close to the accent.
+	taskAccent: { inProgress: '#2C6A8A', rescheduled: '#5E4A9C', question: '#7F6418', important: '#A0343F' },
+	transparentPage: true,
 };
 
 // ── 中国红 (China Red) ───────────────────────────────────────────────────
@@ -568,7 +589,7 @@ export const STATIC_THEMES: Record<string, StaticTheme> = {
 	'minimal-mono': MINIMAL_MONO,
 	'minimal-mono-2': MINIMAL_MONO_2,
 	'warm-almond': WARM_ALMOND,
-	'tech-blue': TECH_BLUE,
+	'deep-blue': DEEP_BLUE,
 	'china-red': CHINA_RED,
 	'forest-green': FOREST_GREEN,
 	'sakura-pink': SAKURA_PINK,
@@ -584,7 +605,7 @@ export const STATIC_THEMES: Record<string, StaticTheme> = {
  */
 export const STATIC_THEME_LIST: StaticTheme[] = [
 	HARDBOILED_WONDERLAND, ORANGE_HEART, CHINA_RED, MINIMAL_MONO, MINIMAL_MONO_2, PURPLE_MIST,
-	WARM_ALMOND, TECH_BLUE, FOREST_GREEN, SAKURA_PINK, GRAPHITE_DARK,
+	WARM_ALMOND, DEEP_BLUE, FOREST_GREEN, SAKURA_PINK, GRAPHITE_DARK,
 ];
 
 /** id/label pairs for building a theme <select>, 'obsidian' first — shared by
@@ -602,6 +623,7 @@ export type ThemeName = string;
 export const LEGACY_THEME_ALIASES: Record<string, string> = {
 	light: 'purple-mist',              // before the theme registry existed
 	'catppuccin-latte': 'purple-mist', // 马卡龙紫, reworked into 紫雾
+	'tech-blue': 'deep-blue',          // 科技蓝, reworked into 深蓝
 };
 
 export function resolveThemeId(id: string): string {
@@ -772,7 +794,7 @@ export function buildStaticThemeMap(theme: StaticTheme): [RegExp, string][] {
 		);
 	}
 	if (theme.headingBar) {
-		const { level, bgColor, textColor } = theme.headingBar;
+		const { level, bgColor, textColor, prefix, suffix, affixColor, mono } = theme.headingBar;
 		const fontSize = level === 1 ? '22px' : '18px';
 		const margin = level === 1 ? '1.5em 0 0.8em 0' : '1.3em 0 0.6em 0';
 		const [openSource, closeSource] = level === 1
@@ -785,10 +807,12 @@ export function buildStaticThemeMap(theme: StaticTheme): [RegExp, string][] {
 		const headingStyle = `margin: ${margin}; text-align: center;`;
 		const barStyle =
 			`display: inline-block; font-size: ${fontSize}; font-weight: 700; ` +
-			`color: ${textColor}; background-color: ${bgColor}; padding: 10px 16px; line-height: 1.3;`;
+			`color: ${textColor}; background-color: ${bgColor}; padding: 10px 16px; line-height: 1.3;` +
+			(mono ? ` font-family: 'SF Mono', Menlo, Consolas, 'Courier New', monospace;` : '');
+		const affix = (text?: string) => text ? `<span style="color: ${affixColor ?? textColor};">${text}</span>` : '';
 		map.push(
-			[openSource, `<${tag} style="${headingStyle}"><span style="${barStyle}">`],
-			[closeSource, `</span></${tag}>`],
+			[openSource, `<${tag} style="${headingStyle}"><span style="${barStyle}">${affix(prefix)}`],
+			[closeSource, `${affix(suffix)}</span></${tag}>`],
 		);
 	}
 	if (theme.headingTab) {
