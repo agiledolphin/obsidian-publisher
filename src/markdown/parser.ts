@@ -18,7 +18,6 @@ import plaintext from 'highlight.js/lib/languages/plaintext';
 import { obsidianCalloutPlugin } from './plugins/callout';
 import { obsidianWikiLinkPlugin } from './plugins/wikilink';
 import { obsidianHighlightPlugin } from './plugins/highlight-mark';
-import { obsidianStrikethroughPlugin } from './plugins/strikethrough';
 import { obsidianTaskListPlugin } from './plugins/task-list';
 
 // Register highlight.js languages
@@ -175,7 +174,6 @@ export class MarkdownParser {
 			.use(obsidianCalloutPlugin)      // also sets blockquote renderer rules
 			.use(obsidianWikiLinkPlugin)
 			.use(obsidianHighlightPlugin)
-			.use(obsidianStrikethroughPlugin)
 			.use(obsidianTaskListPlugin);
 
 		this.applyRendererRules();
@@ -373,6 +371,12 @@ export class MarkdownParser {
 			if (task === 'done' || task === 'cancelled') this.insideDoneTask = false;
 			return '</section></section>';
 		};
+
+		// ── Strikethrough ─────────────────────────────────────────────
+		// markdown-it parses ~~text~~ itself (s_open/s_close tokens), so the
+		// color goes on its own renderer rule. Placeholder #a9a9aa = strikethrough
+		// color (the live theme's rendered <del> color, or a static theme's textFaint).
+		md.renderer.rules['s_open'] = () => `<s style="color: #a9a9aa;">`;
 
 		// ── Emphasis / strong ─────────────────────────────────────────
 		md.renderer.rules['strong_open'] = () => `<strong style="font-weight: 700; color: #1a1a1a;">`;

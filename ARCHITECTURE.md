@@ -194,7 +194,7 @@ new MarkdownIt({
 | `obsidianCalloutPlugin` | `plugins/callout.ts` | `> [!type]` → 带样式 section；`obsidian` 主题下颜色/图标通过 `--callout-color` / `--callout-icon` CSS 变量跟随主题（`normalizeRgbTriplet` 兼容 "r,g,b" 和十六进制两种取值格式），静态主题下走 `setCalloutTheme()` 注入的固定色板；图标用 Lucide SVG（`getIcon()`），输出前统一转成 PNG（见 8.12）；普通 `>` → blockquote（accent 竖线） |
 | `obsidianWikiLinkPlugin` | `plugins/wikilink.ts` | `[[link]]` → 灰色 `<span>`（muted 色，不可点击） |
 | `obsidianHighlightPlugin` | `plugins/highlight-mark.ts` | `==text==` → `<mark>` |
-| `obsidianStrikethroughPlugin` | `plugins/strikethrough.ts` | `~~text~~` → `<del>` |
+| （markdown-it 内置） | `parser.ts` 的 `s_open` 规则 | `~~text~~` → 带颜色的 `<s>`（见 8.14） |
 | `obsidianTaskListPlugin` | `plugins/task-list.ts` | 7 种任务状态（`[ ]` / `[x]` / `[/]` / `[-]` / `[>]` / `[?]` / `[!]`）→ 带图标列表项 |
 
 所有插件共享 `src/markdown/plugins/utils.ts` 中的 `splitTokensByRegex()` 辅助函数，用于在内联 token 流中进行正则切割。
@@ -423,9 +423,9 @@ async function copyRichText(html: string): Promise<void> {
 - 预览内容限宽 375px 居中，超出高度可滚动
 - 插件卸载时自动关闭（`detachLeavesOfType`）
 
-**渲染复用**：`readThemeVars()` 和 `applyPreviewContent()` 抽取到 `src/ui/preview-renderer.ts`，弹窗和面板共用。
+**渲染复用**：`applyPreviewContent()` 抽取到 `src/ui/preview-renderer.ts`，弹窗和面板共用。
 
-**所有复制入口输出同一份 HTML**：命令"复制为公众号格式"、右键菜单、预览弹窗和面板的「复制到剪贴板」都直接复制 `ConvertController.convert()` 的结果，预览显示的也是这份 HTML，不再改行高（唯一剩下的预览专用改写是"当前 Obsidian 主题"下的高亮/删除线颜色，见文末）。早期版本里预览弹窗/面板的复制按钮会先把 HTML 里**所有** `line-height` 替换成从阅读视图量出的正文行高，本意是"让复制结果和预览一致"，实际却把标题 1.3、callout 标题 1.5、代码块 1.6、脚注上标和勾选框外层 1 统统改成了正文行高（一篇示例文章里 80 处），导致：同一篇文章从命令复制和从预览按钮复制，粘贴到微信后标题行距不同；而且预览里标题本来按 1.3 显示，从预览按钮复制出去的却是 1.75，预览和微信也对不上。这个替换是多余的：行高需要跟随 Obsidian 的地方（"当前 Obsidian 主题"下的段落和列表行），`StyleEngine` 已经把 `--line-height-normal` 写进了输出；静态主题本来就用主题自己的行高。预览里那段把段落/列表行改成阅读视图行高的代码也一并删除。`readThemeVars()` 现在只读"当前 Obsidian 主题"下预览用的高亮/删除线颜色——这一项仍然只作用于预览，复制出去的是引擎读到的颜色，两者通常相同，但不保证。
+**所有复制入口输出同一份 HTML**：命令"复制为公众号格式"、右键菜单、预览弹窗和面板的「复制到剪贴板」都直接复制 `ConvertController.convert()` 的结果，预览显示的也是这份 HTML，不做任何预览专用的改写（行高见下；"当前 Obsidian 主题"下的高亮/删除线颜色见 8.14）。早期版本里预览弹窗/面板的复制按钮会先把 HTML 里**所有** `line-height` 替换成从阅读视图量出的正文行高，本意是"让复制结果和预览一致"，实际却把标题 1.3、callout 标题 1.5、代码块 1.6、脚注上标和勾选框外层 1 统统改成了正文行高（一篇示例文章里 80 处），导致：同一篇文章从命令复制和从预览按钮复制，粘贴到微信后标题行距不同；而且预览里标题本来按 1.3 显示，从预览按钮复制出去的却是 1.75，预览和微信也对不上。这个替换是多余的：行高需要跟随 Obsidian 的地方（"当前 Obsidian 主题"下的段落和列表行），`StyleEngine` 已经把 `--line-height-normal` 写进了输出；静态主题本来就用主题自己的行高。预览里那段把段落/列表行改成阅读视图行高的代码也一并删除。（预览里单独改高亮/删除线颜色的代码后来也删了，见 8.14。）
 
 **窄屏工具栏换行**：侧边栏可以拖得很窄，工具栏（关闭/刷新/主题下拉框/复制到剪贴板）在窄宽度下原先会整体溢出容器右边被裁切。`styles.css` 给 `.publisher-view-toolbar` 加了 `flex-wrap: wrap`，下拉框限制 `max-width`，按钮收窄 padding；装不下时自动换成两行，不再裁切。
 
@@ -450,7 +450,6 @@ obsidian-publisher/
 │   │       ├── callout.ts             # > [!type] Callout 语法
 │   │       ├── wikilink.ts            # [[link]] → 纯文本
 │   │       ├── highlight-mark.ts      # ==高亮== → <mark>
-│   │       ├── strikethrough.ts       # ~~删除线~~ → <del>
 │   │       └── task-list.ts           # - [ ] / - [x] 任务列表
 │   ├── image/
 │   │   └── embedder.ts                # 本地图片 → base64 data URL
@@ -467,7 +466,7 @@ obsidian-publisher/
 │   │   ├── settings-tab.ts            # 设置页面
 │   │   ├── preview-modal.ts           # 预览弹窗（可拖拽）
 │   │   ├── preview-view.ts            # 右侧预览面板（ItemView）
-│   │   └── preview-renderer.ts        # 共享：readThemeVars + applyPreviewContent
+│   │   └── preview-renderer.ts        # 共享：applyPreviewContent
 │   └── utils/
 │       ├── logger.ts                  # 调试日志（受 debugMode 控制）
 │       ├── mime.ts                    # 文件扩展名 → MIME 类型
@@ -521,8 +520,7 @@ obsidian-publisher/
 │  highlight.js 代码高亮     │  ← class 替换为 inline style
 │  + Obsidian 语法插件:      │
 │    callout / wikilink /    │
-│    highlight / strikethrough│
-│    / task-list             │
+│    highlight / task-list   │
 └────────────────────────────┘
         │
         ▼ (带内联样式的 HTML，图片为 vault 路径)
@@ -684,6 +682,12 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 
 **代价**：粘贴到公众号后不再是编辑器认的"列表"，在微信里按回车不会自动续出新的列表项。
 
+### 8.14 删除线颜色：插件规则从没生效过，预览靠单独改色掩盖了
+
+**问题**：插件原有的 `plugins/strikethrough.ts` 在文字里找 `~~…~~` 替换成 `<s style="color: #999;">`，但 markdown-it 自带删除线语法，解析阶段就把 `~~` 变成了 `s_open`/`s_close` 标记，等这个插件运行时文字里已经没有 `~~`，所以它从来没有匹配到过。输出里只有不带样式的 `<s>`，粘贴到微信后删除线文字是正文颜色。预览之所以显示正确的灰色，是因为 `preview-renderer.ts` 在"当前 Obsidian 主题"下会从阅读视图读 `<del>` 和 `<mark>` 的颜色，再用 `!important` 盖到预览上——这段预览专用的改写掩盖了输出里的问题。
+
+**做法**：删掉 `strikethrough.ts`，在 `parser.ts` 里给 markdown-it 的 `s_open` 加渲染规则，输出 `<s style="color: #a9a9aa;">`（占位色）。"当前 Obsidian 主题"替换成 `readDelColor()` 在阅读视图里实测的 `<del>` 颜色（主题常直接给 `del`/`s` 写规则而不走变量，所以要实测；没有阅读视图时退回 `--text-faint`），静态主题替换成 `textFaint`。高亮的颜色引擎本来就和预览读得一样，预览里那段改色代码是多余的。`readThemeVars()` 整个删除，`applyPreviewContent()` 只负责把 HTML 原样放进预览框（外加让预览框底色跟随内容背景）。
+
 ## 9. 已知限制与风险
 
 | 限制/风险 | 说明 | 应对 |
@@ -710,7 +714,7 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 - [x] Callout 块（`> [!type]`，13 种类型 + 别名；`obsidian` 主题跟随实时变量，静态主题走各自色板），普通 blockquote（accent 竖线）
 - [x] WikiLink（`[[link]]` → 灰色文字）
 - [x] 高亮（`==text==` → `<mark>`）
-- [x] 删除线（`~~text~~` → `<del>`）
+- [x] 删除线（`~~text~~` → 带主题颜色的 `<s>`）
 - [x] 任务列表（7 种状态，公众号自有风格）
 - [x] 脚注（上标引用 + 底部定义区，微信兼容，无锚链接）
 - [x] `#tag` 移除
