@@ -69,6 +69,7 @@ export interface ObsidianVars {
 	// List markers (bullets/numbers) and nested-list indent guides
 	listMarker:  string;
 	indentGuide: string;
+	delColor:    string; // ~~strikethrough~~ text, as rendered in reading view
 }
 
 // ── CSS variable resolution ─────────────────────────────────────────────────
@@ -456,6 +457,26 @@ function readIndentGuideColor(bg: string, fallback: string): string {
 	return mixColors(bg, toHex6(m[1], m[2], m[3]), alpha);
 }
 
+/**
+ * Strikethrough color as the reading view renders it — themes often style
+ * del/s directly rather than through a variable, so probe a real element.
+ */
+function readDelColor(fallback: string): string {
+	const container =
+		document.querySelector('.markdown-preview-view .markdown-rendered') ??
+		document.querySelector('.markdown-preview-view');
+	if (!container) return fallback;
+	const p = document.createElement('p');
+	p.classList.add('publisher-offscreen');
+	const del = p.createEl('del', { text: 'X' });
+	container.appendChild(p);
+	try {
+		return cssColorToHex(getComputedStyle(del).color) ?? fallback;
+	} finally {
+		container.removeChild(p);
+	}
+}
+
 export function readObsidianVars(): ObsidianVars {
 	const FALLBACK_FONT =
 		"-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif";
@@ -574,9 +595,11 @@ export function readObsidianVars(): ObsidianVars {
 		tableBorder:      readComputedColor('--table-border-color', '#dddddd'),
 		listMarker:       '',
 		indentGuide:      '',
+		delColor:         '',
 	};
 	vars.listMarker  = readComputedColor('--list-marker-color', vars.textFaint);
 	vars.indentGuide = readIndentGuideColor(vars.bgPrimary, vars.bgBorder);
+	vars.delColor    = readDelColor(vars.textFaint);
 	logger.debug('readObsidianVars →', JSON.stringify(vars));
 	return vars;
 }
@@ -708,7 +731,8 @@ export class StyleEngine {
 			[/color: #444(?![0-9a-f])/gi,         `color: ${v.textNormal}`],
 			[/color: #555(?![0-9a-f])/gi,         `color: ${v.textMuted}`],
 			[/color: #666(?![0-9a-f])/gi,         `color: ${v.textMuted}`],
-			[/color: #999(?![0-9a-f])/gi,         `color: ${v.textFaint}`],  // strikethrough <s> + faint text
+			[/color: #a9a9aa/g,                   `color: ${v.delColor}`],   // strikethrough <s>
+			[/color: #999(?![0-9a-f])/gi,         `color: ${v.textFaint}`],  // faint text
 			// ── Accent ─────────────────────────────────────────────────────────
 			[/color: #7c3aed/g,                   `color: ${v.accent}`],
 			[/background-color: #7c3aed/g,        `background-color: ${v.accent}`],

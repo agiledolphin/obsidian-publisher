@@ -1,6 +1,6 @@
 import { ItemView, WorkspaceLeaf, TFile, Notice } from 'obsidian';
 import type ObsidianPublisher from '../main';
-import { readThemeVars, applyPreviewContent } from './preview-renderer';
+import { applyPreviewContent } from './preview-renderer';
 import { copyRichText } from '../clipboard/writer';
 import { THEME_OPTIONS } from '../style/themes';
 
@@ -101,7 +101,7 @@ export class PublisherPreviewView extends ItemView {
 		try {
 			const html = await this.plugin.controller.convert(file);
 			this.currentHtml = html;
-			applyPreviewContent(this.previewEl, html, readThemeVars(), this.plugin.settings.theme);
+			applyPreviewContent(this.previewEl, html);
 			this.previewEl.removeClass('publisher-hidden');
 		} catch (e) {
 			this.currentHtml = '';

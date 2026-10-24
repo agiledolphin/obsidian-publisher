@@ -1,5 +1,5 @@
 /**
- * Shared utility for inline regex-splitting plugins (highlight, strikethrough, wikilink).
+ * Shared utility for inline regex-splitting plugins (highlight, wikilink).
  *
  * Iterates over every text child of every inline token, splits matching text by
  * `regex`, and lets the caller emit replacement tokens for each match via `expand`.

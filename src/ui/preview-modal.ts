@@ -1,7 +1,7 @@
 import { App, Modal, Notice, TFile } from 'obsidian';
 import type ObsidianPublisher from '../main';
 import { copyRichText } from '../clipboard/writer';
-import { readThemeVars, applyPreviewContent } from './preview-renderer';
+import { applyPreviewContent } from './preview-renderer';
 import { THEME_OPTIONS } from '../style/themes';
 
 /** Shows the raw HTML source so users can diagnose WeChat compatibility issues. */
@@ -49,7 +49,7 @@ export class PreviewModal extends Modal {
 			new Notice(`❌ 预览失败：${(e as Error).message}`);
 			return;
 		}
-		applyPreviewContent(this.previewEl, this.html, readThemeVars(), this.plugin.settings.theme);
+		applyPreviewContent(this.previewEl, this.html);
 	}
 
 	/** Attaches drag-to-move behaviour to the modal, using handle as the grab target. */

@@ -823,6 +823,7 @@ export function buildStaticThemeMap(theme: StaticTheme): [RegExp, string][] {
 		[/color: #555(?![0-9a-f])/gi, `color: ${theme.textMuted}`],
 		[/color: #666(?![0-9a-f])/gi, `color: ${theme.textMuted}`],
 		[/color: #999(?![0-9a-f])/gi, `color: ${theme.textFaint}`],
+		[/color: #a9a9aa/g, `color: ${theme.textFaint}`], // strikethrough <s>
 		// ── Accent ──────────────────────────────────────────────────────────
 		[/color: #7c3aed/g, `color: ${theme.accent}`],
 		[/background-color: #7c3aed/g, `background-color: ${theme.accent}`],
