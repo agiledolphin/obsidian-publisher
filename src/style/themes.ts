@@ -421,35 +421,46 @@ const FOREST: StaticTheme = {
 	transparentPage: true,
 };
 
-// ── 樱语粉 (Sakura Pink) ─────────────────────────────────────────────────
-// Soft blush background, sakura-pink accent (nodding to 墨滴's 樱花粉/玫瑰金).
-// Suited to lifestyle, personal, and emotional-writing accounts.
+// ── 樱花 (Sakura) ────────────────────────────────────────────────────────
+// Cute and romantic: sakura pink deepened into a cool rose (≈340°) so it
+// can carry text — clear of 中国红's orange-red — with pale sakura only on
+// large fills (the H2 pill, highlights), and spring colors as accents:
+// wisteria, spring sky, sakura-leaf green, apricot, honey. H2 is a pale
+// sakura pill with a flower on each side. Was 樱语粉 (`sakura-pink`).
 
-const SAKURA_PINK: StaticTheme = {
-	id: 'sakura-pink',
-	label: '樱语粉',
-	bgPrimary: '#FDF4F5',
-	textNormal: '#4A2E33',
-	textMuted: '#8A6067',
-	textFaint: '#C79BA1',
-	textItalic: '#6B454B',
-	linkColor: '#B76E79',
-	accent: '#E0708A',
-	headings: ['#C2456A', '#E0708A', '#B76E79', '#A66B8F', '#C98A5E', '#8A6067'],
-	highlightBg: '#FBDCE3',
-	codeBackground: '#F5E3E6',
-	tableHeaderColor: '#9D4E61',
-	borderColor: '#EAD0D5',
+const SAKURA: StaticTheme = {
+	id: 'sakura',
+	label: '樱花',
+	bgPrimary: '#FFFFFF',
+	textNormal: '#3F2A30',
+	textMuted: '#7A5A62',
+	textFaint: '#BFA0A7',
+	textItalic: '#5E434A',
+	linkColor: '#B33A62',
+	accent: '#D14D72',
+	headings: ['#A8325A', '#A8325A', '#C23E68', '#7E5AA6', '#7A5A62', '#86686F'],
+	highlightBg: '#FAD2DC',
+	codeBackground: '#FBF1F3',
+	tableHeaderColor: '#A8325A',
+	borderColor: '#F0DCE1',
 	code: {
-		normal: '#4A2E33', comment: '#A98790', keyword: '#C2456A', function: '#B76E79',
-		string: '#7A8A5E', value: '#C98A5E', tag: '#C2456A', property: '#8F6B8A',
-		variable: '#A6503E', inline: '#C2456A',
+		normal: '#3F2A30', comment: '#86686F', keyword: '#B83B66', function: '#3D6FA8',
+		string: '#44723C', value: '#A85A2A', tag: '#B3283D', property: '#7E5AA6',
+		variable: '#9C3A4A', inline: '#B83B66',
 	},
 	calloutAccent: {
-		note: '#B76E79', abstract: '#A66B8F', info: '#8F7BA6', todo: '#C98A5E',
-		tip: '#7A8A5E', success: '#7A8A5E', question: '#C98A5E', warning: '#C98A5E',
-		failure: '#C2456A', danger: '#C2456A', bug: '#A6503E', example: '#8F7BA6', quote: '#B79AA1',
+		note: '#B83B66', abstract: '#2A7077', info: '#3D6FA8', todo: '#9A5226',
+		tip: '#44723C', success: '#44723C', question: '#8A5E0E', warning: '#8A5E0E',
+		failure: '#B3283D', danger: '#B3283D', bug: '#9C3A4A', example: '#7E5AA6', quote: '#7E6369',
 	},
+	headingBar: {
+		level: 2, bgColor: '#FDE4EA', textColor: '#A8325A', radius: '999px',
+		prefix: '✿&nbsp;', suffix: '&nbsp;✿', affixColor: '#D9668A',
+	},
+	noUnderline: [1],
+	// Same colors as the matching callout types (info/example/question/danger).
+	taskAccent: { inProgress: '#3D6FA8', rescheduled: '#7E5AA6', question: '#8A5E0E', important: '#B3283D' },
+	transparentPage: true,
 };
 
 // ── 深空灰 (Graphite Dark) ───────────────────────────────────────────────
@@ -601,7 +612,7 @@ export const STATIC_THEMES: Record<string, StaticTheme> = {
 	'deep-blue': DEEP_BLUE,
 	'china-red': CHINA_RED,
 	'forest': FOREST,
-	'sakura-pink': SAKURA_PINK,
+	'sakura': SAKURA,
 	'graphite-dark': GRAPHITE_DARK,
 	'orange-heart': ORANGE_HEART,
 	'hardboiled-wonderland': HARDBOILED_WONDERLAND,
@@ -614,7 +625,7 @@ export const STATIC_THEMES: Record<string, StaticTheme> = {
  */
 export const STATIC_THEME_LIST: StaticTheme[] = [
 	HARDBOILED_WONDERLAND, ORANGE_HEART, CHINA_RED, MINIMAL_MONO, MINIMAL_MONO_2, PURPLE_MIST,
-	WARM_ALMOND, DEEP_BLUE, FOREST, SAKURA_PINK, GRAPHITE_DARK,
+	WARM_ALMOND, DEEP_BLUE, FOREST, SAKURA, GRAPHITE_DARK,
 ];
 
 /** id/label pairs for building a theme <select>, 'obsidian' first — shared by
@@ -634,6 +645,7 @@ export const LEGACY_THEME_ALIASES: Record<string, string> = {
 	'catppuccin-latte': 'purple-mist', // 马卡龙紫, reworked into 紫雾
 	'tech-blue': 'deep-blue',          // 科技蓝, reworked into 深蓝
 	'forest-green': 'forest',          // 森系绿, reworked into 森林
+	'sakura-pink': 'sakura',           // 樱语粉, reworked into 樱花
 };
 
 export function resolveThemeId(id: string): string {
