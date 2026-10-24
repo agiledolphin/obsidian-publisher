@@ -34,15 +34,24 @@ function boxSvg(task: string, style: string): string | null {
 // Half the cap height of 16px body text, measured above the baseline.
 const CAP_CENTER = 5.7;
 
+/** Center of a list row's marker column, from the row's left edge (parser.ts). */
+export const LIST_MARKER_CENTER = 19;
+
 // Placed relative to the text baseline (inside a body-size inline-block the
 // list row baseline-aligns with the task text), so it tracks the text
 // whatever line-height WeChat applies; the offset centers the box on the cap
 // height (`middle` aligns to the x-height and reads low). The trailing
-// &nbsp; gives the wrapper a text baseline. Sits in the row's marker column
-// (parser.ts), which handles the spacing.
+// &nbsp; gives the wrapper a text baseline. Sits left-aligned in the row's
+// marker column (parser.ts); the left margin puts the image's own center —
+// not image + &nbsp; — on the bullet center, whatever the image width. The
+// explicit width keeps the &nbsp; on the image's line: shrink-to-fit inside
+// the narrow column wrapped it onto a second line, dropping the baseline a
+// line below the image. (Not white-space: nowrap — WeChat drops white-space.)
+// The extra width only overhangs as invisible space; it doesn't move the text.
 function boxHtml(src: string, w: number, h: number): string {
 	const align = Math.round(CAP_CENTER - h / 2);
-	return `<span style="display: inline-block; font-size: 16px; line-height: 1;">` +
+	const left = +(LIST_MARKER_CENTER - w / 2).toFixed(1);
+	return `<span style="display: inline-block; width: ${w + 10}px; font-size: 16px; line-height: 1; margin-left: ${left}px;">` +
 		`<img src="${src}" width="${w}" height="${h}" ` +
 		`style="display: inline-block; vertical-align: ${align}px; width: ${w}px; height: ${h}px;">&nbsp;</span>`;
 }
