@@ -47,6 +47,9 @@ export interface ObsidianVars {
 	codeTag:        string;
 	codeProperty:   string;
 	codeVariable:   string;
+	codeOperator:    string;
+	codePunctuation: string;
+	codeImportant:   string;
 	codeInline:     string;
 	// Callout accent colors (read from --callout-color per type)
 	calloutNote:    string;
@@ -433,15 +436,13 @@ function readInlineCodeColor(fallback: string): string {
 	return fallback;
 }
 
-// ── Code syntax color palettes ───────────────────────────────────────────────
+// ── Code syntax colors ──────────────────────────────────────────────────────
 //
-// Instead of reading individual token colors from Obsidian's DOM (which varies
-// by theme and highlighter engine), we define two complete, coherent palettes:
+// Token colors come from Obsidian's --code-* variables, the ones both its
+// reading view (Prism) and editor (CodeMirror) use — so a theme's code colors
+// carry over. These palettes are only fallbacks for a variable that's unset:
 //   • Light — Tokyo Night Day
 //   • Dark  — Tokyo Night Storm
-//
-// codeBackground and codeInline are still read from Obsidian (single-value
-// reads that are stable across themes).
 
 // Tokyo Night Day (light)
 const LIGHT_CODE_PALETTE = {
@@ -468,6 +469,55 @@ const DARK_CODE_PALETTE = {
 	property: '#73daca',
 	variable: '#e0af68',
 };
+
+function readCodeColor(name: string, fallback: string): string {
+	return withEl(
+		{ color: `var(--code-${name}, ${fallback})`, ...HIDDEN_STYLE },
+		el => cssColorToHex(getComputedStyle(el).color) ?? fallback,
+	);
+}
+
+type CodeColorKey = 'codeNormal' | 'codeComment' | 'codeKeyword' | 'codeFunction' | 'codeString' | 'codeValue' |
+	'codeTag' | 'codeProperty' | 'codeOperator' | 'codePunctuation' | 'codeImportant';
+
+/**
+ * hljs token class → the --code-* color Obsidian gives the equivalent token,
+ * following its own Prism mapping in app.css (e.g. `.token.builtin,
+ * .token.function, .token.class-name` → --code-function; `.token.selector,
+ * .token.string` → --code-string; `.token.regex` → --code-important).
+ * Where hljs uses one class for tokens Prism tells apart, the commoner case
+ * wins: `hljs-attr` is mostly a JSON/YAML key (Prism: property), not an HTML
+ * attribute name (Prism: string). `flag` is our own bash `--flag` marker.
+ */
+const HLJS_CODE_COLOR: Record<string, CodeColorKey> = {
+	'hljs-keyword': 'codeKeyword', 'hljs-meta keyword': 'codeKeyword', 'hljs-doctag': 'codeKeyword',
+	'hljs-variable language_': 'codeKeyword',
+	'hljs-built_in': 'codeFunction', 'hljs-type': 'codeFunction', 'hljs-class': 'codeFunction',
+	'hljs-function': 'codeFunction', 'hljs-title': 'codeFunction', 'hljs-title function_': 'codeFunction',
+	'hljs-title class_': 'codeFunction',
+	'hljs-literal': 'codeValue', 'hljs-number': 'codeValue',
+	'hljs-string': 'codeString', 'hljs-addition': 'codeString', 'hljs-selector-tag': 'codeString',
+	'hljs-selector-id': 'codeString', 'hljs-selector-class': 'codeString', 'hljs-selector-attr': 'codeString',
+	'hljs-selector-pseudo': 'codeString',
+	'hljs-regexp': 'codeImportant', 'hljs-section': 'codeImportant',
+	'hljs-name': 'codeTag', 'hljs-symbol': 'codeTag', 'hljs-deletion': 'codeTag',
+	'hljs-attr': 'codeProperty', 'hljs-attribute': 'codeProperty', 'hljs-property': 'codeProperty',
+	'hljs-variable': 'codeProperty', 'hljs-template-variable': 'codeProperty', 'hljs-template-tag': 'codeProperty',
+	'hljs-meta': 'codeProperty', 'hljs-link': 'codeProperty', 'flag': 'codeProperty',
+	'hljs-comment': 'codeComment', 'hljs-quote': 'codeComment',
+	'hljs-operator': 'codeOperator',
+	'hljs-punctuation': 'codePunctuation', 'hljs-tag': 'codePunctuation', 'hljs-bullet': 'codePunctuation',
+	'hljs-subst': 'codeNormal', 'hljs-params': 'codeNormal',
+};
+
+/** Recolors highlighted code tokens (marked data-hl by parser.ts) with the theme's --code-* colors. */
+function applyLiveCodeTokens(html: string, v: ObsidianVars): string {
+	return html.replace(/<span data-hl="([^"]+)" style="([^"]*)"/g, (match, cls: string, style: string) => {
+		const key = HLJS_CODE_COLOR[cls];
+		if (!key) return match;
+		return `<span style="${style.replace(/(^|;\s*)color: #[0-9a-f]{6}/i, `$1color: ${v[key]}`)}"`;
+	});
+}
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
@@ -785,18 +835,21 @@ export function readObsidianVars(): ObsidianVars {
 		h4BorderCss: readHeadingBorder(4, '0.2em'),
 		h5BorderCss: readHeadingBorder(5, '0.2em'),
 		h6BorderCss: readHeadingBorder(6, '0.2em'),
-		// Code syntax colors: predefined palette (light=Tokyo Night Day, dark=Tokyo Night Storm)
-		// selected by background luminance. codeBackground/codeInline still read from Obsidian.
+		// Code syntax colors: Obsidian's --code-* variables, falling back to a
+		// Tokyo Night palette (Day / Storm by mode) for any that's unset.
 		codeBackground: readComputedBg('--code-background', '#f6f8fa'),
-		codeNormal:     codePalette.normal,
-		codeComment:    codePalette.comment,
-		codeKeyword:    codePalette.keyword,
-		codeFunction:   codePalette.function,
-		codeString:     codePalette.string,
-		codeValue:      codePalette.value,
-		codeTag:        codePalette.tag,
-		codeProperty:   codePalette.property,
-		codeVariable:   codePalette.variable,
+		codeNormal:     readCodeColor('normal',   codePalette.normal),
+		codeComment:    readCodeColor('comment',  codePalette.comment),
+		codeKeyword:    readCodeColor('keyword',  codePalette.keyword),
+		codeFunction:   readCodeColor('function', codePalette.function),
+		codeString:     readCodeColor('string',   codePalette.string),
+		codeValue:      readCodeColor('value',    codePalette.value),
+		codeTag:        readCodeColor('tag',      codePalette.tag),
+		codeProperty:   readCodeColor('property', codePalette.property),
+		codeVariable:   readCodeColor('property', codePalette.variable),
+		codeOperator:    readCodeColor('operator',    codePalette.normal),
+		codePunctuation: readCodeColor('punctuation', codePalette.normal),
+		codeImportant:   readCodeColor('important',   codePalette.keyword),
 		codeInline:     readInlineCodeColor('#c7254e'),
 		// Callout accent colors from Obsidian's --callout-color per type
 		calloutNote:    readCalloutAccent('note',     '#448aff'),
@@ -1010,7 +1063,8 @@ export class StyleEngine {
 			// ── Line height (paragraphs, list items) ───────────────────────────
 			[/line-height: 1\.75/g,                           `line-height: ${v.lineHeight}`],
 		];
-		return this.applyMap(v.table ? applyLiveTableCells(html, v.table) : html, map);
+		const cells = v.table ? applyLiveTableCells(html, v.table) : html;
+		return this.applyMap(applyLiveCodeTokens(cells, v), map);
 	}
 
 	private applyMap(html: string, map: [RegExp, string][]): string {

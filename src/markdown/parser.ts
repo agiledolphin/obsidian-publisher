@@ -104,7 +104,7 @@ function applyBashFlags(html: string): string {
 		const highlighted = text.replace(
 			/(^|\s)(-{1,2}[a-zA-Z][a-zA-Z0-9_-]*)/g,
 			(_m: string, ws: string, flag: string) =>
-				`${ws}<span style="color: #b45309;">${flag}</span>`,
+				`${ws}<span data-hl="flag" style="color: #b45309;">${flag}</span>`,
 		);
 		return '>' + highlighted + '<';
 	});
@@ -125,10 +125,12 @@ function preserveCodeWhitespace(html: string): string {
 		.join('');
 }
 
+// data-hl keeps the hljs class so the live theme can recolor each token by
+// meaning (engine.ts applyLiveCodeTokens); sanitizeForWeChat strips it.
 function applyHljsTheme(html: string): string {
 	return html.replace(/<span class="([^"]+)">/g, (_match, classes: string) => {
 		const style = HLJS_GITHUB_THEME[classes] ?? HLJS_GITHUB_THEME[classes.split(' ')[0] ?? ''];
-		return style ? `<span style="${style}">` : '<span>';
+		return style ? `<span data-hl="${classes}" style="${style}">` : '<span>';
 	});
 }
 

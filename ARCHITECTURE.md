@@ -583,7 +583,9 @@ Obsidian 主题使用深度嵌套变量，`getPropertyValue()` 返回原始字�
 
 ### 8.3 代码高亮颜色
 
-Parser 输出 GitHub Light 配色（hardcoded 颜色值）。StyleEngine 的 `applyObsidianOverrides` 将这些颜色替换为两套 Tokyo Night 配色（Day/Storm），具体选哪套由 `document.body.classList.contains('theme-dark')` 决定。
+Parser 用 highlight.js 高亮，输出 GitHub Light 配色作为占位色，每个高亮 `<span>` 同时带 `data-hl="<hljs 类名>"`（`sanitizeForWeChat()` 会删掉）。静态主题按占位色替换成主题自己的 `code` 配色。
+
+**"当前 Obsidian 主题"跟随 Obsidian 的代码配色**：Obsidian 阅读视图用 Prism.js 切分代码（`token keyword` 等类名），编辑视图用 CodeMirror 6（`cm-keyword` 等），两边都把各类代码映射到同一组 `--code-*` 变量（`app.css` 里 `.token.builtin, .token.function, .token.class-name → --code-function`、`.token.selector, .token.string → --code-string`、`.token.regex, .token.important → --code-important` 等），主题改这组变量两边就一起变。分析器本身是 Obsidian 内置的，主题和本插件都换不了——所以同一段代码在阅读视图和编辑视图里的归类本来就有出入（如函数定义名在阅读视图是函数色、编辑视图是正文色）。插件读这组变量（`readCodeColor()`，未定义时退回 Tokyo Night Day/Storm），`applyLiveCodeTokens()` 按 `HLJS_CODE_COLOR` 把 hljs 类名对到和 Prism 同义的变量上再上色。hljs 和 Prism 的切分仍有差异：hljs 的 Python/JS 不单独标括号等标点（Prism 用 `--code-punctuation`），`hljs-attr` 同时用于 JSON 键和 HTML 属性名、按更常见的 JSON 键对到 `--code-property`。之前这里用的是固定的 Tokyo Night 配色，不读 Obsidian 的代码颜色。
 
 **代码块空白**：微信粘贴时不理会 `<pre>` 上的 `white-space: pre`，会按普通网页规则压缩空白——夹在两个高亮 `<span>` 之间的单独空格（`def` 和 `hello_world` 之间）、行首缩进都会消失，而夹在普通文字中间的空格能保留。所以 `parser.ts` 的 `preserveCodeWhitespace()` 在高亮完成后，把代码里标签之外的文字中的空格换成 `&nbsp;`、制表符换成 4 个 `&nbsp;`、换行换成 `<br>`（去掉末尾换行），不再依赖 `white-space`。所有围栏代码块（带不带语言标记）都走这个 `highlight` 回调，一处覆盖。代价：读者从公众号复制代码时，空格会是不换行空格（`U+00A0`），个别编辑器里可能需要替换，这是公众号代码块的普遍做法。
 
