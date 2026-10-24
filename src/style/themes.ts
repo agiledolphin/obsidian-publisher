@@ -103,9 +103,15 @@ export interface StaticTheme {
 	 * fades out toward the bottom. `stops` are the top, middle (55%) and
 	 * bottom colors; `color` is the plain text color underneath. Confirmed to
 	 * survive a WeChat paste — linear-gradient backgrounds are kept (unlike
-	 * url() background images).
+	 * url() background images). `horizontal` runs the gradient left to right
+	 * instead (stops at 0/50/100%) and `letterSpacing` widens the text — e.g.
+	 * 星云's nebula-colored title. WeChat's dark mode drops either direction
+	 * for a solid color of its own choosing (星云's came out cyan, not `color`).
 	 */
-	headingGradient?: { level: 1 | 2; stops: [string, string, string]; color: string };
+	headingGradient?: {
+		level: 1 | 2; stops: [string, string, string]; color: string;
+		horizontal?: boolean; letterSpacing?: string;
+	};
 	/**
 	 * Optional "book chapter" treatment for one heading level: centered text
 	 * with a rule above and below that hugs the text width (borders on an
@@ -463,35 +469,48 @@ const SAKURA: StaticTheme = {
 	transparentPage: true,
 };
 
-// ── 深空灰 (Graphite Dark) ───────────────────────────────────────────────
-// The first dark preset: deep charcoal background, warm amber accent (a nod
-// to 墨滴's 石墨黑, reimagined as a full dark theme rather than just an accent).
-// Suited to tech/digital-review accounts and night-time reading.
+// ── 星云 (Nebula) ────────────────────────────────────────────────────────
+// Deep and vast: a deep-space blue-violet-black page (the one dark preset —
+// its light text needs this background, so it can't go transparent),
+// starlight text, and nebula violet, magenta and cyan for headings and
+// accents, with callouts and code in the same soft nebula family. H2 is
+// wide-spaced title text in a left-to-right magenta → violet → cyan
+// gradient. Was 深空灰 (`graphite-dark`).
 
-const GRAPHITE_DARK: StaticTheme = {
-	id: 'graphite-dark',
-	label: '深空灰',
-	bgPrimary: '#1E2124',
-	textNormal: '#E4E6EB',
-	textMuted: '#A0A4AC',
-	textFaint: '#6B6F76',
-	textItalic: '#C4C8CE',
-	linkColor: '#6FA8DC',
-	accent: '#E0A458',
-	headings: ['#E0A458', '#6FA8DC', '#7FC8A9', '#D88C9A', '#B39DDB', '#A0A4AC'],
-	highlightBg: '#4A3F2A',
-	codeBackground: '#2A2D31',
-	borderColor: '#3A3E44',
+const NEBULA: StaticTheme = {
+	id: 'nebula',
+	label: '星云',
+	bgPrimary: '#12111F',
+	textNormal: '#E6E4F0',
+	textMuted: '#A9A6BF',
+	textFaint: '#6E6A88',
+	textItalic: '#CFCBE3',
+	linkColor: '#8FB8FF',
+	accent: '#8B6CF0',
+	headings: ['#D9CCFF', '#C3A8FF', '#7FD6E8', '#F29AC8', '#B8B3D6', '#9A96B4'],
+	highlightBg: '#3B2A66',
+	codeBackground: '#1C1B2E',
+	tableHeaderColor: '#D9CCFF',
+	borderColor: '#2E2C48',
 	code: {
-		normal: '#E4E6EB', comment: '#6B6F76', keyword: '#C792EA', function: '#82AAFF',
-		string: '#C3E88D', value: '#F78C6C', tag: '#FF5370', property: '#7FC8A9',
-		variable: '#FFCB6B', inline: '#FF5370',
+		normal: '#E6E4F0', comment: '#8A86A6', keyword: '#C3A8FF', function: '#8FB8FF',
+		string: '#8EE0B0', value: '#F5B27A', tag: '#FF8A9A', property: '#7FD6E8',
+		variable: '#F2D27A', inline: '#F29AC8',
 	},
 	calloutAccent: {
-		note: '#6FA8DC', abstract: '#7FC8A9', info: '#82AAFF', todo: '#F78C6C',
-		tip: '#C3E88D', success: '#C3E88D', question: '#FFCB6B', warning: '#FFCB6B',
-		failure: '#FF5370', danger: '#FF5370', bug: '#E0708A', example: '#C792EA', quote: '#8A8F98',
+		note: '#9DB8FF', abstract: '#7FD6E8', info: '#8FB8FF', todo: '#F5B27A',
+		tip: '#8EE0B0', success: '#8EE0B0', question: '#F2D27A', warning: '#F2D27A',
+		failure: '#FF8A9A', danger: '#FF8A9A', bug: '#F29AC8', example: '#C3A8FF', quote: '#A9A6BF',
 	},
+	headingGradient: {
+		level: 2, stops: ['#F07AC8', '#A98BFF', '#6FD3E8'], color: '#C3A8FF',
+		horizontal: true, letterSpacing: '4px',
+	},
+	noUnderline: [1],
+	// Mid-tone versions of the matching callout hues (info/example/question/
+	// danger): the callout colors are pale for a dark page, and the boxes'
+	// white symbols need a fill they stand out on (≥ 3.8:1 here).
+	taskAccent: { inProgress: '#4F74D0', rescheduled: '#8A55C9', question: '#A87B12', important: '#C93A55' },
 };
 
 // ── 橙心 (Orange Heart) ──────────────────────────────────────────────────
@@ -613,7 +632,7 @@ export const STATIC_THEMES: Record<string, StaticTheme> = {
 	'china-red': CHINA_RED,
 	'forest': FOREST,
 	'sakura': SAKURA,
-	'graphite-dark': GRAPHITE_DARK,
+	'nebula': NEBULA,
 	'orange-heart': ORANGE_HEART,
 	'hardboiled-wonderland': HARDBOILED_WONDERLAND,
 };
@@ -625,7 +644,7 @@ export const STATIC_THEMES: Record<string, StaticTheme> = {
  */
 export const STATIC_THEME_LIST: StaticTheme[] = [
 	HARDBOILED_WONDERLAND, ORANGE_HEART, CHINA_RED, MINIMAL_MONO, MINIMAL_MONO_2, PURPLE_MIST,
-	WARM_ALMOND, DEEP_BLUE, FOREST, SAKURA, GRAPHITE_DARK,
+	WARM_ALMOND, DEEP_BLUE, FOREST, SAKURA, NEBULA,
 ];
 
 /** id/label pairs for building a theme <select>, 'obsidian' first — shared by
@@ -646,6 +665,7 @@ export const LEGACY_THEME_ALIASES: Record<string, string> = {
 	'tech-blue': 'deep-blue',          // 科技蓝, reworked into 深蓝
 	'forest-green': 'forest',          // 森系绿, reworked into 森林
 	'sakura-pink': 'sakura',           // 樱语粉, reworked into 樱花
+	'graphite-dark': 'nebula',         // 深空灰, reworked into 星云
 };
 
 export function resolveThemeId(id: string): string {
@@ -862,16 +882,19 @@ export function buildStaticThemeMap(theme: StaticTheme): [RegExp, string][] {
 		);
 	}
 	if (theme.headingGradient) {
-		const { level, stops, color } = theme.headingGradient;
+		const { level, stops, color, horizontal, letterSpacing } = theme.headingGradient;
 		const fontSize = level === 1 ? '24px' : '22px';
 		const margin = level === 1 ? '1.5em 0 0.8em 0' : '1.3em 0 0.6em 0';
 		const [openSource, closeSource] = level === 1
 			? [H1_OPEN_SOURCE, H1_CLOSE_SOURCE]
 			: [H2_OPEN_SOURCE, H2_CLOSE_SOURCE];
 		const tag = level === 1 ? 'h1' : 'h2';
-		const headingStyle = `margin: ${margin}; text-align: center; font-size: ${fontSize}; font-weight: 700; line-height: 1.4;`;
+		const headingStyle =
+			`margin: ${margin}; text-align: center; font-size: ${fontSize}; font-weight: 700; line-height: 1.4;` +
+			(letterSpacing ? ` letter-spacing: ${letterSpacing};` : '');
 		const textStyle =
-			`color: ${color}; background-image: linear-gradient(180deg, ${stops[0]} 0%, ${stops[1]} 55%, ${stops[2]} 100%); ` +
+			`color: ${color}; background-image: linear-gradient(${horizontal ? '90deg' : '180deg'}, ` +
+			`${stops[0]} 0%, ${stops[1]} ${horizontal ? 50 : 55}%, ${stops[2]} 100%); ` +
 			`-webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;`;
 		map.push(
 			[openSource, `<${tag} style="${headingStyle}"><span style="${textStyle}">`],
