@@ -1,6 +1,6 @@
 # Obsidian WeChat Publisher 插件架构设计文档
 
-> **版本**：v10.0（对应插件 v0.8.0）
+> **版本**：v11.0（对应插件 v0.8.1）
 > **日期**：2026-09-30
 > **目标平台**：微信公众号
 > **开发策略**：分阶段交付——先实现转换与复制，再实现 API 发布
@@ -17,7 +17,7 @@
 
 | 阶段 | 目标 | 状态 |
 |------|------|------|
-| **阶段一** | 转换 + 复制 | ✅ **已完成并持续迭代（当前 v0.8.0）** |
+| **阶段一** | 转换 + 复制 | ✅ **已完成并持续迭代（当前 v0.8.1）** |
 | **阶段二** | API 自动发布（草稿上传） | 待开始 |
 
 **阶段一的优势**：
@@ -473,7 +473,7 @@ obsidian-publisher/
 │       ├── mime.ts                    # 文件扩展名 → MIME 类型
 │       └── svg-raster.ts              # SVG → PNG（Mermaid 共用；输出前把 SVG 图片统一转 PNG、小 PNG 补到 2KB）
 ├── styles.css                         # 插件 UI 样式（预览弹窗等）
-├── manifest.json                      # 版本 0.8.0
+├── manifest.json                      # 版本 0.8.1
 ├── package.json
 ├── tsconfig.json
 ├── esbuild.config.mjs
@@ -613,7 +613,9 @@ markdown-it 渲染 `![alt](path with spaces)` 时会 URL 编码空格，导致 `
 
 **勾选框最终输出为图片**：`parser.ts` 先把勾选框输出成带 `data-pub-task` 标记、带内联背景色/边框色的 `<span>`（这样各主题仍能用占位符替换给它上色），`StyleEngine.process()` 在主题替换之后、`sanitizeForWeChat()` 删掉 `data-*` 之前，由 `taskBoxesToImages()`（`src/style/task-icons.ts`）把它换成一个 15×15 的 SVG `<img>`：圆角方块 + 用路径画的白色符号（不用文字字形）；之后和其它 SVG 图片一样被转成 PNG、补足体积（见 8.12）。原因：用 `<span>` 的时候，粘贴进微信后未勾选的空心框（没有任何文字的空标签）整个消失，其它框里的符号被挤到顶部、被切掉一半（微信改动了小方块里的行高排版），而 Obsidian 预览一切正常。对齐方式：图片放在一个正文字号（16px）的 `inline-block` 小容器里、`vertical-align: -2px`（图片底边比文字基线低 2px，正好让 15px 方块的中心对准大写字母高度的中线），容器末尾带一个 `&nbsp;` 提供文字基线（兼作间距），列表行用 `align-items: baseline` 把这个容器和任务文字按基线对齐。这样勾选框始终跟着文字走，与行高无关。第一版用 `align-items: flex-start` + 固定 `margin-top: 4px`，按 Obsidian 的行高算好；粘贴进公众号后行高被"行间距"放大，文字下移而勾选框不动，看起来偏高（预览里原本还有一段按主题行高动态算 `margin-top` 的代码，也一并删掉了）。在预览里把行高强行放大到 2.8 倍验证过，偏差不变。第二版用的是 `vertical-align: middle`，但 `middle` 对准的是小写字母 x 高度的中线，比人眼感受到的文字中心（英文标题以大写字母开头、多有 l/t/k 这类高笔画）低 1～2px，用户目测"图标略低"；改成按基线下沉固定像素，量得图标中心与大写字母中线的偏差约 0.2px。callout 标题图标（`callout.ts` 的 `buildIconImg`）有同样的问题，同样从 `middle` 改成了 `vertical-align: -3px`（16px 图标、15px 标题字），偏差约 0.4px。
 
-**"当前 Obsidian 主题"下的勾选框直接截取 Obsidian 的实际渲染**（`src/style/live-task-icons.ts`）：各 Obsidian 主题画勾选框的手法五花八门（圆形/方形、`::before` 文字符号、`mask-image` 遮罩、半填充色块……），逐个解读 CSS 去复刻不现实。插件是桌面版，Obsidian 桌面端开放了 Electron 的 `remote.getCurrentWebContents().capturePage()`：转换时在页面最上层临时放一个和阅读视图同结构的 `.markdown-preview-view.markdown-rendered > ul.contains-task-list > li.task-list-item[data-task]` 探针，7 种状态各一个真实的 `<input type="checkbox">`，逐个截图（按 `webFrame` 缩放系数换算坐标，Retina 下是 2 倍像素）。截图会带上页面底色，所以分别在白底、黑底上各截一次，用"双底色抠图"算出每个像素的透明度（alpha = 1 −（白底值 − 黑底值），颜色 = 黑底值 / alpha），得到边缘柔和的透明 PNG。结果按 Obsidian 主题/深浅模式缓存，`css-change` 事件（换主题、切深浅色、开关 CSS 片段）时作废，所以只有第一次转换会在屏幕上闪一下。截不到（拿不到 Electron 接口、窗口最小化等）就退回插件自己画的勾选框。截下来的图片直接作为 `taskBoxesToImages()` 的输入，尺寸用实际渲染尺寸（含 1px 边距），对齐偏移按图片高度换算（`CAP_CENTER − h/2`），保证不同尺寸的勾选框都对准文字的大写字母中线。静态预设主题仍用插件自己画的勾选框。
+**"当前 Obsidian 主题"下的勾选框直接截取 Obsidian 的实际渲染**（`src/style/live-task-icons.ts`）：各 Obsidian 主题画勾选框的手法五花八门（圆形/方形、`::before` 文字符号、`mask-image` 遮罩、半填充色块……），逐个解读 CSS 去复刻不现实。插件是桌面版，Obsidian 桌面端开放了 Electron 的 `remote.getCurrentWebContents().capturePage()`：转换时在页面左上角临时放一个和阅读视图同结构的 `.markdown-preview-view.markdown-rendered > ul.contains-task-list > li.task-list-item[data-task]` 探针，7 种状态各一个真实的 `<input type="checkbox">`，排成一行，按 `webFrame` 缩放系数换算坐标，**整行只截一张**（Retina 下是 2 倍像素），再在 canvas 里按各勾选框的位置裁开。截图会带上背景，所以要在两种已知背景上各截一次，按 alpha = 1 −（截图1 − 截图2）/（背景1 − 背景2）、颜色 =（截图1 −（1 − alpha）× 背景1）/ alpha 逐像素算出透明 PNG。两种背景用探针自己的阅读视图背景色，以及同一颜色每个通道偏移 64 级（浅色主题往深、深色主题往浅）——相差 64 级算透明度已经足够精确。
+
+第一版是 7 个勾选框各截一张、背景用纯白和纯黑，一共 14 张截图，探针在屏幕上停留约 120ms，用户看到的是左上角先闪一块白、再闪一块黑。现在只截 2 张，停留约 25–30ms（两帧左右），第一张看起来只是几个勾选框出现了一下，第二张背景只是略深或略浅，不再有黑白块。探针必须真的显示在屏幕上（截图只能截到屏幕上实际显示的内容），所以这一下闪现无法完全去掉；完全不闪要用离屏窗口渲染，但那需要把 Obsidian 的全部主题样式搬过去，没有采用。结果按 Obsidian 主题/深浅模式缓存，`css-change` 事件（换主题、切深浅色、开关 CSS 片段）时作废，所以只有之后第一次转换会闪现。截不到（拿不到 Electron 接口、窗口最小化等）就退回插件自己画的勾选框。截下来的图片直接作为 `taskBoxesToImages()` 的输入，尺寸用实际渲染尺寸（含 1px 边距），对齐偏移按图片高度换算（`CAP_CENTER − h/2`），保证不同尺寸的勾选框都对准文字的大写字母中线。静态预设主题仍用插件自己画的勾选框。
 
 ### 8.7 String.replace 特殊字符
 
@@ -698,7 +700,7 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 
 ## 10. 开发路线图
 
-### 阶段一：基础转换（✅ 已完成并持续迭代，当前 v0.8.0）
+### 阶段一：基础转换（✅ 已完成并持续迭代，当前 v0.8.1）
 
 - [x] 插件骨架（esbuild 打包配置）
 - [x] Frontmatter 提取与移除
@@ -723,7 +725,7 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 - [x] 数学公式（`$...$` / `$$...$$`，MathJax CHTML + html2canvas，编辑/阅读模式均支持，iframe 隔离批量渲染，2x PNG）
 - [x] Mermaid 图表（MarkdownRenderer offscreen → SVG → Canvas 2x PNG，深/浅色模式自动切换，静态主题按自身色值映射 themeVariables，fallback 样式化文本块）
 - [x] 高亮文字颜色跟随主题（同时读取 `<mark>` 的 backgroundColor 和 color）
-- [x] 预览弹窗（行高、li margin、嵌套列表 margin 均跟随主题探针；标题栏可拖拽；主题切换器）
+- [x] 预览弹窗（显示的就是复制出去的 HTML，不做预览专用改写；标题栏可拖拽；主题切换器）
 - [x] 右侧预览面板（ItemView，切换文件自动刷新，手动刷新按钮，关闭时同步折叠右侧分栏，内容就绪前隐藏手机框，渲染逻辑与弹窗共用；主题切换器；窄屏工具栏自动换行）
 - [x] ClipboardItem API 富文本写入
 - [x] 设置页面（主题、图片模式、调试模式等）
