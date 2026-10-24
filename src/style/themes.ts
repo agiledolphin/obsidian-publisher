@@ -84,6 +84,14 @@ export interface StaticTheme {
 	 */
 	headingIcon?: { level: 1 | 2; iconSvg: string; textColor: string; textBg: string; barColor?: string };
 	/**
+	 * Optional "hanging tab" treatment for one heading level: a full-width
+	 * rule (the heading's own border-top) with a solid tab centered right
+	 * under it — square top corners against the rule, rounded bottom ones.
+	 * Two elements, both carrying real text: the heading and an inline-block
+	 * <span>. Nothing has to match another element's height.
+	 */
+	headingTab?: { level: 1 | 2; color: string; textColor: string };
+	/**
 	 * Heading levels that should drop the default underline (an accent-colored
 	 * border-bottom, normally applied to H1/H2 automatically) entirely, with
 	 * no replacement decoration — for themes where a level already gets its
@@ -278,33 +286,40 @@ const TECH_BLUE: StaticTheme = {
 };
 
 // ── 中国红 (China Red) ───────────────────────────────────────────────────
-// Warm ivory background with vermillion + gold accents. Suited to
-// culture/history/commentary accounts.
+// Built around 中国红: reds in layers (deep 中国红 H1, 红绯 accent and H2 tab,
+// 中国红/朱砂 H3–H4), 赤金 links (the classic red-and-gold pairing), and
+// traditional pigments to tell callouts apart (朱红, 石青, 石绿, 藤黄, 胭脂,
+// 黛紫). No page background: bgPrimary (white) only feeds callout tints.
+// Bold stays body-colored so the page isn't flooded with red.
 
 const CHINA_RED: StaticTheme = {
 	id: 'china-red',
 	label: '中国红',
-	bgPrimary: '#FBF3E6',
-	textNormal: '#2E2420',
-	textMuted: '#6B5A4E',
-	textFaint: '#A6907E',
-	textItalic: '#5A4436',
-	linkColor: '#8B5E1F',
-	accent: '#C0392B',
-	headings: ['#9B1B1B', '#C0392B', '#B5651D', '#8B5E1F', '#6E5433', '#6B5A4E'],
-	highlightBg: '#F5DDA0',
-	codeBackground: '#F3E6CE',
-	borderColor: '#E3CFAE',
+	bgPrimary: '#FFFFFF',
+	textNormal: '#2B2422',
+	textMuted: '#6E5D57',
+	textFaint: '#A3928B',
+	textItalic: '#5C4A44',
+	linkColor: '#9A6512',
+	accent: '#E44B38',
+	headings: ['#A61B1B', '#E44B38', '#C8291E', '#B4442E', '#8E5A3C', '#7A6A63'],
+	highlightBg: '#FCE9C0',
+	codeBackground: '#FAF3F1',
+	borderColor: '#EBD9D4',
 	code: {
-		normal: '#3B2E22', comment: '#9C8468', keyword: '#9B1B1B', function: '#B5651D',
-		string: '#5F7A3D', value: '#8B5E1F', tag: '#C0392B', property: '#6E7A3D',
-		variable: '#8F3F3F', inline: '#9B1B1B',
+		normal: '#2B2422', comment: '#8E7E78', keyword: '#B3261E', function: '#9A6512',
+		string: '#2D7A55', value: '#2B5F8F', tag: '#C8291E', property: '#9A5A2A',
+		variable: '#9E2735', inline: '#B3261E',
 	},
 	calloutAccent: {
-		note: '#B5651D', abstract: '#6E7A3D', info: '#8B5E1F', todo: '#B5651D',
-		tip: '#5F7A3D', success: '#5F7A3D', question: '#C08A2A', warning: '#C08A2A',
-		failure: '#9B1B1B', danger: '#9B1B1B', bug: '#7A2E2E', example: '#8F3F6E', quote: '#9C8468',
+		note: '#C8291E', abstract: '#1E7470', info: '#2B5F8F', todo: '#C8291E',
+		tip: '#2D7A55', success: '#2D7A55', question: '#9A5A2A', warning: '#9A6010',
+		failure: '#9E2735', danger: '#9E2735', bug: '#86283A', example: '#6A4A8A', quote: '#7E6E66',
 	},
+	headingTab: { level: 2, color: '#E44B38', textColor: '#FFFFFF' },
+	noUnderline: [1],
+	taskAccent: { inProgress: '#2B5F8F', rescheduled: '#9A5A2A', question: '#9A6010', important: '#9E2735' },
+	transparentPage: true,
 };
 
 // ── 森系绿 (Forest Green) ────────────────────────────────────────────────
@@ -519,10 +534,14 @@ export const STATIC_THEMES: Record<string, StaticTheme> = {
 	'hardboiled-wonderland': HARDBOILED_WONDERLAND,
 };
 
-/** Ordered list for building settings dropdowns. */
+/**
+ * Ordered list for building settings dropdowns: themes that have been
+ * reworked and verified in WeChat first (order chosen by the user), then
+ * the original palette-only presets, with the one dark theme last.
+ */
 export const STATIC_THEME_LIST: StaticTheme[] = [
-	CATPPUCCIN_LATTE, MINIMAL_MONO, MINIMAL_MONO_2, WARM_ALMOND, TECH_BLUE, CHINA_RED,
-	FOREST_GREEN, SAKURA_PINK, GRAPHITE_DARK, ORANGE_HEART, HARDBOILED_WONDERLAND,
+	HARDBOILED_WONDERLAND, ORANGE_HEART, CHINA_RED, MINIMAL_MONO, MINIMAL_MONO_2,
+	CATPPUCCIN_LATTE, WARM_ALMOND, TECH_BLUE, FOREST_GREEN, SAKURA_PINK, GRAPHITE_DARK,
 ];
 
 /** id/label pairs for building a theme <select>, 'obsidian' first — shared by
@@ -725,6 +744,29 @@ export function buildStaticThemeMap(theme: StaticTheme): [RegExp, string][] {
 			`color: ${textColor}; background-color: ${bgColor}; padding: 10px 16px; line-height: 1.3;`;
 		map.push(
 			[openSource, `<${tag} style="${headingStyle}"><span style="${barStyle}">`],
+			[closeSource, `</span></${tag}>`],
+		);
+	}
+	if (theme.headingTab) {
+		const { level, color, textColor } = theme.headingTab;
+		const fontSize = level === 1 ? '22px' : '18px';
+		const margin = level === 1 ? '1.5em 0 0.8em 0' : '1.3em 0 0.6em 0';
+		const [openSource, closeSource] = level === 1
+			? [H1_OPEN_SOURCE, H1_CLOSE_SOURCE]
+			: [H2_OPEN_SOURCE, H2_CLOSE_SOURCE];
+		const tag = level === 1 ? 'h1' : 'h2';
+		// The heading's font-size/line-height match the tab's so its own line
+		// strut can't stand taller than the tab, and vertical-align: top pins
+		// the tab to the top of the line box — together they keep the tab
+		// flush against the rule even when WeChat enlarges line-height.
+		const headingStyle =
+			`margin: ${margin}; text-align: center; border-top: 2px solid ${color}; ` +
+			`font-size: ${fontSize}; line-height: 1.3;`;
+		const tabStyle =
+			`display: inline-block; vertical-align: top; font-size: ${fontSize}; font-weight: 700; ` +
+			`color: ${textColor}; background-color: ${color}; padding: 8px 22px 10px; border-radius: 0 0 10px 10px;`;
+		map.push(
+			[openSource, `<${tag} style="${headingStyle}"><span style="${tabStyle}">`],
 			[closeSource, `</span></${tag}>`],
 		);
 	}
