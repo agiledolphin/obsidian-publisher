@@ -227,9 +227,12 @@ export function obsidianCalloutPlugin(md: MarkdownIt): void {
 	md.renderer.rules['blockquote_open'] = (tokens, idx) => {
 		const meta = tokens[idx]?.meta as Record<string, unknown> | undefined;
 
+		// Plain quotes are a <section> too, not <blockquote>: WeChat turns a
+		// pasted <blockquote> into its own quote block, which draws a second,
+		// gray left rule beside this one.
 		if (!meta?.callout) {
 			return (
-				`<blockquote style="border-left: 2px solid #7c3aed; padding: 4px 16px; ` +
+				`<section style="border-left: 2px solid #7c3aed; padding: 4px 16px; ` +
 				`margin: 1em 0; color: #555; font-size: 15px;">`
 			);
 		}
@@ -245,20 +248,6 @@ export function obsidianCalloutPlugin(md: MarkdownIt): void {
 		);
 	};
 
-	md.renderer.rules['blockquote_close'] = (tokens, idx) => {
-		let depth = 0;
-		for (let i = idx - 1; i >= 0; i--) {
-			const t = tokens[i];
-			if (!t) continue;
-			if (t.type === 'blockquote_close') depth++;
-			if (t.type === 'blockquote_open') {
-				if (depth === 0) {
-					const meta = t.meta as Record<string, unknown> | undefined;
-					return meta?.callout ? '</section>' : '</blockquote>';
-				}
-				depth--;
-			}
-		}
-		return '</blockquote>';
-	};
+	// Callouts and plain quotes both render as <section>.
+	md.renderer.rules['blockquote_close'] = () => '</section>';
 }

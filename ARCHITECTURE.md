@@ -82,7 +82,7 @@ onunload()  → 插件禁用时调用，清理资源
 
 ### 3.2 支持的 HTML 标签
 
-`<p>`、`<h1>`~`<h6>`、`<strong>`/`<b>`、`<em>`/`<i>`、`<u>`、`<br>`、`<hr>`、`<img>`、`<a>`、`<table>`/`<tr>`/`<td>`/`<th>`、`<ul>`/`<ol>`/`<li>`（但多层嵌套会被微信打乱，插件不再输出，见 8.13）、`<blockquote>`、`<pre>`/`<code>`、`<span>`、`<div>`/`<section>`、`<sub>`/`<sup>`、`<mark>`、`<del>`
+`<p>`、`<h1>`~`<h6>`、`<strong>`/`<b>`、`<em>`/`<i>`、`<u>`、`<br>`、`<hr>`、`<img>`、`<a>`、`<table>`/`<tr>`/`<td>`/`<th>`、`<ul>`/`<ol>`/`<li>`（但多层嵌套会被微信打乱，插件不再输出，见 8.13）、`<blockquote>`（但微信会把它变成自带的引用组件、多画一条灰线，插件不再输出，见 8.15）、`<pre>`/`<code>`、`<span>`、`<div>`/`<section>`、`<sub>`/`<sup>`、`<mark>`、`<del>`
 
 ### 3.3 富文本粘贴机制
 
@@ -242,7 +242,7 @@ new MarkdownIt({
 | `forest-green` | 森系绿 | 清新鼠尾草绿，健康/教育/成长类账号 |
 | `sakura-pink` | 樱语粉 | 柔和樱花粉，情感/生活方式/女性向账号 |
 | `graphite-dark` | 深空灰 | **首款暗色背景主题**，科技数码、深夜阅读 |
-| `orange-heart` | 橙心 | 参考"墨滴"同名主题：珊瑚橙 + 墨绿双色，H2 采用色块横幅（`headingBanner`），见下；**不带三角旗**（曾经有，见下） |
+| `orange-heart` | 橙心 | 名字来自"墨滴"同名主题。原先沿用墨滴的珊瑚色 `#DF7766`（色相约 8°，实际偏红），和重做后的中国红（`#E44B38`，约 7°）几乎同色相，名字也不符；2026-10-24 改为真正的橙色 `#DE6F22`（约 25°），与翡翠绿 `#237563` 在各级标题间交替。用于文字的橙色取更深的色阶（链接 `#B35512`、粗体和 H1 焦橙 `#A84F14`），对比度都 ≥4.5（原来链接/粗体只有 3.0）；callout 标题全部 ≥4.5，info 改成湖蓝以便和 abstract 的翡翠区分，红色只留给 failure/danger/重要任务。H2 采用色块横幅（`headingBanner`），见下；**不带三角旗**（曾经有，见下） |
 | `hardboiled-wonderland` | 冷酷的仙境 | 取名自村上春树《世界尽头与冷酷仙境》。"冷"靠色相而不是深色：标题从深海军蓝到灰蓝都在钢蓝家族里，冰蓝只做点缀（链接、H1 下划线），浅紫收成一点灰紫（疑问/示例 callout、代码关键字）作为"仙境"的痕迹，警告 callout 用冷调黄铜作为唯一的暖色以便醒目；粗体同 H2 的深钢蓝（不和链接同色）；任务列表的进行中/改期/存疑/重要四个状态和同语义的 callout 同色（`taskAccent`），不再用默认的亮蓝/橙/黄/红。H2 是冰晶图标 + 冷灰标签 + 左侧钢蓝竖线（`headingIcon`）。第一版是冰蓝 + 浅紫双强调色、星芒图标配浅紫标签，用户觉得"仙境"有了但缺"冷酷"，重做成现在这样；同时把所有标题/callout 色在白底上的对比度提到约 4.4:1 以上 |
 
 **`StaticTheme` 接口**（`themes.ts`）统一描述一款静态主题的全部色值：`bgPrimary`/`textNormal`/`textMuted`/`textFaint`/`textItalic`/`linkColor`/`accent`/`headings`（H1–H6 六色）/`highlightBg`/`codeBackground`/`borderColor`/`code`（10 个语法高亮 token 色）/`calloutAccent`（13 种 callout 类型强调色）。新增一款主题只需要在 `themes.ts` 里补一份这样的配置对象，`buildStaticThemeMap()` 会自动生成对应的 regex 替换表，其余模块（`callout.ts`/`mermaid.ts`/`math.ts`）都通过 `getStaticTheme(themeId)` 统一查表，不需要逐个文件加 if/else。
@@ -265,7 +265,7 @@ new MarkdownIt({
   **曾经有过、后来放弃的设计**：参考截图原本还要求盒子上下各加一条比盒子更宽、朝相反方向偏移的横线（"票据/印章"效果）。这条线只能是空 `<section>`（只有 `border-top`，没有文字内容），实测发现这类纯空标签会被微信的粘贴净化器不可预测地清掉——不是像 `clip-path` 那样每次都稳定剥离，而是随着文档里重复出现的次数增多，丢失情况逐渐变严重（第一个 H2 只丢一条，往后的 H2 两条全丢）。给每条线塞一个不可见文字节点（`&nbsp;` + `color:transparent`，并且这个 `font-size`/`line-height` 必须直接设在 `<section>` 自己身上而不是内部再包一层 `<span>`，否则 `<section>` 会继承外层约 16px/1.75 倍行距撑出一大截空白）试图让它不再是"空标签"，仍然没能解决。用户帮忙跑 Console 脚本转储粘贴后的真实 DOM 确认了这一点，也确认了我们自己生成的原始 HTML 字符串标签闭合完全正常（不是己方 bug）。最终判断这是微信自己对这种重复结构的不稳定处理，不是能靠调整 HTML/CSS 可靠解决的问题，于是去掉这两条线，只保留边框盒子本身——盒子、"+"号、标题文字这些都是本节反复验证过确实稳定的元素。
 - `noUnderline?: (1 | 2)[]`：让指定层级的标题彻底不带下划线（既不要 `headingBanner`/`headingBox` 的装饰，也不要默认的 accent 色下划线）。H1/H2 默认都会有一条用 `theme.accent` 上色的 `border-bottom`（parser.ts 占位样式 + 通用替换），简约黑白给 H1 配了这个字段去掉它（H1 用纯文字即可，下划线留给 H2 的票据盒子去做视觉锚点，两级标题都带下划线会太满）。实现上要注意顺序：必须匹配**占位符原文**（`#7c3aed`/`#e5e5e5`）并在 `border-bottom: 2px solid #7c3aed → theme.accent` 这条通用替换之前执行，不然占位色已经被换成主题色，正则就匹配不上了。
 - `taskAccent?: { inProgress?; rescheduled?; question?; important? }`：任务列表 checkbox 的填充色，`parser.ts` 里这几种状态一直是硬编码的固定色号（蓝/橙/黄/红），不像标题/callout 那样天生走占位符替换体系——之前没人注意到这几个状态其实不跟随主题，静态主题切换时它们一直是同一套颜色。`done` 不需要这个字段，它恰好复用了 `#7c3aed` 这个和主题 accent 通用替换共享的占位色，本来就跟随主题；`todo` 是空心边框，没有填充色可换。简约黑白给这四个状态配了灰阶值，复用 callout 那套"轻重分级"逻辑（最严重的 `important` 最深）。
-- `boldColor?: string`：覆盖 `**粗体**` 的颜色，默认继承正文色。选色时要避开该主题里标题/callout 已经占用的强调色，避免视觉撞色（例如橙心最终选了主强调色珊瑚橙 `#DF7766`，贯穿粗体/链接/H2/Note callout 这一条"品牌色"线）。
+- `boldColor?: string`：覆盖 `**粗体**` 的颜色，默认继承正文色。选色时要避开该主题里标题/callout 已经占用的强调色，避免视觉撞色（例如橙心的粗体用焦橙 `#A84F14`，和 H1、链接、H2 横幅同属一条橙色"品牌色"线，但比横幅的主色深得多，保证正文里的可读性）。
 
 **颜色计算工具**（`color-utils.ts`）：
 
@@ -692,6 +692,12 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 **问题**：插件原有的 `plugins/strikethrough.ts` 在文字里找 `~~…~~` 替换成 `<s style="color: #999;">`，但 markdown-it 自带删除线语法，解析阶段就把 `~~` 变成了 `s_open`/`s_close` 标记，等这个插件运行时文字里已经没有 `~~`，所以它从来没有匹配到过。输出里只有不带样式的 `<s>`，粘贴到微信后删除线文字是正文颜色。预览之所以显示正确的灰色，是因为 `preview-renderer.ts` 在"当前 Obsidian 主题"下会从阅读视图读 `<del>` 和 `<mark>` 的颜色，再用 `!important` 盖到预览上——这段预览专用的改写掩盖了输出里的问题。
 
 **做法**：删掉 `strikethrough.ts`，在 `parser.ts` 里给 markdown-it 的 `s_open` 加渲染规则，输出 `<s style="color: #a9a9aa;">`（占位色）。"当前 Obsidian 主题"替换成 `readDelColor()` 在阅读视图里实测的 `<del>` 颜色（主题常直接给 `del`/`s` 写规则而不走变量，所以要实测；没有阅读视图时退回 `--text-faint`），静态主题替换成 `textFaint`。高亮的颜色引擎本来就和预览读得一样，预览里那段改色代码是多余的。`readThemeVars()` 整个删除，`applyPreviewContent()` 只负责把 HTML 原样放进预览框（外加让预览框底色跟随内容背景）。
+
+### 8.15 引用块不用 `<blockquote>`，改用 `<section>`
+
+**问题**：普通引用块原来输出 `<blockquote style="border-left: 2px solid ...">`。粘贴进公众号后，左侧竖线旁边多出一条平行的浅灰色竖线（2026-10-24 用户发现，所有主题都有，预览里没有）。微信编辑器会把粘贴进来的 `<blockquote>` 识别成它自己的"引用"组件，再套上自带的灰色竖线；我们的内联竖线还在，所以变成两条。和列表（8.13）、`<div>`（8.10）是同一类问题：微信对某些标签有自己的处理。
+
+**做法**：`callout.ts` 的 `blockquote_open` 对普通引用也输出 `<section>`，样式（竖线、内边距、字号、颜色占位符）完全不变；callout 本来就是 `<section>`，所以 `blockquote_close` 统一返回 `</section>`。代价：粘贴后在公众号编辑器里不再被识别为"引用"格式。
 
 ## 9. 已知限制与风险
 
