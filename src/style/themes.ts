@@ -70,11 +70,12 @@ export interface StaticTheme {
 	 * since a block tag with real text content and a plain background-color
 	 * is the single most reliably-surviving pattern confirmed this session.
 	 * Optional `prefix`/`suffix` text (HTML) in `affixColor` and a monospace
-	 * font turn it into a terminal line, e.g. 深蓝's `❯ 标题▁`.
+	 * font turn it into a terminal line, e.g. 深蓝's `❯ 标题▁`. `radius` rounds
+	 * the badge, e.g. 森林's leaf (two opposite corners).
 	 */
 	headingBar?: {
 		level: 1 | 2; bgColor: string; textColor: string;
-		prefix?: string; suffix?: string; affixColor?: string; mono?: boolean;
+		prefix?: string; suffix?: string; affixColor?: string; mono?: boolean; radius?: string;
 	};
 	/**
 	 * Optional small icon + soft-highlighted text treatment for one heading
@@ -381,35 +382,43 @@ const CHINA_RED: StaticTheme = {
 	transparentPage: true,
 };
 
-// ── 森系绿 (Forest Green) ────────────────────────────────────────────────
-// Fresh sage-white background, emerald accent (nodding to 墨滴's 翡翠绿).
-// Suited to health, education, and personal-growth accounts.
+// ── 森林 (Forest) ────────────────────────────────────────────────────────
+// Natural greens at 130–140° and ~40% saturation (pine, fern, moss) — clear
+// of the 165–175° emerald/teal that 橙心 and 冷酷的仙境 use — with the rest
+// of a forest as accents: bark brown, lake blue, autumn-leaf orange, berry
+// red, wildflower purple. H2 is a leaf: a pale-moss badge hugging the text,
+// two opposite corners rounded. Was 森系绿 (`forest-green`).
 
-const FOREST_GREEN: StaticTheme = {
-	id: 'forest-green',
-	label: '森系绿',
-	bgPrimary: '#F3F7F2',
-	textNormal: '#223327',
-	textMuted: '#5B7360',
-	textFaint: '#94A896',
-	textItalic: '#3E5A44',
-	linkColor: '#1E7A4C',
-	accent: '#009874',
-	headings: ['#1B5E3A', '#009874', '#1B8067', '#566B2F', '#6B8A4E', '#7C8F7E'],
-	highlightBg: '#DCEFC2',
-	codeBackground: '#E6EFE1',
-	tableHeaderColor: '#1B5E3A',
-	borderColor: '#D3E0D0',
+const FOREST: StaticTheme = {
+	id: 'forest',
+	label: '森林',
+	bgPrimary: '#FFFFFF',
+	textNormal: '#1F2D23',
+	textMuted: '#4F6354',
+	textFaint: '#95A598',
+	textItalic: '#3E5444',
+	linkColor: '#2A6F3E',
+	accent: '#2E7D46',
+	headings: ['#1E4D2B', '#1E4D2B', '#3A7D44', '#7A5530', '#4F6354', '#6B7C6E'],
+	highlightBg: '#D6EBA8',
+	codeBackground: '#F1F5EF',
+	tableHeaderColor: '#1E4D2B',
+	borderColor: '#DCE5D9',
 	code: {
-		normal: '#2A3B2E', comment: '#7C8F7E', keyword: '#1B5E3A', function: '#1E7A4C',
-		string: '#6B8A4E', value: '#B08A3E', tag: '#C0533E', property: '#2F8F72',
-		variable: '#8A6B3E', inline: '#1B5E3A',
+		normal: '#1F2D23', comment: '#6B7C6E', keyword: '#6E4E8C', function: '#2F6E8E',
+		string: '#4F7A2E', value: '#9A5A1E', tag: '#A63A3A', property: '#2E7D46',
+		variable: '#7A5530', inline: '#2E6B3C',
 	},
 	calloutAccent: {
-		note: '#1E7A4C', abstract: '#2F8F72', info: '#3B7A8F', todo: '#B08A3E',
-		tip: '#6B8A4E', success: '#1B8067', question: '#B08A3E', warning: '#B08A3E',
-		failure: '#B0473E', danger: '#B0473E', bug: '#8F4A3E', example: '#6B5B8A', quote: '#8CA08E',
+		note: '#2F6E8E', abstract: '#4F7A2E', info: '#2F6E8E', todo: '#8F6118',
+		tip: '#2E7D46', success: '#2E7D46', question: '#9A5A1E', warning: '#9A5A1E',
+		failure: '#A63A3A', danger: '#A63A3A', bug: '#8C4A2F', example: '#6E4E8C', quote: '#66786A',
 	},
+	headingBar: { level: 2, bgColor: '#E4F0E0', textColor: '#1E4D2B', radius: '22px 0 22px 0' },
+	noUnderline: [1],
+	// Same colors as the matching callout types (note/example/question/danger).
+	taskAccent: { inProgress: '#2F6E8E', rescheduled: '#6E4E8C', question: '#9A5A1E', important: '#A63A3A' },
+	transparentPage: true,
 };
 
 // ── 樱语粉 (Sakura Pink) ─────────────────────────────────────────────────
@@ -591,7 +600,7 @@ export const STATIC_THEMES: Record<string, StaticTheme> = {
 	'warm-almond': WARM_ALMOND,
 	'deep-blue': DEEP_BLUE,
 	'china-red': CHINA_RED,
-	'forest-green': FOREST_GREEN,
+	'forest': FOREST,
 	'sakura-pink': SAKURA_PINK,
 	'graphite-dark': GRAPHITE_DARK,
 	'orange-heart': ORANGE_HEART,
@@ -605,7 +614,7 @@ export const STATIC_THEMES: Record<string, StaticTheme> = {
  */
 export const STATIC_THEME_LIST: StaticTheme[] = [
 	HARDBOILED_WONDERLAND, ORANGE_HEART, CHINA_RED, MINIMAL_MONO, MINIMAL_MONO_2, PURPLE_MIST,
-	WARM_ALMOND, DEEP_BLUE, FOREST_GREEN, SAKURA_PINK, GRAPHITE_DARK,
+	WARM_ALMOND, DEEP_BLUE, FOREST, SAKURA_PINK, GRAPHITE_DARK,
 ];
 
 /** id/label pairs for building a theme <select>, 'obsidian' first — shared by
@@ -624,6 +633,7 @@ export const LEGACY_THEME_ALIASES: Record<string, string> = {
 	light: 'purple-mist',              // before the theme registry existed
 	'catppuccin-latte': 'purple-mist', // 马卡龙紫, reworked into 紫雾
 	'tech-blue': 'deep-blue',          // 科技蓝, reworked into 深蓝
+	'forest-green': 'forest',          // 森系绿, reworked into 森林
 };
 
 export function resolveThemeId(id: string): string {
@@ -794,7 +804,7 @@ export function buildStaticThemeMap(theme: StaticTheme): [RegExp, string][] {
 		);
 	}
 	if (theme.headingBar) {
-		const { level, bgColor, textColor, prefix, suffix, affixColor, mono } = theme.headingBar;
+		const { level, bgColor, textColor, prefix, suffix, affixColor, mono, radius } = theme.headingBar;
 		const fontSize = level === 1 ? '22px' : '18px';
 		const margin = level === 1 ? '1.5em 0 0.8em 0' : '1.3em 0 0.6em 0';
 		const [openSource, closeSource] = level === 1
@@ -808,7 +818,8 @@ export function buildStaticThemeMap(theme: StaticTheme): [RegExp, string][] {
 		const barStyle =
 			`display: inline-block; font-size: ${fontSize}; font-weight: 700; ` +
 			`color: ${textColor}; background-color: ${bgColor}; padding: 10px 16px; line-height: 1.3;` +
-			(mono ? ` font-family: 'SF Mono', Menlo, Consolas, 'Courier New', monospace;` : '');
+			(mono ? ` font-family: 'SF Mono', Menlo, Consolas, 'Courier New', monospace;` : '') +
+			(radius ? ` border-radius: ${radius};` : '');
 		const affix = (text?: string) => text ? `<span style="color: ${affixColor ?? textColor};">${text}</span>` : '';
 		map.push(
 			[openSource, `<${tag} style="${headingStyle}"><span style="${barStyle}">${affix(prefix)}`],
