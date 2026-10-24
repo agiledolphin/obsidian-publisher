@@ -633,7 +633,7 @@ export class StyleEngine {
 			const bg = vars.isDark ? ` background-color: ${vars.bgPrimary};` : '';
 			return base + ` color: ${vars.textNormal};${bg}`;
 		}
-		const staticTheme = getStaticTheme(this.theme) ?? getStaticTheme('catppuccin-latte')!;
+		const staticTheme = getStaticTheme(this.theme) ?? getStaticTheme('purple-mist')!;
 		const bg = staticTheme.transparentPage ? '' : ` background-color: ${staticTheme.bgPrimary};`;
 		return base + ` color: ${staticTheme.textNormal};${bg}`;
 	}
@@ -661,7 +661,7 @@ export class StyleEngine {
 
 	private applyTheme(html: string, vars?: ObsidianVars): string {
 		if (this.theme === 'obsidian' && vars) return this.applyObsidianOverrides(html, vars);
-		const staticTheme = getStaticTheme(this.theme) ?? getStaticTheme('catppuccin-latte')!;
+		const staticTheme = getStaticTheme(this.theme) ?? getStaticTheme('purple-mist')!;
 		return this.applyMap(html, buildStaticThemeMap(staticTheme));
 	}
 

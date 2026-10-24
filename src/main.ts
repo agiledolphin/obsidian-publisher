@@ -6,6 +6,7 @@ import { PreviewModal } from './ui/preview-modal';
 import { PublisherPreviewView, VIEW_TYPE_PUBLISHER_PREVIEW } from './ui/preview-view';
 import { logger } from './utils/logger';
 import { invalidateLiveTaskIcons } from './style/live-task-icons';
+import { resolveThemeId } from './style/themes';
 
 export default class ObsidianPublisher extends Plugin {
 	settings: PluginSettings;
@@ -117,9 +118,10 @@ export default class ObsidianPublisher extends Plugin {
 
 	async loadSettings(): Promise<void> {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<PluginSettings>);
-		// Migrate the pre-registry theme id ('light') saved by older versions.
-		if (this.settings.theme === 'light') {
-			this.settings.theme = 'catppuccin-latte';
+		// Migrate theme ids saved by older versions (renamed/reworked themes).
+		const themeId = resolveThemeId(this.settings.theme);
+		if (themeId !== this.settings.theme) {
+			this.settings.theme = themeId;
 			await this.saveData(this.settings);
 		}
 	}
