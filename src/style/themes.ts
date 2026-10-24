@@ -92,6 +92,15 @@ export interface StaticTheme {
 	 */
 	headingTab?: { level: 1 | 2; color: string; textColor: string };
 	/**
+	 * Optional gradient-text treatment for one heading level: real, selectable
+	 * text painted with a top-to-bottom gradient (background-clip: text) that
+	 * fades out toward the bottom. `stops` are the top, middle (55%) and
+	 * bottom colors; `color` is the plain text color underneath. Confirmed to
+	 * survive a WeChat paste — linear-gradient backgrounds are kept (unlike
+	 * url() background images).
+	 */
+	headingGradient?: { level: 1 | 2; stops: [string, string, string]; color: string };
+	/**
 	 * Heading levels that should drop the default underline (an accent-colored
 	 * border-bottom, normally applied to H1/H2 automatically) entirely, with
 	 * no replacement decoration — for themes where a level already gets its
@@ -132,36 +141,42 @@ const H2_OPEN_SOURCE = /<h2 style="font-size: 20px; color: #1a1a1a; font-weight:
 const H1_CLOSE_SOURCE = /<\/h1>/g;
 const H2_CLOSE_SOURCE = /<\/h2>/g;
 
-// ── 马卡龙紫 (Macaron Purple / Catppuccin Latte, migrated from the old 'light' id) ──
-// Soft pastel lavender background with a mauve accent — gentle, friendly, a
-// little "cute". Suited to lifestyle, reading-notes, and personal-essay
-// accounts rather than formal/technical writing.
-// Palette reference: https://catppuccin.com/palette (Latte flavour)
+// ── 紫雾 (Purple Mist) ───────────────────────────────────────────────────
+// Successor to 马卡龙紫 (old ids 'catppuccin-latte' and 'light' resolve here).
+// A blue-leaning violet (hue ~250°) with indigo, teal and magenta as
+// supporting hues; text colors carry a faint violet tint. The H2 is the
+// "mist": violet gradient text fading out toward the bottom. No page
+// background; bold stays body-colored; H1 has no underline so the H2 is the
+// one decorative flourish. Heading/callout/link colors are ≥4.7:1 on white.
 
-const CATPPUCCIN_LATTE: StaticTheme = {
-	id: 'catppuccin-latte',
-	label: '马卡龙紫',
-	bgPrimary: '#EFF1F5',
-	textNormal: '#4C4F69',
-	textMuted: '#6C6F85',
-	textFaint: '#9CA0B0',
-	textItalic: '#5C5F77',
-	linkColor: '#1E66F5',
-	accent: '#8839EF',
-	headings: ['#8839EF', '#1E66F5', '#179299', '#40A02B', '#DF8E1D', '#9CA0B0'],
-	highlightBg: '#EAD3B4',
-	codeBackground: '#CCD0DA',
-	borderColor: '#CCD0DA',
+const PURPLE_MIST: StaticTheme = {
+	id: 'purple-mist',
+	label: '紫雾',
+	bgPrimary: '#FFFFFF',
+	textNormal: '#2E2A3B',
+	textMuted: '#635D75',
+	textFaint: '#A29CB4',
+	textItalic: '#554F68',
+	linkColor: '#4F3BD9',
+	accent: '#6D4AFF',
+	headings: ['#4B2BC2', '#5B3DF5', '#6A3FD6', '#8A3FB8', '#6B5B95', '#767089'],
+	highlightBg: '#EDE7FF',
+	codeBackground: '#F6F4FB',
+	borderColor: '#E4DFF2',
 	code: {
-		normal: '#4C4F69', comment: '#8C8FA1', keyword: '#D20F39', function: '#8839EF',
-		string: '#40A02B', value: '#FE640B', tag: '#D20F39', property: '#179299',
-		variable: '#E64553', inline: '#D20F39',
+		normal: '#2E2A3B', comment: '#8E88A0', keyword: '#7A3FD0', function: '#3D5BD9',
+		string: '#2F7D5B', value: '#B83280', tag: '#7A3FD0', property: '#3D5BD9',
+		variable: '#9D3A8C', inline: '#7A3FD0',
 	},
 	calloutAccent: {
-		note: '#1E66F5', abstract: '#179299', info: '#209FB5', todo: '#FE640B',
-		tip: '#40A02B', success: '#40A02B', question: '#DF8E1D', warning: '#DF8E1D',
-		failure: '#D20F39', danger: '#D20F39', bug: '#E64553', example: '#8839EF', quote: '#9CA0B0',
+		note: '#5B3DF5', abstract: '#1F7A80', info: '#2F5FD0', todo: '#5B3DF5',
+		tip: '#2F7D5B', success: '#2F7D5B', question: '#A0640C', warning: '#A0640C',
+		failure: '#C0304F', danger: '#C0304F', bug: '#A3304A', example: '#A3369B', quote: '#767089',
 	},
+	headingGradient: { level: 2, stops: ['#5B3DF5', '#8F78FF', 'rgba(170, 150, 255, 0.15)'], color: '#6D4AFF' },
+	noUnderline: [1],
+	taskAccent: { inProgress: '#2F5FD0', rescheduled: '#9D3A8C', question: '#A0640C', important: '#C0304F' },
+	transparentPage: true,
 };
 
 // ── 简约黑白 (Minimal Mono) ──────────────────────────────────────────────
@@ -520,7 +535,7 @@ const HARDBOILED_WONDERLAND: StaticTheme = {
 };
 
 export const STATIC_THEMES: Record<string, StaticTheme> = {
-	'catppuccin-latte': CATPPUCCIN_LATTE,
+	'purple-mist': PURPLE_MIST,
 	'minimal-mono': MINIMAL_MONO,
 	'minimal-mono-2': MINIMAL_MONO_2,
 	'warm-almond': WARM_ALMOND,
@@ -539,8 +554,8 @@ export const STATIC_THEMES: Record<string, StaticTheme> = {
  * the original palette-only presets, with the one dark theme last.
  */
 export const STATIC_THEME_LIST: StaticTheme[] = [
-	HARDBOILED_WONDERLAND, ORANGE_HEART, CHINA_RED, MINIMAL_MONO, MINIMAL_MONO_2,
-	CATPPUCCIN_LATTE, WARM_ALMOND, TECH_BLUE, FOREST_GREEN, SAKURA_PINK, GRAPHITE_DARK,
+	HARDBOILED_WONDERLAND, ORANGE_HEART, CHINA_RED, MINIMAL_MONO, MINIMAL_MONO_2, PURPLE_MIST,
+	WARM_ALMOND, TECH_BLUE, FOREST_GREEN, SAKURA_PINK, GRAPHITE_DARK,
 ];
 
 /** id/label pairs for building a theme <select>, 'obsidian' first — shared by
@@ -554,9 +569,10 @@ export const THEME_OPTIONS: { id: string; label: string }[] = [
  *  settings persist arbitrary saved values (including legacy ids). */
 export type ThemeName = string;
 
-/** Old saved setting id from before the theme registry existed. */
+/** Old saved theme ids → current ids (settings are migrated on load). */
 export const LEGACY_THEME_ALIASES: Record<string, string> = {
-	light: 'catppuccin-latte',
+	light: 'purple-mist',              // before the theme registry existed
+	'catppuccin-latte': 'purple-mist', // 马卡龙紫, reworked into 紫雾
 };
 
 export function resolveThemeId(id: string): string {
@@ -766,6 +782,23 @@ export function buildStaticThemeMap(theme: StaticTheme): [RegExp, string][] {
 			`color: ${textColor}; background-color: ${color}; padding: 8px 22px 10px; border-radius: 0 0 10px 10px;`;
 		map.push(
 			[openSource, `<${tag} style="${headingStyle}"><span style="${tabStyle}">`],
+			[closeSource, `</span></${tag}>`],
+		);
+	}
+	if (theme.headingGradient) {
+		const { level, stops, color } = theme.headingGradient;
+		const fontSize = level === 1 ? '24px' : '22px';
+		const margin = level === 1 ? '1.5em 0 0.8em 0' : '1.3em 0 0.6em 0';
+		const [openSource, closeSource] = level === 1
+			? [H1_OPEN_SOURCE, H1_CLOSE_SOURCE]
+			: [H2_OPEN_SOURCE, H2_CLOSE_SOURCE];
+		const tag = level === 1 ? 'h1' : 'h2';
+		const headingStyle = `margin: ${margin}; text-align: center; font-size: ${fontSize}; font-weight: 700; line-height: 1.4;`;
+		const textStyle =
+			`color: ${color}; background-image: linear-gradient(180deg, ${stops[0]} 0%, ${stops[1]} 55%, ${stops[2]} 100%); ` +
+			`-webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;`;
+		map.push(
+			[openSource, `<${tag} style="${headingStyle}"><span style="${textStyle}">`],
 			[closeSource, `</span></${tag}>`],
 		);
 	}
