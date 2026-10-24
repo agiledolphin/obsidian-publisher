@@ -437,8 +437,8 @@ function readInlineCodeColor(fallback: string): string {
 //
 // Instead of reading individual token colors from Obsidian's DOM (which varies
 // by theme and highlighter engine), we define two complete, coherent palettes:
-//   • Light — GitHub Light (industry standard, readable on white backgrounds)
-//   • Dark  — One Dark Pro (widely used, full token coverage)
+//   • Light — Tokyo Night Day
+//   • Dark  — Tokyo Night Storm
 //
 // codeBackground and codeInline are still read from Obsidian (single-value
 // reads that are stable across themes).
@@ -785,7 +785,7 @@ export function readObsidianVars(): ObsidianVars {
 		h4BorderCss: readHeadingBorder(4, '0.2em'),
 		h5BorderCss: readHeadingBorder(5, '0.2em'),
 		h6BorderCss: readHeadingBorder(6, '0.2em'),
-		// Code syntax colors: predefined palette (light=GitHub Light, dark=One Dark Pro)
+		// Code syntax colors: predefined palette (light=Tokyo Night Day, dark=Tokyo Night Storm)
 		// selected by background luminance. codeBackground/codeInline still read from Obsidian.
 		codeBackground: readComputedBg('--code-background', '#f6f8fa'),
 		codeNormal:     codePalette.normal,
