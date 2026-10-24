@@ -195,11 +195,13 @@ export class MarkdownParser {
 		};
 
 		// Tight-list paragraphs are hidden (markdown-it marks them) — no <p>,
-		// so items don't pick up paragraph margins. Paragraphs in loose
-		// lists drop their bottom margin; the list rows space themselves.
+		// so items don't pick up paragraph margins. In loose lists, as in
+		// Obsidian, an item's first paragraph has no margin and each later
+		// block is spaced 1em below the previous one.
 		md.renderer.rules['paragraph_open'] = (tokens, idx) => {
 			if (tokens[idx]?.hidden || isEmptyInline(tokens, idx)) return '';
-			const margin = this.listStack.length > 0 ? '0' : '0 0 1em 0';
+			const firstInItem = tokens[idx - 1]?.type === 'list_item_open';
+			const margin = this.listStack.length === 0 ? '0 0 1em 0' : firstInItem ? '0' : '1em 0 0 0';
 			if (this.insideDoneTask) {
 				return `<p style="font-size: 16px; color: #888888; text-decoration: line-through; line-height: 1.75; margin: ${margin};">`;
 			}
@@ -317,7 +319,7 @@ export class MarkdownParser {
 			this.listStack.push({ ordered, next: start });
 			return nested
 				? `<section style="margin: 0 0 0 -${GUIDE}px; padding-left: ${GUIDE - 1}px; border-left: 1px solid #c0c0c1;">`
-				: `<section style="margin: 0.5em 0;">`;
+				: `<section style="margin: 1em 0;">`; // Obsidian spaces lists like paragraphs (--p-spacing)
 		};
 		const closeList = (): string => {
 			this.listStack.pop();
