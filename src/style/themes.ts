@@ -414,12 +414,11 @@ const GRAPHITE_DARK: StaticTheme = {
 };
 
 // ── 橙心 (Orange Heart) ──────────────────────────────────────────────────
-// Modeled on the classic "橙心" WeChat-markdown skin: near-white background,
-// coral-orange primary with a jade-teal secondary for contrast. The
-// reference design bands section headings in an orange ribbon with a
-// triangular flag notch — a structural (background-shape) effect our
-// color-substitution architecture doesn't replicate, so this version carries
-// the same warm orange/teal identity through colored heading text instead.
+// Named after the classic "橙心" WeChat-markdown skin, but its coral (hue
+// ~8°) read as red and sat right next to 中国红 — so the primary is now a
+// true orange (hue ~25°), alternating with a jade secondary across heading
+// levels. Text-weight uses of orange (links, bold, H1/H4) take deeper shades
+// to stay ≥4.5:1 on white; red appears only for failure/danger/important.
 // Suited to tech/knowledge-sharing blogs and general long-form writing.
 
 const ORANGE_HEART: StaticTheme = {
@@ -430,40 +429,40 @@ const ORANGE_HEART: StaticTheme = {
 	textMuted: '#5C5C5C',
 	textFaint: '#9B9B9B',
 	textItalic: '#6B6B6B',
-	linkColor: '#DF7766',
-	accent: '#DF7766',
-	headings: ['#C85A3A', '#DF7766', '#3F9C8B', '#E08860', '#4FAD9C', '#9B9B9B'],
-	highlightBg: '#FDE8DC',
-	codeBackground: '#F5F1EC',
-	borderColor: '#EDE6DE',
+	linkColor: '#B35512',
+	accent: '#DE6F22',
+	headings: ['#A84F14', '#DE6F22', '#237563', '#B35512', '#9A6220', '#737373'],
+	highlightBg: '#FDE6D0',
+	codeBackground: '#F8F3EE',
+	borderColor: '#EFE4DA',
 	code: {
-		normal: '#3A342E', comment: '#A69C90', keyword: '#C85A3A', function: '#3F9C8B',
-		string: '#6B8A4E', value: '#DF7766', tag: '#C85A3A', property: '#3F9C8B',
-		variable: '#B0793E', inline: '#3F9C8B',
+		normal: '#3A342E', comment: '#8A8077', keyword: '#B35512', function: '#237563',
+		string: '#4D7636', value: '#2A6F8E', tag: '#B35512', property: '#237563',
+		variable: '#9A6220', inline: '#237563',
 	},
-	// Drawn entirely from colors already used elsewhere in 橙心 (headings,
-	// code tokens) so every callout type still reads as part of this theme's
-	// own warm coral/jade family, while staying distinguishable type-to-type.
+	// Orange/jade family plus a few distinct hues so types stay apart; all
+	// titles ≥4.5:1 on white.
 	calloutAccent: {
-		note: '#DF7766',     // coral — primary accent, the flagship type
-		abstract: '#3F9C8B', // jade — matches H3
-		info: '#4FAD9C',     // light jade — matches H5
-		todo: '#B0793E',     // amber-brown — matches code.variable
-		tip: '#6B8A4E',      // soft green — matches code.string
-		success: '#6B8A4E',
-		question: '#E0954A', // warm gold, distinct from todo's browner amber
-		warning: '#E0954A',
-		failure: '#C85A3A',  // deep coral-red — matches H1
-		danger: '#C85A3A',
-		bug: '#A6503E',      // muted maroon
-		example: '#8F6B8A',  // muted plum — a cool accent for contrast
-		quote: '#A69C90',    // warm taupe — matches code.comment
+		note: '#B85A16',     // orange — the flagship type
+		abstract: '#237563', // jade — matches H3
+		info: '#2A6F8E',     // lake blue, distinct from abstract's jade
+		todo: '#9A6220',     // amber-brown — matches H5
+		tip: '#4D7636',      // grass green — matches code.string
+		success: '#4D7636',
+		question: '#94620B', // gold
+		warning: '#94620B',
+		failure: '#C0392B',  // vermilion — the only red, reserved for danger
+		danger: '#C0392B',
+		bug: '#9C4434',      // ochre red
+		example: '#83617E',  // plum — a cool accent for contrast
+		quote: '#766B62',    // warm taupe
 	},
 	// No flag: the near-white flag (#EEEBE9) read poorly against WeChat's
 	// dark-mode page. The flag mechanism itself still works if re-enabled.
 	headingBanner: { level: 2, textColor: '#FFFFFF' },
+	taskAccent: { inProgress: '#237563', rescheduled: '#9A6220', question: '#94620B', important: '#C0392B' },
 	transparentPage: true,
-	boldColor: '#DF7766',
+	boldColor: '#A84F14',
 };
 
 // ── 冷酷的仙境 (Hard-Boiled Wonderland) ───────────────────────────────────
