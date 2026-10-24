@@ -828,6 +828,16 @@ export function readObsidianVars(): ObsidianVars {
 	return vars;
 }
 
+/**
+ * A page background for the article wrapper, with padding so text doesn't
+ * sit flush against the colored block's edges (obvious on a dark page).
+ * Transparent pages get neither — WeChat's own page margins already apply,
+ * and extra padding would only narrow the text.
+ */
+function pageBackground(color: string): string {
+	return ` background-color: ${color}; padding: 20px 16px;`;
+}
+
 // ── StyleEngine ─────────────────────────────────────────────────────────────
 
 export class StyleEngine {
@@ -854,11 +864,11 @@ export class StyleEngine {
 			// Dark mode keeps it: the text color read from a dark theme is
 			// light, and is unreadable on WeChat's default white page without
 			// its own background (confirmed by a real paste test).
-			const bg = vars.isDark ? ` background-color: ${vars.bgPrimary};` : '';
+			const bg = vars.isDark ? pageBackground(vars.bgPrimary) : '';
 			return base + ` color: ${vars.textNormal};${bg}`;
 		}
 		const staticTheme = getStaticTheme(this.theme) ?? getStaticTheme('purple-mist')!;
-		const bg = staticTheme.transparentPage ? '' : ` background-color: ${staticTheme.bgPrimary};`;
+		const bg = staticTheme.transparentPage ? '' : pageBackground(staticTheme.bgPrimary);
 		return base + ` color: ${staticTheme.textNormal};${bg}`;
 	}
 
@@ -877,7 +887,7 @@ export class StyleEngine {
 		// gone). <section> wrapping the exact same content survives completely
 		// intact, same as it already does for callout boxes — so the top-level
 		// wrapper uses <section> instead of <div>, which is what actually lets
-		// a theme's page background-color (e.g. graphite-dark) come through.
+		// a theme's page background-color (e.g. nebula) come through.
 		return `<section style="${wrapperStyle}">${result}</section>`;
 	}
 
