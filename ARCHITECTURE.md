@@ -227,16 +227,16 @@ new MarkdownIt({
 | 模式 | 说明 |
 |------|------|
 | `obsidian` | 默认选项。转换时通过 `readObsidianVars()` 实时读取当前激活的 Obsidian 主题 CSS 变量，预览效果始终跟随用户正在使用的 Obsidian 主题 |
-| 静态预设主题（9 款） | 完全独立于 Obsidian 主题的固定配色方案，见下表。每次转换都渲染出同样的效果，不受用户切换 Obsidian 主题影响 |
+| 静态预设主题（11 款） | 完全独立于 Obsidian 主题的固定配色方案，见下表。每次转换都渲染出同样的效果，不受用户切换 Obsidian 主题影响 |
 
-**9 款静态预设主题**（`src/style/themes.ts` 的 `STATIC_THEMES` / `STATIC_THEME_LIST`）：
+**11 款静态预设主题**（`src/style/themes.ts` 的 `STATIC_THEMES` / `STATIC_THEME_LIST`）：
 
 | id | 名称 | 定位 |
 |----|------|------|
 | `purple-mist` | 紫雾 | 2026-10-24 由"马卡龙紫"（`catppuccin-latte`）重做而来，旧 id 通过 `LEGACY_THEME_ALIASES` 迁移。偏蓝的紫（色相约 250°，主色 `#6D4AFF`），辅以靛蓝、青、品红；正文色带一点紫调。不带正文背景色，H1 深紫 `#4B2BC2` 无下划线，粗体保持正文色（用户要求）。H2 是"雾"：紫色渐变文字，自上而下从 `#5B3DF5` 经 `#8F78FF` 淡出到约 15% 透明度（`headingGradient`）。标题/callout/链接在白底上对比度都 ≥4.7。生活方式、读书笔记、文艺随笔 |
 | `minimal-mono` | 简约黑白一 | 米白底 + 灰阶标题层级，通用长文阅读排版；代码高亮、callout（4 档灰度区分轻重：危急/警示/中性/平和）、任务列表 checkbox、高亮背景色全部灰阶化，只保留一个克制的墨蓝强调色（链接、`done` 任务打勾），贯彻到底不是只有标题做到了"黑白"；H2 用边框盒子 + 书名号包裹标题（`headingBox` + `quoteMarks`），H1 不带下划线（`noUnderline`） |
 | `minimal-mono-2` | 简约黑白二 | 和"简约黑白一"用同一套灰阶代码/callout/任务列表/高亮色板（直接 `{ ...MINIMAL_MONO, ... }` 展开复制再覆盖差异字段），唯一区别是 H2 装饰：不是边框盒子，而是黑底白字、左对齐的实心色块（`headingBar`）——比 `headingBanner`/`headingBox` 都更简单，直接改 `<h2>` 自身的 `background-color`/`color`/`padding`，不额外引入任何包裹元素，是本节这几种标题装饰里理论上风险最低的一种 |
-| `warm-almond` | 护眼杏仁 | 暖米黄底 + 棕褐正文，长文阅读、减少眼疲劳 |
+| `warm-almond` | 杏仁 | 原名"护眼杏仁"，2026-10-24 重做并改名（id 不变）。"杏仁的壳与仁"：保留奶油色正文背景 `#F7F1E1`（护眼是这个主题的本意，所以不像其他精修主题那样透明），主色是杏壳茶褐 `#A8743F`（色相约 30°、饱和度约 45%），比橙心的鲜橙（25°、74%）灰得多——旧版主色 `#B5652E`（24°）和橙心几乎同色相，看起来像"灰一点的橙心"。H1 深栗 `#6E4A26`（无下划线）、H2/链接杏壳深 `#8A5A2B`，H3/H5 用杏叶的橄榄/鼠尾草绿；callout 和代码保留 Gruvbox 的大地色家族，但全部压暗到 ≥ 4.5:1（旧版 callout 标题最低 2.68、代码注释 2.62）；高亮底从 `#F0DFA0`（和页面几乎分不出，1.18）加深到 `#EBCF86`；任务列表四个状态和同语义 callout 同色。粗体保持正文色（链接、H2 已是棕色）。H2 是书页章节式双线（`headingRule`） |
 | `tech-blue` | 科技蓝 | 冷白/浅灰底 + 靛蓝强调色，科技/商业/金融类账号 |
 | `china-red` | 中国红 | 围绕中国红设计，不带正文背景色（`transparentPage`）。红色分层使用：H1 深中国红 `#A61B1B`（去掉下划线）、强调色和 H2 标签红绯 `#E44B38`、H3/H4 中国红/朱砂；链接用赤金 `#9A6512`（红配金）；callout 和任务列表用传统色区分：朱红、石青、石绿、青碧、藤黄、赭石、胭脂、绛、黛紫。粗体保持正文色，避免满篇红色（用户要求）。H2 是"吊牌"样式（`headingTab`）：全宽红线下居中挂一个红底白字标签。正文类颜色在白底上对比度都 ≥4.4，H2 白字 3.92（加粗大字，满足 3:1）。文化/历史/时评类账号 |
 | `forest-green` | 森系绿 | 清新鼠尾草绿，健康/教育/成长类账号 |
@@ -263,6 +263,7 @@ new MarkdownIt({
 - `headingIcon?: { level: 1 | 2; iconSvg: string; textColor: string; textBg: string; barColor?: string }`：图标 + 柔和背景色标签（冷酷的仙境的 H2 在用）。`<h${level}>` 只负责 `display:flex; justify-content:center` 把整个标签居中；真正的标签是内层 `display:inline-flex; align-items:center` 的 `<span>`，背景色挂在**这一层**，`<img>` 图标和标题文字（自己又包了一层 `<span>` 管颜色）都是它的子元素——这样背景色能同时盖住图标和文字（最早的版本背景色只包文字、图标露在外面，用户反馈改成"背景也盖住图标"后才加了这层外层 `<span>`，顺带把 `<h2>` 自己从 `align-items:center` 改成 `justify-content:center` 实现整体居中）。不依赖任何高度匹配/stretch 逻辑（这点和三角旗、票据盒子的教训不一样：图标是固定尺寸，文字是自然高度，`align-items:center` 只是把两者居中对齐，不要求精确等高，风险低很多）。`iconSvg` 只传内部的 path/shape 标记，外层 `<svg viewBox="0 0 24 24">` 由代码统一包裹。参考图里标题左侧是三四个分别定位的彩色小图案（星星/圆点），这里刻意合并成**一个** `<img>`（SVG 内部画多个形状），不是多个分别定位的小元素——这个会话已经反复验证"多个零散定位的装饰小元素"在微信里不可靠，合并成单一 `<img>` 更稳。 可选的 `barColor` 给标签左边加一条 3px 竖线（冷酷的仙境用它做出"切割感"）。
 - `headingTab?: { level: 1 | 2; color: string; textColor: string }`："吊牌"样式（中国红的 H2 在用）：`<h${level}>` 用自己的 `border-top: 2px` 画贯穿全宽的横线并 `text-align:center`，内层 `<span style="display:inline-block; background-color; border-radius: 0 0 10px 10px">` 是挂在横线下的标签（上面直角贴线，下面圆角）。只有两个元素且都带文字，不需要任何高度匹配。标题自身的 `font-size`/`line-height` 设成和标签相同，标签再加 `vertical-align: top`，保证标签顶边紧贴横线——否则标题默认字号（h2 是 1.5em）撑出的行高会在横线和标签之间留出几像素空隙，公众号放大行间距时也一样。
 - `headingGradient?: { level: 1 | 2; stops: [string, string, string]; color: string }`：渐变文字（紫雾的 H2 在用）。`<h${level}>` 居中，内层 `<span>` 用 `background-image: linear-gradient(180deg, 顶 0%, 中 55%, 底 100%)` + `background-clip: text` + `-webkit-text-fill-color: transparent`，文字仍是真实可选的文字。动手前专门做过粘贴测试（5 种写法：上下渐变文字、左右渐变文字、逐字变色、渐变色块、渐变文字图片），全部在微信里保留——`linear-gradient` 背景能保留，之前被去掉的只是 `url()` 形式的背景图（8.12 那次的 SVG）。最坏情况（渐变被去掉而透明文字保留）会让标题看不见，所以这个结论要靠实测，不能推断。粘贴时公众号的"内容结构检测"会对渐变文字（以及渐变色块）弹出 `darkmode-no-gradient` 提示（"文字背景尽量不要使用渐变"），不阻止插入。手机实测：浅色模式渐变正常；深色模式下微信去掉渐变、改用 `color` 里的纯色——所以这个兜底色必须设，而且要在深色背景上可读。考虑过改成渐变文字图片（不触发提示），但图片在深色模式下底部淡出发灰、标题不能选中/搜索、点击会打开大图、长标题还要自己换行，用户最终选择保留渐变文字、接受提示（README 已知限制里有说明）。
+- `headingRule?: { level: 1 | 2; color: string; textColor: string; double?: boolean }`：书页章节式（杏仁的 H2 在用）。`<h${level}>` 居中，内层 inline-block `<span>` 带 `border-top`/`border-bottom`，上下两条线的长度贴着文字，不铺满整行；`double: true` 时用 `3px double`，否则 `1px solid`；字间距 2px。只有一个带文字的元素，不依赖任何高度匹配。
   **曾经有过、后来放弃的设计**：参考截图原本还要求盒子上下各加一条比盒子更宽、朝相反方向偏移的横线（"票据/印章"效果）。这条线只能是空 `<section>`（只有 `border-top`，没有文字内容），实测发现这类纯空标签会被微信的粘贴净化器不可预测地清掉——不是像 `clip-path` 那样每次都稳定剥离，而是随着文档里重复出现的次数增多，丢失情况逐渐变严重（第一个 H2 只丢一条，往后的 H2 两条全丢）。给每条线塞一个不可见文字节点（`&nbsp;` + `color:transparent`，并且这个 `font-size`/`line-height` 必须直接设在 `<section>` 自己身上而不是内部再包一层 `<span>`，否则 `<section>` 会继承外层约 16px/1.75 倍行距撑出一大截空白）试图让它不再是"空标签"，仍然没能解决。用户帮忙跑 Console 脚本转储粘贴后的真实 DOM 确认了这一点，也确认了我们自己生成的原始 HTML 字符串标签闭合完全正常（不是己方 bug）。最终判断这是微信自己对这种重复结构的不稳定处理，不是能靠调整 HTML/CSS 可靠解决的问题，于是去掉这两条线，只保留边框盒子本身——盒子、"+"号、标题文字这些都是本节反复验证过确实稳定的元素。
 - `noUnderline?: (1 | 2)[]`：让指定层级的标题彻底不带下划线（既不要 `headingBanner`/`headingBox` 的装饰，也不要默认的 accent 色下划线）。H1/H2 默认都会有一条用 `theme.accent` 上色的 `border-bottom`（parser.ts 占位样式 + 通用替换），简约黑白给 H1 配了这个字段去掉它（H1 用纯文字即可，下划线留给 H2 的票据盒子去做视觉锚点，两级标题都带下划线会太满）。实现上要注意顺序：必须匹配**占位符原文**（`#7c3aed`/`#e5e5e5`）并在 `border-bottom: 2px solid #7c3aed → theme.accent` 这条通用替换之前执行，不然占位色已经被换成主题色，正则就匹配不上了。
 - `taskAccent?: { inProgress?; rescheduled?; question?; important? }`：任务列表 checkbox 的填充色，`parser.ts` 里这几种状态一直是硬编码的固定色号（蓝/橙/黄/红），不像标题/callout 那样天生走占位符替换体系——之前没人注意到这几个状态其实不跟随主题，静态主题切换时它们一直是同一套颜色。`done` 不需要这个字段，它恰好复用了 `#7c3aed` 这个和主题 accent 通用替换共享的占位色，本来就跟随主题；`todo` 是空心边框，没有填充色可换。简约黑白给这四个状态配了灰阶值，复用 callout 那套"轻重分级"逻辑（最严重的 `important` 最深）。
@@ -634,7 +635,7 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 
 **表头背景色**：`readTableHeaderVars()`（`engine.ts`）不能只读 `--table-header-background` 这个变量本身——有些主题定义了这个变量但实际渲染时并不使用它（背景是加在 `thead tr` 这一整行上，或者干脆加在 `<th>` 自己身上，因主题而异），变量值和真实视觉效果可能对不上。解决方案：往 `.markdown-preview-view` 里插入一个真实的 `<table><thead><tr><th>`，按 `th` 自身 → `tr` → `thead` 的优先级依次读 `getComputedStyle().backgroundColor`，取第一个非透明值——这样不管当前主题把背景画在哪一层，都能读到实际生效的颜色。
 
-**表头文字色**：`th` 之前完全没有单独的文字颜色占位符，一直继承正文色渲染；改为在 `th_open` 里加一个 `color: #2d3748` 占位符，`obsidian` 主题下用 `readTableHeaderVars()` 顺带读到的 `th` computed color 覆盖，静态主题下默认用 `theme.accent`，主题可用 `tableHeaderColor` 覆盖。原因是表头文字只有 15px 加粗，属于 WCAG 的普通字号（要求对比度 ≥ 4.5:1），而很多主题的主色是给标题、装饰线用的亮色，在 `codeBackground` 表头底上只有 2.5～3.6。目前覆盖的主题：橙心 `#A84F14`（粗体色）、中国红 `#A61B1B`（H1）、冷酷的仙境 `#2F5A84`（H2）、森系绿 `#1B5E3A`（H1）、护眼杏仁 `#8C4A22`（H1）、樱语粉 `#9D4E61`（主色加深 30%）、简约黑白一／二 `#1F1F1F`（正文黑，避免黑白主题里出现蓝色表头），都尽量取自主题已有配色。
+**表头文字色**：`th` 之前完全没有单独的文字颜色占位符，一直继承正文色渲染；改为在 `th_open` 里加一个 `color: #2d3748` 占位符，`obsidian` 主题下用 `readTableHeaderVars()` 顺带读到的 `th` computed color 覆盖，静态主题下默认用 `theme.accent`，主题可用 `tableHeaderColor` 覆盖。原因是表头文字只有 15px 加粗，属于 WCAG 的普通字号（要求对比度 ≥ 4.5:1），而很多主题的主色是给标题、装饰线用的亮色，在 `codeBackground` 表头底上只有 2.5～3.6。目前覆盖的主题：橙心 `#A84F14`（粗体色）、中国红 `#A61B1B`（H1）、冷酷的仙境 `#2F5A84`（H2）、森系绿 `#1B5E3A`（H1）、杏仁 `#6E4A26`（H1）、樱语粉 `#9D4E61`（主色加深 30%）、简约黑白一／二 `#1F1F1F`（正文黑，避免黑白主题里出现蓝色表头），都尽量取自主题已有配色。
 
 **边框色**：改用专门的 `--table-border-color`，不再复用通用的 `--background-modifier-border`（后者是给普通 UI 分隔线用的，颜色未必和表格边框一致，只是恰好在测试主题里数值相同才没被早发现）。
 
