@@ -136,6 +136,12 @@ export interface StaticTheme {
 	 */
 	tableHeaderColor?: string;
 	/**
+	 * Optional main color for Mermaid diagrams (flowchart nodes, first pie
+	 * slice); defaults to the note callout color, which is the theme's own
+	 * color in most themes but not all (森林's note is lake blue).
+	 */
+	diagramAccent?: string;
+	/**
 	 * Don't export `bgPrimary` as the article's page background — WeChat's
 	 * own page shows through instead. Only for light themes whose text stays
 	 * readable on white; `bgPrimary` is still used internally (callout tints,
@@ -287,6 +293,7 @@ const WARM_ALMOND: StaticTheme = {
 	highlightBg: '#EBCF86',
 	codeBackground: '#EFE4C9',
 	tableHeaderColor: '#6E4A26',
+	diagramAccent: '#8A5A2B',
 	borderColor: '#DFCFA8',
 	code: {
 		normal: '#5A4632', comment: '#8A7858', keyword: '#9C2F1C', function: '#A2420E',
@@ -409,6 +416,7 @@ const FOREST: StaticTheme = {
 	highlightBg: '#D6EBA8',
 	codeBackground: '#F1F5EF',
 	tableHeaderColor: '#1E4D2B',
+	diagramAccent: '#2E7D46',
 	borderColor: '#DCE5D9',
 	code: {
 		normal: '#1F2D23', comment: '#6B7C6E', keyword: '#6E4E8C', function: '#2F6E8E',
@@ -491,6 +499,7 @@ const NEBULA: StaticTheme = {
 	highlightBg: '#3B2A66',
 	codeBackground: '#1C1B2E',
 	tableHeaderColor: '#D9CCFF',
+	diagramAccent: '#A98BFF',
 	borderColor: '#2E2C48',
 	code: {
 		normal: '#E6E4F0', comment: '#8A86A6', keyword: '#C3A8FF', function: '#8FB8FF',
@@ -1063,27 +1072,67 @@ export function buildCalloutRgbMap(theme: StaticTheme): Record<CalloutType, stri
 	return out;
 }
 
+function rgb(hex: string): [number, number, number] {
+	const n = parseInt(hex.slice(1), 16);
+	return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+/** Rough perceptual distance between two hex colors (redmean-weighted RGB). */
+function colorDistance(a: string, b: string): number {
+	const [r1, g1, b1] = rgb(a);
+	const [r2, g2, b2] = rgb(b);
+	const rm = (r1 + r2) / 2;
+	const dr = r1 - r2, dg = g1 - g2, db = b1 - b2;
+	return Math.sqrt((2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db);
+}
+
+/**
+ * Picks `count` colors from `candidates` in order, skipping any too close to
+ * one already picked — callout colors often repeat within a theme (中国红's
+ * note and todo are both red), which made neighboring pie slices identical.
+ * The threshold relaxes if a theme has too few distinct colors (简约黑白's
+ * grays).
+ */
+function distinctColors(candidates: string[], count: number): string[] {
+	for (let threshold = 150; threshold >= 0; threshold -= 30) {
+		const picked: string[] = [];
+		for (const c of candidates) {
+			if (picked.every(p => colorDistance(p, c) >= threshold)) picked.push(c);
+			if (picked.length === count) return picked;
+		}
+	}
+	return candidates.slice(0, count);
+}
+
 /** Builds a Mermaid %%{init}%% directive that recolors diagrams to match a static theme. */
 export function buildMermaidInit(theme: StaticTheme): string {
-	const primary = mixColors(theme.bgPrimary, theme.calloutAccent.note, 0.25);
-	const secondary = mixColors(theme.bgPrimary, theme.calloutAccent.tip, 0.25);
-	const tertiary = mixColors(theme.bgPrimary, theme.accent, 0.25);
-	const clusterBg = mixColors(theme.bgPrimary, theme.textFaint, 0.15);
-	const pie = [
-		theme.calloutAccent.note, theme.calloutAccent.todo, theme.calloutAccent.warning,
-		theme.calloutAccent.tip, theme.accent, theme.calloutAccent.abstract, theme.calloutAccent.danger,
-	];
+	// What the diagram actually sits on: WeChat's white page for transparent themes.
+	const page = theme.transparentPage ? '#FFFFFF' : theme.bgPrimary;
+	const main = theme.diagramAccent ?? theme.calloutAccent.note;
+	const primary = mixColors(page, main, 0.25);
+	const secondary = mixColors(page, theme.calloutAccent.tip, 0.25);
+	const tertiary = mixColors(page, theme.accent, 0.25);
+	const clusterBg = mixColors(page, theme.textFaint, 0.15);
+	// Slices are opaque tints (so they match their legend swatches and keep
+	// text-colored labels readable), separated by page-colored gaps instead
+	// of Mermaid's default black outlines.
+	const c = theme.calloutAccent;
+	const pie = distinctColors(
+		[main, c.tip, c.info, c.todo, c.example, c.danger, c.abstract, c.question, c.bug, theme.accent, c.quote, ...theme.headings],
+		7,
+	).map(color => mixColors(page, color, 0.6));
 	return (
 		'%%{init: {"theme":"base","themeVariables":{' +
-		`"background":"${theme.bgPrimary}",` +
-		`"primaryColor":"${primary}","primaryBorderColor":"${theme.calloutAccent.note}","primaryTextColor":"${theme.textNormal}",` +
+		`"background":"${page}",` +
+		`"primaryColor":"${primary}","primaryBorderColor":"${main}","primaryTextColor":"${theme.textNormal}",` +
 		`"secondaryColor":"${secondary}","secondaryBorderColor":"${theme.calloutAccent.tip}","secondaryTextColor":"${theme.textNormal}",` +
 		`"tertiaryColor":"${tertiary}","tertiaryBorderColor":"${theme.accent}","tertiaryTextColor":"${theme.textNormal}",` +
-		`"lineColor":"${theme.textFaint}","edgeLabelBackground":"${theme.bgPrimary}",` +
+		`"lineColor":"${theme.textFaint}","edgeLabelBackground":"${page}",` +
 		`"clusterBkg":"${clusterBg}","clusterBorder":"${theme.textFaint}",` +
 		`"nodeTextColor":"${theme.textNormal}","titleColor":"${theme.textNormal}",` +
-		`"pie1":"${pie[0]}","pie2":"${pie[1]}","pie3":"${pie[2]}","pie4":"${pie[3]}",` +
-		`"pie5":"${pie[4]}","pie6":"${pie[5]}","pie7":"${pie[6]}",` +
+		pie.map((color, k) => `"pie${k + 1}":"${color}",`).join('') +
+		`"pieOpacity":"1","pieStrokeColor":"${page}","pieStrokeWidth":"2px",` +
+		`"pieOuterStrokeColor":"${page}","pieOuterStrokeWidth":"2px",` +
 		'"fontFamily":"sans-serif"},"flowchart":{"htmlLabels":false}}}%%\n'
 	);
 }
