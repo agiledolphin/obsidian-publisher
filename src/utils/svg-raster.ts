@@ -1,5 +1,6 @@
 /** Rasterizes an SVG string to a PNG data URL, drawn at `scale`× the given display size. */
-export function rasterizeSvg(svg: string, w: number, h: number, scale = 2): Promise<string | null> {
+/** `filter` is a CSS filter applied while drawing (e.g. Obsidian's dark-mode Mermaid inversion). */
+export function rasterizeSvg(svg: string, w: number, h: number, scale = 2, filter = 'none'): Promise<string | null> {
 	const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
 	return new Promise((resolve) => {
 		const img = new Image();
@@ -10,6 +11,7 @@ export function rasterizeSvg(svg: string, w: number, h: number, scale = 2): Prom
 			const ctx = canvas.getContext('2d');
 			if (!ctx) { URL.revokeObjectURL(url); resolve(null); return; }
 			ctx.scale(scale, scale);
+			ctx.filter = filter;
 			ctx.drawImage(img, 0, 0, w, h);
 			URL.revokeObjectURL(url);
 			try {

@@ -296,7 +296,7 @@ new MarkdownIt({
 |------|----------|
 | Canvas taint（@font-face / var() / foreignObject） | `cleanSvgEl()` 删除所有 `<style>`，替换 `<foreignObject>` 为 `<text>`，移除外部 href |
 | MutationObserver crash（`eA.slice is not a function`） | 从 live SVG **读** computed styles（无 mutation），写到 **clone**（无 observer） |
-| 深色/浅色主题颜色（`obsidian` 主题） | init 指令根据 `document.body.classList.contains('theme-dark')` 选择 Mermaid `"dark"` 或 `"default"` 内置主题 |
+| 深色/浅色主题颜色（`obsidian` 主题） | 照 Obsidian 自己的做法：Obsidian 只用 Mermaid 的 `default` 主题（`mermaid.initialize` 只设了字体 `var(--font-mermaid)`），深色模式靠 `app.css` 里 `.theme-dark .mermaid > svg { filter: invert(100%) hue-rotate(180deg) saturate(1.25) }` 把浅色图翻成深色。插件深浅色都用 `default`，从 live SVG 读 computed `filter`（主题可能改掉或关掉它），画 PNG 时用 canvas `ctx.filter` 套同一个滤镜；滤镜下的底色是浅色配色，所以替换 `<foreignObject>` 的文字用默认深色字而不是深色模式的 `--text-normal`。主题/CSS 片段对 Mermaid 元素的覆盖照常通过 computed style 带进图片。之前深色模式用 Mermaid 自带的 `dark` 主题，和 Obsidian 显示不一样 |
 | 静态主题配色 | `themes.ts` 的 `buildMermaidInit(theme)` 用该主题自己的 `accent`/`calloutAccent` 等色值生成 `"theme":"base"` + `themeVariables` 指令，让流程图/饼图配色跟主题其余部分保持一致，而不是套用 Mermaid 内置的深/浅色配色 |
 | Mermaid 后处理器不触发 | 始终创建带 `.markdown-preview-view` class 的 wrapper，不依赖现有面板是否打开 |
 | 复制按钮图标 SVG 干扰 | `findMermaidSvg()` 优先 `.mermaid svg` / `.block-language-mermaid svg`；fallback 按 width/height 属性（≤32px）和子元素数量（>5）区分图标与真实图表 |
@@ -305,10 +305,10 @@ new MarkdownIt({
 **Mermaid init 指令**：
 
 ```
-%%{init: {"theme":"dark","flowchart":{"htmlLabels":false}}}%%
+%%{init: {"theme":"default","flowchart":{"htmlLabels":false}}}%%
 ```
 
-- `theme`：根据 Obsidian 深/浅色模式动态选择，Mermaid 直接生成正确配色（Obsidian 通过 CSS 覆盖应用深色样式，但 CSS 规则无法覆盖 Mermaid 自己设置的 inline style）
+- `theme`："当前 Obsidian 主题"下固定 `default`（和 Obsidian 一致，深色模式另套滤镜，见上表）；静态主题用 `buildMermaidInit()` 生成的 `base` + `themeVariables`
 - `htmlLabels:false`：flowchart 节点标签用 SVG `<text>` 而非 `<foreignObject>`，防止 Chromium canvas 安全策略导致的 taint
 
 ---
@@ -730,7 +730,7 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 | base64 图片体积 | 大量图片导致 HTML 过大 | 未来可加图床上传选项 |
 | 主题替换表维护 | parser.ts 输出的 hardcoded 占位色值 ↔ engine.ts/themes.ts 的 regex 替换表之间是隐式契约 | 修改 parser 样式时须同步检查占位色是否被下游正确捕获；新增静态主题本身已通过注册表模式免于逐文件改 if/else |
 | 微信过滤规则变化 | 新版微信编辑器可能调整过滤规则 | 每次更新后回归测试 |
-| Mermaid 颜色精确度（`obsidian` 主题） | 实时主题下仍用 Mermaid 内置 dark/default 主题，不完全匹配 Obsidian 当前主题配色 | 静态主题已通过 `buildMermaidInit()` 用主题自身色值映射 themeVariables，只有 `obsidian` 实时模式待改进 |
+| Mermaid 颜色（`obsidian` 主题） | 和 Obsidian 显示一致，但 Obsidian 本身就是 Mermaid 默认配色（主题只能靠 CSS 覆盖），所以不一定和主题色调协调 | 用户选择"和 Obsidian 显示一致"而不是按主题色重新上色；静态主题用 `buildMermaidInit()` 按主题配色 |
 | 橙心 callout 是固定色板 | 早期实现过"跟随当前 Obsidian 主题实时变化"，后按用户要求改回固定色板（专门设计、区分 13 种类型、统一橙心自己的暖色家族），不再联动 Obsidian 主题 | 属于确认过的设计决策，非 bug；如需恢复实时联动可参考 8.8 提到的 `readCalloutStyle` 实时读取路径 |
 | 微信编辑器"行间距"全局设置会放大我们的 `line-height` | 微信公众号编辑器工具栏有一个全局"行间距"倍数设置，新建文章默认是 1.6 倍，会在我们自己设置的 `line-height` 基础上再乘一层——这不是我们粘贴内容自带的 CSS，是编辑器本身的文章级设置，粘贴进来的内容也会被套用。简约黑白 H2 票据盒子（`headingBox`）这类"文字行紧密堆叠"的设计对这个放大效应特别敏感，表现为盒子在微信里比 Obsidian 预览明显偏高——这很可能也是本节其它"预览正常、微信里偏高"问题背后的部分成因 | 用户实测确认：粘贴后把微信编辑器工具栏的"行间距"手动调成 1.0，高度就恢复正常。这是编辑器级别的全局设置，不是我们能通过调整生成的 HTML/CSS 覆盖掉的（除非反向猜一个固定倍数去抵消，但这个倍数既不保证所有账号/文章一致，也会让 Obsidian 预览跟着跑偏，权衡后选择了"粘贴后手动调一次"这个更稳妥的工作流方案，没有在代码里做任何针对性补偿） |
 
@@ -779,7 +779,7 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 
 ### 后续计划
 
-- [ ] Mermaid 颜色精确匹配（`obsidian` 实时主题下用 `theme:base` + themeVariables 映射 Obsidian CSS 变量；静态主题已完成）
+- [x] Mermaid 颜色跟随 Obsidian（`obsidian` 实时主题下和 Obsidian 显示一致：默认配色 + 深色模式反色滤镜；静态主题按主题配色）
 - [ ] 图床上传（SM.MS / 阿里云 OSS 等）
 - [ ] 提交 Obsidian 社区插件审核
 - [ ] `![[note#heading]]` / `![[note#^block-id]]` 锚点精确嵌入：目前 `preprocessEmbeds()` 会忽略 `#` 之后的锚点，直接展开整篇笔记（见 4.3 模块 1 和 8.7）。真正实现需要解析目标笔记的标题层级，定位该 heading 到下一个同级/更高级 heading 之间的区间作为展开边界；block 引用（`^block-id`）还需要单独在笔记正文里搜索对应的 block-id 标记并定位其所在的单个块。已评估过工作量，暂不实现，先记录在此
