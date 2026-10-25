@@ -107,14 +107,14 @@ function waitForSvg(container: HTMLElement, timeoutMs: number): Promise<SVGSVGEl
  *   SVG image containing foreignObject, regardless of content)
  * - <image> / <use> elements with external hrefs
  */
-function cleanSvgEl(svg: SVGSVGElement): SVGSVGElement {
+function cleanSvgEl(svg: SVGSVGElement, labelColor?: string): SVGSVGElement {
 	const clone = svg.cloneNode(true) as SVGSVGElement;
 
 	clone.querySelectorAll('style').forEach(el => el.remove());
 
 	const svgNs = 'http://www.w3.org/2000/svg';
 	const bStyle = getComputedStyle(document.body);
-	const textColor  = bStyle.getPropertyValue('--text-normal').trim()  || '#333333';
+	const textColor  = labelColor ?? (bStyle.getPropertyValue('--text-normal').trim() || '#333333');
 	const fontFamily = bStyle.getPropertyValue('--font-mermaid').trim() ||
 	                   bStyle.getPropertyValue('--font-text').trim()     || 'sans-serif';
 
@@ -154,7 +154,7 @@ function cleanSvgEl(svg: SVGSVGElement): SVGSVGElement {
 	return clone;
 }
 
-async function svgToPng(svg: SVGSVGElement, textColorOverride?: string): Promise<{ dataUrl: string; w: number; h: number } | null> {
+async function svgToPng(svg: SVGSVGElement, textColorOverride?: string, followFilter = false): Promise<{ dataUrl: string; w: number; h: number } | null> {
 	const rect = svg.getBoundingClientRect();
 	let w = rect.width;
 	let h = rect.height;
@@ -177,7 +177,16 @@ async function svgToPng(svg: SVGSVGElement, textColorOverride?: string): Promise
 	// Obsidian's CSS cascade. Text fill set via CSS class may be overridden — see below.
 	inlineComputedStyles(svg, clone);
 
-	const cleaned = cleanSvgEl(clone);
+	// The live theme reproduces what Obsidian shows: in dark mode Obsidian
+	// doesn't use Mermaid's dark theme, it inverts the default (light) diagram
+	// with a CSS filter on `.theme-dark .mermaid > svg` — read it off the live
+	// SVG (a theme may change or remove it) and draw the PNG through it. The
+	// colors underneath are then the light ones, so replaced labels use the
+	// default dark text rather than the (light) dark-mode --text-normal.
+	const filter = followFilter ? getComputedStyle(svg).filter : 'none';
+	const filtered = filter !== '' && filter !== 'none';
+
+	const cleaned = cleanSvgEl(clone, filtered ? '#333333' : undefined);
 
 	// Force text fill for static themes (e.g. Catppuccin Latte).
 	// Mermaid applies text color via CSS class; live Obsidian dark-theme CSS can
@@ -197,7 +206,7 @@ async function svgToPng(svg: SVGSVGElement, textColorOverride?: string): Promise
 		return `<svg${attrs}${hasW ? '' : ` width="${w}"`}${hasH ? '' : ` height="${h}"`}>`;
 	});
 
-	const dataUrl = await rasterizeSvg(sized, w, h);
+	const dataUrl = await rasterizeSvg(sized, w, h, 2, filtered ? filter : 'none');
 	if (!dataUrl) {
 		console.error('[obsidian-publisher] Mermaid SVG rasterization failed (load error or tainted canvas). SVG snippet:', sized.slice(0, 800));
 		return null;
@@ -244,12 +253,13 @@ export async function processMermaid(markdown: string, app: App, theme?: string)
 	Object.assign(viewCtx.style, { position: 'fixed', top: '-9999px', left: '-9999px', width: '800px', opacity: '0', pointerEvents: 'none' });
 	document.body.appendChild(viewCtx);
 
-	const isDark = document.body.classList.contains('theme-dark');
 	const staticTheme = theme ? getStaticTheme(theme) : undefined;
 	const textColorOverride = staticTheme?.textNormal;
+	// Live theme: Mermaid's default theme in both modes, as Obsidian renders
+	// it (dark mode is Obsidian's CSS filter, applied in svgToPng).
 	const initDirective = staticTheme
 		? buildMermaidInit(staticTheme)
-		: `%%{init: {"theme":"${isDark ? 'dark' : 'default'}","flowchart":{"htmlLabels":false}}}%%\n`;
+		: '%%{init: {"theme":"default","flowchart":{"htmlLabels":false}}}%%\n';
 
 	for (const entry of entries) {
 		let replacement = buildFallback(entry.definition);
@@ -271,7 +281,7 @@ export async function processMermaid(markdown: string, app: App, theme?: string)
 				if (!svg) {
 					console.warn('[obsidian-publisher] Mermaid: SVG not found within 5s for:', entry.definition.slice(0, 80));
 				} else {
-					const png = await svgToPng(svg, textColorOverride);
+					const png = await svgToPng(svg, textColorOverride, !staticTheme);
 					if (!png) {
 						console.warn('[obsidian-publisher] Mermaid: PNG conversion failed for:', entry.definition.slice(0, 80));
 					} else {
