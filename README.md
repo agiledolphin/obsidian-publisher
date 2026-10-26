@@ -65,11 +65,23 @@
 
 ## 安装
 
+> 仅支持桌面版 Obsidian（macOS、Windows、Linux）。插件用到了桌面版才有的截屏和剪贴板能力，手机、平板上的 Obsidian 不会加载它；同步到移动端也不会报错，只是不出现。
+
 ### 手动安装（推荐）
 
 1. 前往 [GitHub Releases](https://github.com/agiledolphin/obsidian-publisher/releases/latest)，下载 `main.js`、`manifest.json` 和 `styles.css`
 2. 在 vault 中创建目录 `.obsidian/plugins/obsidian-publisher/`，将三个文件放入（缺少 `styles.css` 时预览面板的布局会错乱）
 3. 在 Obsidian：**设置 → 第三方插件 → 关闭安全模式 → 启用 Obsidian Publisher**
+
+升级时用新版本的三个文件覆盖旧文件，再重启 Obsidian。
+
+### 用 BRAT 安装（自动更新）
+
+本插件尚未上架社区插件市场，可以用 [BRAT](https://github.com/TfTHacker/obsidian42-brat) 直接从 GitHub 安装，之后有新版本时 BRAT 会自动更新：
+
+1. 在社区插件市场安装并启用 **BRAT**（Obsidian42 - BRAT）
+2. 打开命令面板，运行 **BRAT: Add a beta plugin for testing**，填入 `agiledolphin/obsidian-publisher` 并确认
+3. 在 **设置 → 第三方插件** 中启用 Obsidian Publisher
 
 ### 开发模式安装
 
