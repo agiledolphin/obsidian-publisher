@@ -155,7 +155,8 @@ export default class ObsidianPublisher extends Plugin {
 
 	private async doPreview(file: TFile): Promise<void> {
 		try {
-			new PreviewModal(this.app, this, file).open();
+			const html = await this.controller.convert(file);
+			new PreviewModal(this.app, this, file, html).open();
 		} catch (e) {
 			logger.error('Preview failed:', e);
 			new Notice(`❌ 预览失败：${(e as Error).message}`);

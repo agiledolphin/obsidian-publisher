@@ -43,6 +43,11 @@
 	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
+/* No frame until the first render arrives (later renders swap in place). */
+.publisher-preview-phone:empty {
+	display: none;
+}
+
 /* Force images to stay within the phone preview — theme CSS may override
    inline max-width: 100% with higher-specificity rules (Blue Topaz, etc.) */
 .publisher-preview-phone img {
@@ -135,11 +140,6 @@
 /* ── Toolbar close button (pushed to left via margin-right: auto) ── */
 .publisher-btn-close {
 	margin-right: auto;
-}
-
-/* ── Preview loading state ───────────────────────────────── */
-.publisher-hidden {
-	display: none !important;
 }
 
 /* ── Draggable modal handle ──────────────────────────────── */

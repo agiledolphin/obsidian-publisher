@@ -10,6 +10,7 @@ export class PublisherPreviewView extends ItemView {
 	private currentFile: TFile | null = null;
 	private previewEl!: HTMLElement;
 	private currentHtml = '';
+	private refreshRun = 0;
 
 	constructor(leaf: WorkspaceLeaf, private plugin: ObsidianPublisher) {
 		super(leaf);
@@ -95,18 +96,19 @@ export class PublisherPreviewView extends ItemView {
 
 	async refresh(file: TFile): Promise<void> {
 		this.currentFile = file;
-		this.previewEl.empty();
-		this.previewEl.addClass('publisher-hidden');
+		const run = ++this.refreshRun;
 
+		// The old preview stays up until the new one is ready, so switching
+		// themes doesn't blank the panel or lose the scroll position.
 		try {
 			const html = await this.plugin.controller.convert(file);
+			if (run !== this.refreshRun) return; // superseded by a newer refresh
 			this.currentHtml = html;
 			applyPreviewContent(this.previewEl, html);
-			this.previewEl.removeClass('publisher-hidden');
 		} catch (e) {
+			if (run !== this.refreshRun) return;
 			this.currentHtml = '';
 			this.previewEl.empty();
-			this.previewEl.removeClass('publisher-hidden');
 			this.previewEl.createEl('p', { text: `❌ 渲染失败：${(e as Error).message}` });
 		}
 	}

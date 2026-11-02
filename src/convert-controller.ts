@@ -98,25 +98,24 @@ export class ConvertController {
 
 		// 7. Markdown → HTML (inline styles applied by parser rules)
 		setCalloutTheme(this.settings.theme);
-		let html = this.parser.render(markdown);
+		const html = this.parser.render(markdown);
 
-		logger.debug('HTML rendered, embedding images…');
+		logger.debug('HTML rendered, applying style engine…');
 
-		// 8. Embed local images as base64 data URLs
-		if (this.settings.imageMode === 'base64') {
-			const fileDir = file.parent?.path ?? '';
-			html = await this.embedder.embedImages(html, fileDir);
-		}
-
-		logger.debug('Images embedded, applying style engine…');
-
-		// 9. Apply theme overrides + WeChat sanitization + outer wrapper
+		// 8. Apply theme overrides + WeChat sanitization + outer wrapper
 		//    For 'obsidian' theme, read live CSS variables from the current theme.
 		const vars: ObsidianVars | undefined =
 			this.settings.theme === 'obsidian' ? readObsidianVars() : undefined;
 		// Live theme: use Obsidian's own rendered task checkboxes (null → drawn ones).
 		const taskIcons = this.settings.theme === 'obsidian' ? await captureLiveTaskIcons() : null;
-		const styledHtml = this.styleEngine.process(html, vars, taskIcons);
+		let styledHtml = this.styleEngine.process(html, vars, taskIcons);
+
+		// 9. Embed local images as base64 data URLs. After theming: the engine's
+		//    regexes would otherwise scan every byte of every embedded image.
+		if (this.settings.imageMode === 'base64') {
+			const fileDir = file.parent?.path ?? '';
+			styledHtml = await this.embedder.embedImages(styledHtml, fileDir);
+		}
 
 		// 10. Saving a WeChat draft drops SVG data-URI images and images under
 		//     ~1KB — rasterize SVGs to PNG, then pad small PNGs past the floor.
