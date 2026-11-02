@@ -1,22 +1,37 @@
-// For the live 'obsidian' theme: screenshot Obsidian's own rendered task
-// checkboxes (one per state) so the exported boxes match the active theme
-// exactly, whatever CSS technique it uses (glyph text, masks, gradients...).
-// Desktop-only (Electron capturePage); returns null when capture isn't possible.
+// For the live 'obsidian' theme: render Obsidian's own task checkboxes (one per
+// state) so the exported boxes match the active theme exactly, whatever CSS
+// technique it uses (glyph text, masks, gradients...). They're drawn in a
+// hidden, transparent window carrying a copy of the app's CSS, so nothing
+// appears on screen and the capture has real alpha.
+// Desktop-only (Electron); returns null when capture isn't possible.
 
 export interface CapturedIcon { dataUrl: string; w: number; h: number }
 export type LiveTaskIcons = Record<string, CapturedIcon>;
 
 interface NativeImageLike { isEmpty(): boolean; toDataURL(): string }
-interface ElectronLike {
-	remote?: { getCurrentWebContents(): { capturePage(rect: { x: number; y: number; width: number; height: number }): Promise<NativeImageLike> } };
-	webFrame?: { getZoomFactor(): number };
+interface HiddenWindow {
+	loadURL(url: string): Promise<void>;
+	destroy(): void;
+	isDestroyed(): boolean;
+	webContents: {
+		executeJavaScript(code: string): Promise<unknown>;
+		capturePage(rect?: { x: number; y: number; width: number; height: number }): Promise<NativeImageLike>;
+	};
 }
+interface ElectronLike {
+	remote?: { BrowserWindow: new (options: Record<string, unknown>) => HiddenWindow };
+}
+interface ProbeRect { task: string; left: number; top: number; width: number; height: number }
 
 // Our task names (parser.ts data-pub-task) → the markdown status character.
 const STATES: Record<string, string> = {
 	todo: ' ', done: 'x', 'in-progress': '/', cancelled: '-', rescheduled: '>', question: '?', important: '!',
 };
 const PAD = 1;
+const SCALE = 2; // the hidden window renders at 1x, so zoom for a crisp PNG
+const WINDOW = { width: 800, height: 120 };
+const PAINT_RETRIES = 10;
+const PAINT_WAIT_MS = 50;
 
 let cache: LiveTaskIcons | null = null;
 
@@ -34,8 +49,6 @@ function electron(): ElectronLike | null {
 	}
 }
 
-const nextFrame = () => new Promise<void>(r => requestAnimationFrame(() => r()));
-
 function loadImage(src: string): Promise<HTMLImageElement> {
 	return new Promise((resolve, reject) => {
 		const img = new Image();
@@ -45,122 +58,103 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 	});
 }
 
-type RGB = [number, number, number];
-
-function parseRgb(css: string): RGB | null {
-	const m = css.match(/rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/);
-	if (!m || m[4] === '0') return null;
-	return [Number(m[1]), Number(m[2]), Number(m[3])];
+function appCss(): string {
+	return Array.from(document.styleSheets).map((sheet) => {
+		try {
+			return Array.from(sheet.cssRules).map(r => r.cssText).join('\n');
+		} catch {
+			return ''; // cross-origin sheet
+		}
+	}).join('\n');
 }
 
-/**
- * Recover transparent pixels from two captures of the same content over two
- * known backgrounds. Per channel, captured = a·fg + (1−a)·bg, so
- * a = 1 − (c1 − c2) / (b1 − b2) and fg = (c1 − (1−a)·b1) / a. The two
- * backgrounds only need to differ by a modest amount (64 levels here), which
- * keeps the on-screen flash low-contrast instead of white-then-black.
- */
-function matte(shot1: ImageData, shot2: ImageData, bg1: RGB, bg2: RGB, out: ImageData): void {
-	for (let i = 0; i < out.data.length; i += 4) {
-		let a = 0;
-		for (let c = 0; c < 3; c++) a += 1 - (shot1.data[i + c]! - shot2.data[i + c]!) / (bg1[c]! - bg2[c]!);
-		a = Math.max(0, Math.min(1, a / 3));
-		out.data[i + 3] = Math.round(a * 255);
-		for (let c = 0; c < 3; c++) {
-			out.data[i + c] = a > 0 ? Math.max(0, Math.min(255, (shot1.data[i + c]! - (1 - a) * bg1[c]!) / a)) : 0;
-		}
-	}
+/** Same structure Obsidian renders in reading view, so theme selectors match. */
+function probeHtml(): string {
+	const items = Object.entries(STATES).map(([task, ch]) => {
+		const checked = ch !== ' ';
+		return `<li class="task-list-item${checked ? ' is-checked' : ''}" data-task="${ch}">` +
+			`<input class="task-list-item-checkbox" type="checkbox" data-pub="${task}" data-task="${ch}"${checked ? ' checked' : ''}></li>`;
+	}).join('');
+	return `<div class="markdown-preview-view markdown-rendered" style="width: fit-content; height: fit-content; padding: 4px; zoom: ${SCALE};">` +
+		`<ul class="contains-task-list" style="display: flex; gap: 12px; margin: 0; padding-left: 24px;">${items}</ul></div>`;
+}
+
+/** Copies the app's CSS and state into the hidden page; returns each box's rect. */
+function buildPage(): string {
+	const root = document.documentElement;
+	const css = `${appCss()}\nhtml, body, .markdown-preview-view { background: transparent !important; }`;
+	return `(() => {
+		const style = document.createElement('style');
+		style.textContent = ${JSON.stringify(css)};
+		document.head.appendChild(style);
+		document.documentElement.className = ${JSON.stringify(root.className)};
+		document.documentElement.style.cssText = ${JSON.stringify(root.style.cssText)};
+		document.body.className = ${JSON.stringify(document.body.className)};
+		document.body.style.cssText = ${JSON.stringify(document.body.style.cssText)};
+		document.body.innerHTML = ${JSON.stringify(probeHtml())};
+		return Array.from(document.querySelectorAll('input[data-pub]')).map((el) => {
+			const r = el.getBoundingClientRect();
+			return { task: el.dataset.pub, left: r.left, top: r.top, width: r.width, height: r.height };
+		});
+	})()`;
+}
+
+function hasVisiblePixel(ctx: CanvasRenderingContext2D, width: number, height: number): boolean {
+	const { data } = ctx.getImageData(0, 0, width, height);
+	for (let i = 3; i < data.length; i += 4) if (data[i]) return true;
+	return false;
 }
 
 /** Captures Obsidian's rendered checkbox for every task state, or null if unavailable. */
 export async function captureLiveTaskIcons(): Promise<LiveTaskIcons | null> {
 	if (cache) return cache;
-	const el = electron();
-	const wc = el?.remote?.getCurrentWebContents();
-	if (!wc) return null;
-	const zoom = el?.webFrame?.getZoomFactor() ?? 1;
+	const BrowserWindow = electron()?.remote?.BrowserWindow;
+	if (!BrowserWindow) return null;
 
-	// Same structure Obsidian renders in reading view, so theme selectors
-	// match — laid out as one compact row so a single screenshot per
-	// background covers every state (the probe is on screen for ~2 frames).
-	const wrap = document.body.createDiv({ cls: 'markdown-preview-view markdown-rendered' });
-	wrap.setCssStyles({ position: 'fixed', left: '0', top: '0', zIndex: '2147483647', padding: '4px', pointerEvents: 'none' });
-	const ul = wrap.createEl('ul', { cls: 'contains-task-list' });
-	ul.setCssStyles({ display: 'flex', gap: '12px', margin: '0', paddingLeft: '24px' });
-	const boxes: [string, HTMLInputElement][] = Object.entries(STATES).map(([task, ch]) => {
-		const li = ul.createEl('li', { cls: 'task-list-item' + (ch !== ' ' ? ' is-checked' : '') });
-		li.setAttribute('data-task', ch);
-		const cb = li.createEl('input', { cls: 'task-list-item-checkbox', type: 'checkbox' });
-		cb.setAttribute('data-task', ch);
-		cb.checked = ch !== ' ';
-		return [task, cb];
-	});
-
+	let win: HiddenWindow | null = null;
 	try {
-		// First background: the probe's own reading-view background, so the
-		// first shot looks like a few checkboxes appearing; the second is the
-		// same color shifted 64 levels per channel (darker on light themes).
-		const bg1 = parseRgb(getComputedStyle(wrap).backgroundColor) ?? [255, 255, 255];
-		const bg2 = bg1.map(v => (v >= 128 ? v - 64 : v + 64)) as RGB;
-
-		const rects = boxes.map(([, cb]) => cb.getBoundingClientRect());
-		const left = Math.floor(Math.min(...rects.map(r => r.left)) - PAD);
-		const top = Math.floor(Math.min(...rects.map(r => r.top)) - PAD);
-		const right = Math.ceil(Math.max(...rects.map(r => r.right)) + PAD);
-		const bottom = Math.ceil(Math.max(...rects.map(r => r.bottom)) + PAD);
-		const area = {
-			x: Math.round(left * zoom), y: Math.round(top * zoom),
-			width: Math.round((right - left) * zoom), height: Math.round((bottom - top) * zoom),
-		};
-
-		const shoot = async (bg: RGB): Promise<HTMLImageElement | null> => {
-			wrap.style.setProperty('background', `rgb(${bg.join(', ')})`, 'important');
-			await nextFrame();
-			await nextFrame();
-			const img = await wc.capturePage(area);
-			return img.isEmpty() ? null : loadImage(img.toDataURL());
-		};
-		const img1 = await shoot(bg1);
-		const img2 = img1 && await shoot(bg2);
-		wrap.remove();
-		if (!img1 || !img2) return null;
+		win = new BrowserWindow({
+			...WINDOW, show: false, frame: false, transparent: true,
+			webPreferences: { offscreen: true, nodeIntegration: false, contextIsolation: true },
+		});
+		await win.loadURL('about:blank');
+		const rects = await win.webContents.executeJavaScript(buildPage()) as ProbeRect[];
 
 		const canvas = document.createElement('canvas');
-		canvas.width = img1.naturalWidth;
-		canvas.height = img1.naturalHeight;
-		const ctx = canvas.getContext('2d')!;
-		ctx.drawImage(img1, 0, 0);
-		const d1 = ctx.getImageData(0, 0, canvas.width, canvas.height);
-		ctx.clearRect(0, 0, canvas.width, canvas.height);
-		ctx.drawImage(img2, 0, 0);
-		const d2 = ctx.getImageData(0, 0, canvas.width, canvas.height);
-		const out = ctx.createImageData(canvas.width, canvas.height);
-		matte(d1, d2, bg1, bg2, out);
-		ctx.putImageData(out, 0, 0);
+		canvas.width = WINDOW.width;
+		canvas.height = WINDOW.height;
+		const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
 
-		// Crop each checkbox (plus PAD) out of the row; the screenshot is in
-		// device pixels, so scale CSS coordinates by its actual ratio.
-		const scale = canvas.width / (right - left);
+		// The first frames can still be blank; retry until the boxes have painted.
+		let painted = false;
+		for (let i = 0; i < PAINT_RETRIES && !painted; i++) {
+			await new Promise(r => window.setTimeout(r, PAINT_WAIT_MS));
+			const shot = await win.webContents.capturePage({ x: 0, y: 0, ...WINDOW });
+			if (shot.isEmpty()) continue;
+			const img = await loadImage(shot.toDataURL());
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			ctx.drawImage(img, 0, 0);
+			painted = hasVisiblePixel(ctx, canvas.width, canvas.height);
+		}
+		if (!painted) return null;
+
+		const pad = PAD * SCALE;
 		const result: LiveTaskIcons = {};
-		boxes.forEach(([task], i) => {
-			const r = rects[i]!;
-			const w = r.width + 2 * PAD;
-			const h = r.height + 2 * PAD;
+		for (const r of rects) {
 			const crop = document.createElement('canvas');
-			crop.width = Math.round(w * scale);
-			crop.height = Math.round(h * scale);
+			crop.width = Math.round(r.width + 2 * pad);
+			crop.height = Math.round(r.height + 2 * pad);
 			crop.getContext('2d')!.drawImage(
-				canvas,
-				Math.round((r.left - PAD - left) * scale), Math.round((r.top - PAD - top) * scale), crop.width, crop.height,
+				canvas, Math.round(r.left - pad), Math.round(r.top - pad), crop.width, crop.height,
 				0, 0, crop.width, crop.height,
 			);
-			result[task] = { dataUrl: crop.toDataURL('image/png'), w, h };
-		});
+			result[r.task] = { dataUrl: crop.toDataURL('image/png'), w: crop.width / SCALE, h: crop.height / SCALE };
+		}
 		cache = result;
 		return result;
 	} catch {
 		return null;
 	} finally {
-		wrap.remove();
+		if (win && !win.isDestroyed()) win.destroy();
 	}
 }
