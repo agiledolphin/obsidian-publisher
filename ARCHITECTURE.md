@@ -1,7 +1,7 @@
 # Obsidian WeChat Publisher 插件架构设计文档
 
 > **版本**：v19.1（对应插件 v0.15.1）
-> **日期**：2026-09-30
+> **日期**：2026-11-02
 > **目标平台**：微信公众号
 > **开发策略**：分阶段交付——先实现转换与复制，再实现 API 发布
 
@@ -18,7 +18,7 @@
 | 阶段 | 目标 | 状态 |
 |------|------|------|
 | **阶段一** | 转换 + 复制 | ✅ **已完成并持续迭代（当前 v0.15.1）** |
-| **阶段二** | API 自动发布（草稿上传） | 待开始 |
+| **阶段二** | API 自动发布（草稿上传） | 待验证可行性：要先确认个人账号能否调用草稿接口（见 10） |
 
 **阶段一的优势**：
 - 零配置即可使用，无需 AppID/AppSecret
@@ -476,6 +476,7 @@ obsidian-publisher/
 │       ├── logger.ts                  # 调试日志（受 debugMode 控制）
 │       ├── mime.ts                    # 文件扩展名 → MIME 类型
 │       └── svg-raster.ts              # SVG → PNG（Mermaid 共用；输出前把 SVG 图片统一转 PNG、小 PNG 补到 2KB）
+├── .tools/                            # 本地开发工具，不进仓库（微信官方检测工具，见 8.17）
 ├── styles.css                         # 插件 UI 样式（预览弹窗等）
 ├── manifest.json                      # 版本 0.15.1
 ├── package.json
@@ -723,12 +724,22 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 
 **代码块参照阅读视图**：有的主题在编辑视图和阅读视图里代码字号不同（Wonderland Mod 编辑视图 14px、阅读视图 16px）。用户确认以阅读视图为准，主题本身的差异由用户调整主题解决。
 
+### 8.17 微信"内容结构检测"：官方规则与本地检测
+
+粘贴时弹出的"内容结构检测"有官方规范：[编辑器插件开发规范](https://developers.weixin.qq.com/doc/subscription/guide/product/plugin_spec.html)，规则定义和检测工具在 [verify-article-structure-spec](https://github.com/wechatjs/verify-article-structure-spec)。工具克隆在 `.tools/verify-article-structure-spec/`（gitignore，eslint 已排除），依赖只装在它的 `cli/node_modules`。它用真实浏览器量布局，不用粘贴就能检查 HTML，用法见 `AGENTS.md`。实测和编辑器一致：宇多田光那篇文章的旧输出报出同样两张图，新输出通过。它没接入字体和 `span[leaf]`/`section[nodeleaf]` 结构规则，也不检查图片在深色模式下的效果，所以通过不等于全部合规，最终以微信实测为准。规范里也没有"发现 Markdown 语法"这条提示，那是另一套机制（见 `AGENTS.md` 的输出规则）。
+
+**渐变提示（`darkmode-no-gradient`）**：紫雾、星云的 H2 渐变 `<span>` 带 `data-ignore-dm="text-bg-gradient"`（规范 4.6 的豁免属性，只对标记的节点本身生效），`sanitizeForWeChat()` 专门保留它。示例文件的 22 处提示全部消失，微信实测不再弹提示，渐变保留。规范要求豁免前先确认深色模式效果，这两个主题都用手机测过。
+
+**宽度提示（规范 1.4.3，`cli/engine/layout.ts` 的 `hasWidthVariance`）**：检测在 585、677、375 三种屏宽下布局，以 585 为基准，宽度比 = 元素宽 ÷ 屏宽。三屏宽度相差超过 10px，且不属于"正常响应式"（每屏要么和基准差不超过 10px，要么宽度比离 1 不到 0.1）才报。图片优先用原图宽度，加载超时才退回 `style.width` → `data-w` → `width` 属性。所以带 `max-width: 100%` 的图只有显示宽度约 596～609px 才报：600px 的原图在 677 屏上占 89%，既不等于基准也不算撑满。400、500、751 及以上都不报。这个区间很窄，插件没有专门处理，碰上时换个宽度即可。带页面背景的主题有左右内边距，图片撑不到屏宽，算下来不会触发。
+
+**还没用上的规范条目**：`data-no-dark`（节点跳过深色转换，后代有内联样式的仍会转换，或许能保住星云的深色背景，未测）；规范不建议设 `font-family`，而插件给全文设了字体，并让"当前 Obsidian 主题"跟随 Obsidian 字体（改不改由用户决定）；公式和 Mermaid 是透明底 PNG，深色内容在微信深色背景 `#191919` 上可能看不清（未测）。
+
 ## 9. 已知限制与风险
 
 | 限制/风险 | 说明 | 应对 |
 |-----------|------|------|
-| 外部图片不稳定 | 微信编辑器抓取外部图片行为不稳定 | 建议使用本地图片或图床 |
-| base64 图片体积 | 大量图片导致 HTML 过大 | 未来可加图床上传选项 |
+| 外部图片不稳定 | 微信编辑器抓取外部图片行为不稳定 | 建议使用本地图片 |
+| base64 图片体积 | 大量图片导致 HTML 过大 | 暂无；阶段二若可行，图片直接传微信 |
 | 主题替换表维护 | parser.ts 输出的 hardcoded 占位色值 ↔ engine.ts/themes.ts 的 regex 替换表之间是隐式契约 | 修改 parser 样式时须同步检查占位色是否被下游正确捕获；新增静态主题本身已通过注册表模式免于逐文件改 if/else |
 | 微信过滤规则变化 | 新版微信编辑器可能调整过滤规则 | 每次更新后回归测试 |
 | Mermaid 颜色（`obsidian` 主题） | 和 Obsidian 显示一致，但 Obsidian 本身就是 Mermaid 默认配色（主题只能靠 CSS 覆盖），所以不一定和主题色调协调 | 用户选择"和 Obsidian 显示一致"而不是按主题色重新上色；静态主题用 `buildMermaidInit()` 按主题配色 |
@@ -769,7 +780,16 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 - [x] ClipboardItem API 富文本写入
 - [x] 设置页面（主题、图片模式、调试模式等）
 
-### 阶段二：微信公众号 API 自动发布（待开始）
+### 阶段二：微信公众号 API 自动发布（待验证可行性）
+
+**先验证**：用户的公众号是个人主体。官方文档写明 2025 年 7 月起，个人主体、未认证企业账号的发布接口（`freepublish/*`）权限已回收；草稿接口（`draft/add`）、图片接口（`media/uploadimg`、`material/add_material`）的适用范围只写"公众号"，没提个人主体，要用 AppID/AppSecret 实际调一次才知道。走不通就考虑编辑器 JS 接口（`window.__MP_Editor_JSAPI__`，有 `mp_editor_insert_html` 等，要做成运行在公众号编辑器页面里的浏览器扩展，不需要 AppSecret），或放弃阶段二。即使草稿接口可用，发布也只能在后台手动操作。
+
+**文档里已知的约束**：
+- 正文图片必须走 `uploadimg`（仅 jpg/png，1MB 以下），外部图片会被过滤；公式、Mermaid、勾选框、callout 图标都要上传，webp 和过大的图要转换或压缩
+- 封面必填，且必须是永久素材（`add_material`）；用 `image` 还是 `thumb` 类型文档没说
+- 标题不超过 32 字，作者不超过 16 字，摘要不超过 120 字
+- 正文"必须少于2万字符，小于1M"，同一句话又写"大小不可超过2kb"，且没有标签白名单；内联样式很占字符，`<section>`、`data-ignore-dm` 等写法在 API 下是否有效都要实测
+- 取 token 的 IP 必须在白名单里（否则 61004），家庭宽带 IP 常变；文档要求接口在服务器端调用，插件在本地调用，AppSecret 也存在本地
 
 - [ ] `WeChatApiClient` 模块（Token 管理 + 图片上传 + 草稿创建）
 - [ ] 设置页新增公众号配置区（AppID / AppSecret）
@@ -781,7 +801,7 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 ### 后续计划
 
 - [x] Mermaid 颜色跟随 Obsidian（`obsidian` 实时主题下和 Obsidian 显示一致：默认配色 + 深色模式反色滤镜；静态主题按主题配色）
-- [ ] 图床上传（SM.MS / 阿里云 OSS 等）
+- [ ] 图床上传（SM.MS / 阿里云 OSS 等）：走 API 时外部图片会被过滤，用不上；是否还做，等阶段二有结论再定
 - [ ] 提交 Obsidian 社区插件审核
 - [ ] `![[note#heading]]` / `![[note#^block-id]]` 锚点精确嵌入：目前 `preprocessEmbeds()` 会忽略 `#` 之后的锚点，直接展开整篇笔记（见 4.3 模块 1 和 8.7）。真正实现需要解析目标笔记的标题层级，定位该 heading 到下一个同级/更高级 heading 之间的区间作为展开边界；block 引用（`^block-id`）还需要单独在笔记正文里搜索对应的 block-id 标记并定位其所在的单个块。已评估过工作量，暂不实现，先记录在此
 
@@ -807,4 +827,8 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 - Obsidian API 类型定义：https://github.com/obsidianmd/obsidian-api
 - markdown-it：https://github.com/markdown-it/markdown-it
 - highlight.js：https://highlightjs.org
-- 微信公众号开发文档：https://developers.weixin.qq.com/doc/offiaccount/
+- 微信公众号开发文档：https://developers.weixin.qq.com/doc/subscription/guide/
+- 微信公众号 API 参考：https://developers.weixin.qq.com/doc/subscription/api/
+- 微信编辑器插件开发规范：https://developers.weixin.qq.com/doc/subscription/guide/product/plugin_spec.html
+- 微信编辑器 JS 接口：https://developers.weixin.qq.com/doc/subscription/guide/product/mp_editor_jsapi.html
+- 内容结构检测规则与工具：https://github.com/wechatjs/verify-article-structure-spec
