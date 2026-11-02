@@ -20,6 +20,7 @@ import { obsidianWikiLinkPlugin } from './plugins/wikilink';
 import { obsidianHighlightPlugin } from './plugins/highlight-mark';
 import { obsidianTaskListPlugin } from './plugins/task-list';
 import { LIST_MARKER_CENTER } from '../style/task-icons';
+import { sizedImageStyle } from './preprocessor';
 
 // Register highlight.js languages
 hljs.registerLanguage('javascript', javascript);
@@ -267,13 +268,13 @@ export class MarkdownParser {
 		md.renderer.rules['image'] = (tokens, idx) => {
 			const token = tokens[idx];
 			const src   = token?.attrGet('src') ?? '';
-			const alt   = token?.attrGet('alt') ?? '';
 			const title = token?.attrGet('title');
-			return (
-				`<img src="${src}" alt="${alt}"` +
-				(title ? ` title="${title}"` : '') +
-				` style="max-width: 100%; border-radius: 4px; margin: 1em auto; display: block;">`
-			);
+			// markdown-it keeps alt text in token.content (the attr is empty).
+			// Obsidian's display width lives there too: ![alt|400](url), ![alt | 400](url).
+			const size  = (token?.content ?? '').match(/^(.*?)\s*\|\s*(\d+)(?:x\d+)?\s*$/);
+			const alt   = md.utils.escapeHtml(size ? size[1] ?? '' : token?.content ?? '');
+			const style = size ? sizedImageStyle(Number(size[2])) : 'max-width: 100%; border-radius: 4px; margin: 1em auto; display: block;';
+			return `<img src="${src}" alt="${alt}"${title ? ` title="${title}"` : ''} style="${style}">`;
 		};
 
 		// ── Links ─────────────────────────────────────────────────────
