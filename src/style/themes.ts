@@ -906,7 +906,10 @@ export function buildStaticThemeMap(theme: StaticTheme): [RegExp, string][] {
 			`${stops[0]} 0%, ${stops[1]} ${horizontal ? 50 : 55}%, ${stops[2]} 100%); ` +
 			`-webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;`;
 		map.push(
-			[openSource, `<${tag} style="${headingStyle}"><span style="${textStyle}">`],
+			// data-ignore-dm exempts this span from WeChat's "no gradient behind
+			// text" check on paste; readers in dark mode get a solid color, which
+			// was confirmed readable for both gradient themes.
+			[openSource, `<${tag} style="${headingStyle}"><span data-ignore-dm="text-bg-gradient" style="${textStyle}">`],
 			[closeSource, `</span></${tag}>`],
 		);
 	}
