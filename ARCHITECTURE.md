@@ -463,7 +463,7 @@ obsidian-publisher/
 │   │   ├── themes.ts                  # 静态主题注册表（11 款预设）+ 主题色值→regex 替换表生成
 │   │   ├── color-utils.ts             # mixColors / hexToRgbTriplet / normalizeRgbTriplet
 │   │   ├── task-icons.ts              # 任务列表勾选框 <span> → 图片（主题配色之后）
-│   │   ├── live-task-icons.ts         # "当前 Obsidian 主题"：截取 Obsidian 实际渲染的勾选框（Electron capturePage）
+│   │   ├── live-task-icons.ts         # "当前 Obsidian 主题"：在隐藏窗口里渲染并截取 Obsidian 的勾选框
 │   │   └── sanitizer.ts               # 微信兼容性清理（移除 position/class/id 等）
 │   ├── clipboard/
 │   │   └── writer.ts                  # ClipboardItem API 写入富文本
@@ -621,9 +621,9 @@ markdown-it 渲染 `![alt](path with spaces)` 时会 URL 编码空格，导致 `
 
 **横向位置**：列表改成 `<section>` 行之后（见 8.13），勾选框起初和圆点一样在标记列里居中，但居中的是"图片 + 末尾的 `&nbsp;`"，图片本身就偏左了半个空格宽（约 3px）。现在任务项的标记列改为左对齐，`taskBoxesToImages()` 按图片宽度给外层容器设 `margin-left = 19 − 宽/2`（`LIST_MARKER_CENTER`，与 `parser.ts` 共用），图片中心正好落在圆点中心上，15px 的自绘勾选框和 18px 的截图勾选框都适用。外层容器还要设固定宽度（图片宽 + 10px）：否则它在 32px 宽的标记列里按内容收缩，减去左边距后放不下"图片 + 空格"，空格会换到第二行，基线跟着下移一行，勾选框就显得偏上（实测偏了 16.8px）。没有用 `white-space: nowrap`，因为微信对 `white-space` 的处理不可靠。多出的宽度只是一个看不见的空格伸进正文区域，不会挤动文字。
 
-**"当前 Obsidian 主题"下的勾选框直接截取 Obsidian 的实际渲染**（`src/style/live-task-icons.ts`）：各 Obsidian 主题画勾选框的手法五花八门（圆形/方形、`::before` 文字符号、`mask-image` 遮罩、半填充色块……），逐个解读 CSS 去复刻不现实。插件是桌面版，Obsidian 桌面端开放了 Electron 的 `remote.getCurrentWebContents().capturePage()`：转换时在页面左上角临时放一个和阅读视图同结构的 `.markdown-preview-view.markdown-rendered > ul.contains-task-list > li.task-list-item[data-task]` 探针，7 种状态各一个真实的 `<input type="checkbox">`，排成一行，按 `webFrame` 缩放系数换算坐标，**整行只截一张**（Retina 下是 2 倍像素），再在 canvas 里按各勾选框的位置裁开。截图会带上背景，所以要在两种已知背景上各截一次，按 alpha = 1 −（截图1 − 截图2）/（背景1 − 背景2）、颜色 =（截图1 −（1 − alpha）× 背景1）/ alpha 逐像素算出透明 PNG。两种背景用探针自己的阅读视图背景色，以及同一颜色每个通道偏移 64 级（浅色主题往深、深色主题往浅）——相差 64 级算透明度已经足够精确。
+**"当前 Obsidian 主题"下的勾选框直接截取 Obsidian 的实际渲染**（`src/style/live-task-icons.ts`）：各 Obsidian 主题画勾选框的手法五花八门（圆形/方形、`::before` 文字符号、`mask-image` 遮罩、半填充色块……），逐个解读 CSS 去复刻不现实。插件是桌面版，可以用 Electron 的 `remote` 接口，所以直接让 Chromium 把真实的 `<input type="checkbox">` 画出来再截图：探针和阅读视图同结构（`.markdown-preview-view.markdown-rendered > ul.contains-task-list > li.task-list-item[data-task]`），7 种状态排成一行，整行只截一张，再在 canvas 里按各勾选框的位置裁开。
 
-第一版是 7 个勾选框各截一张、背景用纯白和纯黑，一共 14 张截图，探针在屏幕上停留约 120ms，用户看到的是左上角先闪一块白、再闪一块黑。现在只截 2 张，停留约 25–30ms（两帧左右），第一张看起来只是几个勾选框出现了一下，第二张背景只是略深或略浅，不再有黑白块。探针必须真的显示在屏幕上（截图只能截到屏幕上实际显示的内容），所以这一下闪现无法完全去掉；完全不闪要用离屏窗口渲染，但那需要把 Obsidian 的全部主题样式搬过去，没有采用。结果按 Obsidian 主题/深浅模式缓存，`css-change` 事件（换主题、切深浅色、开关 CSS 片段）时作废，所以只有之后第一次转换会闪现。截不到（拿不到 Electron 接口、窗口最小化等）就退回插件自己画的勾选框。截下来的图片直接作为 `taskBoxesToImages()` 的输入，尺寸用实际渲染尺寸（含 1px 边距），对齐偏移按图片高度换算（`CAP_CENTER − h/2`），保证不同尺寸的勾选框都对准文字的大写字母中线。静态预设主题仍用插件自己画的勾选框。
+**在隐藏窗口里截取**（2026-11-02 起）：`remote.BrowserWindow` 开一个不显示、透明、离屏渲染的窗口，把应用的全部 CSS、`<html>`/`<body>` 的类名和内联样式复制进去，放同样结构的勾选框，`capturePage` 截图，再按每个框的位置裁出来。窗口不显示，屏幕上什么都不会出现；窗口透明，截图自带 alpha，不用再靠两种背景算透明度。隐藏窗口是 1x 渲染，所以探针加 `zoom: 2` 保证清晰；刚画好的前几帧可能是空的，循环截到有内容为止。首次约多花 240ms，结果按 `css-change` 作废。演进：第一版在主窗口里放探针、截 14 张纯白纯黑，用户看到黑白闪烁；第二版减到 2 张、用低对比背景，但探针继承了 `.markdown-preview-view` 的 100% 宽高，实际铺满窗口，整屏闪灰；改成 `fit-content` 后仍在左上角闪现，用户问能否放到后台，于是改成隐藏窗口。已在 Lamplit 深浅色下验证 7 种状态。截不到（拿不到 Electron 接口等）就退回插件自己画的勾选框。截下来的图片直接作为 `taskBoxesToImages()` 的输入，尺寸用实际渲染尺寸（含 1px 边距），对齐偏移按图片高度换算（`CAP_CENTER − h/2`），保证不同尺寸的勾选框都对准文字的大写字母中线。静态预设主题仍用插件自己画的勾选框。
 
 ### 8.7 String.replace 特殊字符
 
