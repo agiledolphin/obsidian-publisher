@@ -8,6 +8,9 @@
 # npm
 node_modules
 
+# Local dev tools (e.g. WeChat's article checker), cloned here, not shipped
+.tools
+
 
 # Exclude sourcemaps
 *.map
