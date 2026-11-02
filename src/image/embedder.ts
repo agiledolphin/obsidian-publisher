@@ -1,8 +1,15 @@
-import { TFile, Vault, normalizePath } from 'obsidian';
+import { TFile, Vault, arrayBufferToBase64, normalizePath } from 'obsidian';
 import { getMimeType } from '../utils/mime';
 import { logger } from '../utils/logger';
 
+// Switching themes reconverts the note, so keep recent images instead of
+// re-reading and re-encoding them. Bounded: a note can embed many large files.
+const MAX_CACHE_CHARS = 64 * 1024 * 1024;
+
 export class ImageEmbedder {
+	private cache = new Map<string, { mtime: number; dataUrl: string }>();
+	private cacheChars = 0;
+
 	constructor(private vault: Vault) {}
 
 	/**
@@ -75,17 +82,19 @@ export class ImageEmbedder {
 	}
 
 	private async fileToBase64(file: TFile): Promise<string> {
-		const buffer = await this.vault.readBinary(file);
-		const bytes  = new Uint8Array(buffer);
-		const len    = bytes.byteLength;
+		const cached = this.cache.get(file.path);
+		if (cached?.mtime === file.stat.mtime) return cached.dataUrl;
 
-		let binary = '';
-		for (let i = 0; i < len; i++) {
-			binary += String.fromCharCode(bytes[i] ?? 0);
+		const base64  = arrayBufferToBase64(await this.vault.readBinary(file));
+		const dataUrl = `data:${getMimeType(file.extension)};base64,${base64}`;
+
+		if (cached) this.cacheChars -= cached.dataUrl.length;
+		if (this.cacheChars + dataUrl.length > MAX_CACHE_CHARS) {
+			this.cache.clear();
+			this.cacheChars = 0;
 		}
-
-		const base64 = btoa(binary);
-		const mime   = getMimeType(file.extension);
-		return `data:${mime};base64,${base64}`;
+		this.cache.set(file.path, { mtime: file.stat.mtime, dataUrl });
+		this.cacheChars += dataUrl.length;
+		return dataUrl;
 	}
 }

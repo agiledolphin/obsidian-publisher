@@ -33,23 +33,28 @@ class SourceModal extends Modal {
 }
 
 export class PreviewModal extends Modal {
-	private html = '';
+	private renderRun = 0;
 	private previewEl!: HTMLElement;
 
-	constructor(app: App, private plugin: ObsidianPublisher, private file: TFile) {
+	/** `html` is the file's converted output, ready before opening so the modal never shows half-built. */
+	constructor(app: App, private plugin: ObsidianPublisher, private file: TFile, private html: string) {
 		super(app);
 		this.modalEl.addClass('publisher-preview-modal');
 	}
 
-	/** (Re)converts the file for the current theme setting and re-renders the preview. */
+	/** Reconverts the file for the current theme setting and re-renders the preview. */
 	private async renderContent(): Promise<void> {
+		const run = ++this.renderRun;
+		let html: string;
 		try {
-			this.html = await this.plugin.controller.convert(this.file);
+			html = await this.plugin.controller.convert(this.file);
 		} catch (e) {
-			new Notice(`❌ 预览失败：${(e as Error).message}`);
+			if (run === this.renderRun) new Notice(`❌ 预览失败：${(e as Error).message}`);
 			return;
 		}
-		applyPreviewContent(this.previewEl, this.html);
+		if (run !== this.renderRun) return; // superseded by a newer theme switch
+		this.html = html;
+		applyPreviewContent(this.previewEl, html);
 	}
 
 	/** Attaches drag-to-move behaviour to the modal, using handle as the grab target. */
@@ -145,7 +150,7 @@ export class PreviewModal extends Modal {
 				.catch(() => new Notice('❌ 复制失败，请检查浏览器权限。'));
 		});
 
-		void this.renderContent();
+		applyPreviewContent(this.previewEl, this.html);
 	}
 
 	onClose(): void {

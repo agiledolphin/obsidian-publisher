@@ -130,8 +130,9 @@ onunload()  → 插件禁用时调用，清理资源
 6.  processMermaid(markdown, app)            // Mermaid 图 → PNG <img>（MarkdownRenderer + Canvas）
 7.  processFootnotes(markdown)               // 脚注转上标 + 底部引用区
 8.  markdownParser.render(markdown)          // markdown-it → 带内联样式的 HTML
-9.  imageEmbedder.embedImages(html, ...)     // 本地图片 → base64 data URL
-10. styleEngine.process(html, vars)          // 主题覆盖 + WeChat 清理 + 外层 div
+9.  styleEngine.process(html, vars)          // 主题覆盖 + WeChat 清理 + 外层 section
+10. imageEmbedder.embedImages(html, ...)     // 本地图片 → base64 data URL（在主题之后，见 8.18）
+11. rasterizeSvgImages + padSmallPngs        // SVG 转 PNG、小 PNG 补足体积
 ```
 
 ### 4.3 模块详细设计
@@ -530,13 +531,6 @@ obsidian-publisher/
 └────────────────────────────┘
         │
         ▼ (带内联样式的 HTML，图片为 vault 路径)
-┌─── ImageEmbedder ─────────┐
-│  扫描所有 <img> src         │
-│  本地路径 → base64 data URL │  ← vault.readBinary()
-│  外部 URL → 保持原样        │
-└────────────────────────────┘
-        │
-        ▼ (图片已 base64 的 HTML)
 ┌─── StyleEngine ───────────┐
 │  obsidian 主题：读取实时     │  ← readObsidianVars()
 │  Obsidian CSS 变量         │
@@ -544,7 +538,14 @@ obsidian-publisher/
 │  注册表取固定色值            │
 │  批量替换颜色/样式          │  ← regex 字符串替换
 │  WeChat 兼容性清理         │  ← 移除 position/class/id
-│  包装 <div> 外层容器        │
+│  包装 <section> 外层容器    │
+└────────────────────────────┘
+        │
+        ▼ (已上主题的 HTML，图片仍是 vault 路径)
+┌─── ImageEmbedder ─────────┐
+│  扫描所有 <img> src         │
+│  本地路径 → base64 data URL │  ← vault.readBinary()
+│  外部 URL → 保持原样        │
 └────────────────────────────┘
         │
         ▼ (最终清洁 HTML)
@@ -733,6 +734,14 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 **宽度提示（规范 1.4.3，`cli/engine/layout.ts` 的 `hasWidthVariance`）**：检测在 585、677、375 三种屏宽下布局，以 585 为基准，宽度比 = 元素宽 ÷ 屏宽。三屏宽度相差超过 10px，且不属于"正常响应式"（每屏要么和基准差不超过 10px，要么宽度比离 1 不到 0.1）才报。图片优先用原图宽度，加载超时才退回 `style.width` → `data-w` → `width` 属性。所以带 `max-width: 100%` 的图只有显示宽度约 596～609px 才报：600px 的原图在 677 屏上占 89%，既不等于基准也不算撑满。400、500、751 及以上都不报。这个区间很窄，插件没有专门处理，碰上时换个宽度即可。带页面背景的主题有左右内边距，图片撑不到屏宽，算下来不会触发。
 
 **还没用上的规范条目**：`data-no-dark`（节点跳过深色转换，后代有内联样式的仍会转换，或许能保住星云的深色背景，未测）；规范不建议设 `font-family`，而插件给全文设了字体，并让"当前 Obsidian 主题"跟随 Obsidian 字体（改不改由用户决定）；公式和 Mermaid 是透明底 PNG，深色内容在微信深色背景 `#191919` 上可能看不清（未测）。
+
+### 8.18 切换主题的速度与闪烁
+
+切换主题会重跑整个 `convert()`。示例文件内嵌 19MB 图片时要 1.26 秒：公式 235ms、Mermaid 75ms、读图片 370ms、主题替换 465ms、转 PNG 67ms。主题替换慢是因为几十条正则要扫过全部 base64，所以图片嵌入挪到主题替换之后；`ImageEmbedder` 按路径 + 修改时间缓存编码结果（上限 64M 字符，超了清空），编码改用 Obsidian 的 `arrayBufferToBase64`。优化后约 425ms，输出和之前逐字符一致。剩下的主要是公式：颜色随主题变，切主题时不能复用。
+
+预览面板和弹窗在新内容准备好之前保留旧内容，不再先清空，切换时不会白一下，滚动位置也保留；连续切换时用序号丢弃过期结果。侧边面板还没有内容时，预览框靠 `.publisher-preview-phone:empty` 隐藏，否则是一条空白框。弹窗则先转换好再打开，否则会先闪一个只有工具栏的矮弹窗。
+
+"当前 Obsidian 主题"第一次切换时屏幕灰白一下：见 8.6，勾选框改在隐藏窗口里截取。
 
 ## 9. 已知限制与风险
 
