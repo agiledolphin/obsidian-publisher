@@ -6,6 +6,29 @@
 - Entry point: `main.ts` compiled to `main.js` and loaded by Obsidian.
 - Required release artifacts: `main.js`, `manifest.json`, and optional `styles.css`.
 
+## This project: Obsidian Publisher
+
+Converts Obsidian notes to rich-text HTML for pasting into the WeChat Official Account editor. Desktop-only (`isDesktopOnly: true`). Design decisions and WeChat pitfalls are in `ARCHITECTURE.md`; read it before changing output HTML. User-facing docs and release notes are in Chinese.
+
+**Output HTML rules** (WeChat rewrites what it doesn't like, and the preview won't show it):
+
+- Inline styles only. Build boxes from `<section>`: WeChat mangles `<div>`, `<ul>/<ol>/<li>` and `<blockquote>` on paste.
+- Empty styling-only tags get dropped; every decorative element needs real text. Don't rely on `white-space`, `clip-path`, `calc()` or `url()` backgrounds.
+- Images must end up as PNGs of at least 2KB. SVGs and smaller PNGs disappear when the draft is saved.
+- The clipboard also carries plain text, so decorative text must not contain Markdown characters such as a leading `> ` or paired `_`.
+- `sanitizeForWeChat` removes `data-*` attributes (our own markers), except WeChat's `data-ignore-dm`.
+- The preview shows `convert()` output unchanged and every copy path copies that same HTML. Never add preview-only rewrites; they hide bugs in the output.
+- The live `obsidian` theme follows Obsidian's reading view. Exceptions are deliberate, for phone reading: body stays 16px, H1 ≤ 28px, H2 ≤ 24px, table side padding ≤ 12px.
+
+**Verifying output:**
+
+- `npm run lint` must pass before committing.
+- WeChat's official checker lives in `.tools/verify-article-structure-spec/` (gitignored, its own dependencies, installed with `PUPPETEER_SKIP_DOWNLOAD=true bun install`). In its `cli/` folder, run `PUPPETEER_EXECUTABLE_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" bun run check <file.html>`. It doesn't cover the font or `span[leaf]` rules.
+- Final say belongs to a real paste into WeChat, saved as a draft, and viewed on a phone in light and dark mode.
+- Obsidian must restart to load a new `main.js`.
+
+**Git and releases:** commit or push only when the user asks. `main.js` is committed because users install with `git clone`, BRAT or release downloads, so rebuild it before committing. BRAT installs from release assets, so every release needs all three files.
+
 ## Environment & tooling
 
 - Node.js: use current LTS (Node 18+ recommended).
@@ -60,7 +83,7 @@ npm run build
       constants.ts
     types.ts         # TypeScript interfaces and types
   ```
-- **Do not commit build artifacts**: Never commit `node_modules/`, `main.js`, or other generated files to version control.
+- **Build artifacts**: Never commit `node_modules/`. `main.js` is the exception here: it is committed on purpose (see above).
 - Keep the plugin small. Avoid large dependencies. Prefer browser-compatible packages.
 - Generated output should be placed at the plugin root or `dist/` depending on your build setup. Release artifacts must end up at the top level of the plugin folder in the vault (`main.js`, `manifest.json`, `styles.css`).
 
@@ -249,3 +272,7 @@ this.registerInterval(window.setInterval(() => { /* ... */ }, 1000));
 - Developer policies: https://docs.obsidian.md/Developer+policies
 - Plugin guidelines: https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines
 - Style guide: https://help.obsidian.md/style-guide
+- WeChat Official Account docs: https://developers.weixin.qq.com/doc/subscription/guide/
+- WeChat API reference: https://developers.weixin.qq.com/doc/subscription/api/
+- WeChat editor plugin spec (the paste-time content check): https://developers.weixin.qq.com/doc/subscription/guide/product/plugin_spec.html
+- WeChat rule definitions and checker: https://github.com/wechatjs/verify-article-structure-spec
