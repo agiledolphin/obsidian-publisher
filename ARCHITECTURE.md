@@ -146,7 +146,7 @@ onunload()  → 插件禁用时调用，清理资源
 
 | 函数 | 说明 |
 |------|------|
-| `preprocessEmbeds()` | 展开 `![[image.png]]` 和 `![[note.md]]`，使用 MetadataCache 解析链接路径 |
+| `preprocessEmbeds()` | 展开 `![[image.png]]` 和 `![[note.md]]`，使用 MetadataCache 解析链接路径；`|宽度` 由 `sizedImageStyle()` 输出 `width: Npx; max-width: 100%; height: auto`（Markdown 图片 `![alt|400](url)` 也走它，在 `parser.ts` 的 `image` 规则里解析，alt 文字在 `token.content`，`attrGet('alt')` 是空的）。只写 `max-width: Npx` 时，比 N 小的图不会放大，N 大于手机宽度时还会溢出 |
 | `removeTags()` | 移除 `#tag` 标签，保留代码块和标题内的标签 |
 | `processFootnotes()` | 将 `[^label]` 脚注转为微信兼容格式（上标引用 + 底部定义区，无锚链接） |
 

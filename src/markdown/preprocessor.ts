@@ -6,6 +6,15 @@ const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', '
 const MAX_EMBED_DEPTH = 3;
 
 /**
+ * Inline style for an image with an Obsidian display width (`|400`). A real
+ * width, unlike max-width alone, also applies to images smaller than it;
+ * max-width keeps wider-than-phone widths from overflowing.
+ */
+export function sizedImageStyle(width: number): string {
+	return `width: ${width}px; max-width: 100%; height: auto; border-radius: 4px; margin: 1em auto; display: block;`;
+}
+
+/**
  * Finds [start, end) ranges of fenced code blocks and inline code spans, so
  * embed/tag scanning can skip literal `![[...]]` syntax examples written as
  * documentation rather than real embed directives.
@@ -145,7 +154,7 @@ export async function preprocessEmbeds(
 
 			if (!isNaN(widthNum)) {
 				// ![[image.png|300]] → width-constrained image
-				const imgTag = `<img src="${escapedSrc}" alt="${escapedAlt}" style="max-width: ${widthNum}px; display: block; margin: 1em auto; border-radius: 4px;">`;
+				const imgTag = `<img src="${escapedSrc}" alt="${escapedAlt}" style="${sizedImageStyle(widthNum)}">`;
 				result = result.replace(full, () => imgTag);
 			} else {
 				// ![[image.png]] or ![[image.png|alt text]]
