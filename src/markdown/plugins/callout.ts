@@ -64,7 +64,7 @@ const EMOJI_FALLBACK: Record<string, string> = {
 };
 
 // ── Per-session cache ─────────────────────────────────────────────────────────
-type CachedStyle = { rgb: string; iconName: string };
+type CachedStyle = { rgb: string; iconName: string; bgAlpha: number };
 const styleCache = new Map<string, CachedStyle>();
 
 // Static RGB override: non-null when a static theme (e.g. Catppuccin Latte) is active.
@@ -93,7 +93,7 @@ function readCalloutStyle(type: string): CachedStyle {
 
 	// Static theme override (Catppuccin Latte etc.) — bypass live DOM reading.
 	if (staticCalloutRgb) {
-		const result = { rgb: staticCalloutRgb[type] ?? fallbackRgb, iconName: fallbackIcon };
+		const result = { rgb: staticCalloutRgb[type] ?? fallbackRgb, iconName: fallbackIcon, bgAlpha: 0.1 };
 		styleCache.set(type, result);
 		return result;
 	}
@@ -104,16 +104,19 @@ function readCalloutStyle(type: string): CachedStyle {
 	Object.assign(probe.style, { position: 'absolute', left: '-9999px', top: '0', visibility: 'hidden', width: '1px', height: '1px' });
 	document.body.appendChild(probe);
 
-	let rgb = fallbackRgb, iconName = fallbackIcon;
+	let rgb = fallbackRgb, iconName = fallbackIcon, bgAlpha = 0.1;
 	try {
 		const cs = getComputedStyle(probe);
 		rgb      = normalizeRgbTriplet(cs.getPropertyValue('--callout-color'), fallbackRgb);
 		iconName = cs.getPropertyValue('--callout-icon').trim()  || fallbackIcon;
+		// The theme's own tint strength (Lamplit light: 0.12), not a fixed 0.1.
+		const alpha = parseFloat(cs.backgroundColor.match(/rgba\([^)]*,\s*([\d.]+)\s*\)/)?.[1] ?? '');
+		if (alpha > 0) bgAlpha = alpha;
 	} finally {
 		document.body.removeChild(probe);
 	}
 
-	const result = { rgb, iconName };
+	const result = { rgb, iconName, bgAlpha };
 	styleCache.set(type, result);
 	return result;
 }
@@ -193,7 +196,7 @@ export function obsidianCalloutPlugin(md: MarkdownIt): void {
 			const canonical = CALLOUT_ALIASES[raw] ?? raw;
 			const title    = (m[2] ?? '').trim() || (canonical.charAt(0).toUpperCase() + canonical.slice(1));
 
-			const { rgb, iconName } = readCalloutStyle(canonical);
+			const { rgb, iconName, bgAlpha } = readCalloutStyle(canonical);
 			const color = `rgb(${rgb})`;
 
 			// Build icon HTML: prefer Lucide SVG, fall back to emoji.
@@ -203,7 +206,7 @@ export function obsidianCalloutPlugin(md: MarkdownIt): void {
 			bqOpen.meta = {
 				callout:   true,
 				color,
-				bg:        `rgba(${rgb}, 0.1)`,
+				bg:        `rgba(${rgb}, ${bgAlpha})`,
 				titleHtml: `${iconHtml}${renderTitleInline(title)}`,
 			};
 

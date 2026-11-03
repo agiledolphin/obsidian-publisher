@@ -210,7 +210,27 @@ function cssColorToHex(color: string): string | null {
 	const rgbM = color.match(/rgb\(\s*(\d+),\s*(\d+),\s*(\d+)\s*\)/);
 	if (rgbM) return toHex6(rgbM[1], rgbM[2], rgbM[3]);
 
-	return null;
+	return canvasColor(color)?.hex ?? null;
+}
+
+/**
+ * Any CSS color (oklch(), color(), lab(), named...) as sRGB hex plus alpha,
+ * by painting it on a 1×1 canvas. Computed styles keep modern color syntax —
+ * Obsidian 1.15 themes write colors like color-mix(in oklch, ...), which
+ * compute to oklch(... / 0.12) rather than rgb(). Null if fully transparent
+ * or unparseable.
+ */
+function canvasColor(color: string): { hex: string; alpha: number } | null {
+	const canvas = document.createElement('canvas');
+	canvas.width = canvas.height = 1;
+	const ctx = canvas.getContext('2d', { willReadFrequently: true });
+	if (!ctx) return null;
+	ctx.fillStyle = '#00000000';
+	ctx.fillStyle = color; // an invalid value leaves the transparent fill
+	ctx.fillRect(0, 0, 1, 1);
+	const [r = 0, g = 0, b = 0, a = 0] = ctx.getImageData(0, 0, 1, 1).data;
+	if (a === 0) return null;
+	return { hex: toHex6(String(r), String(g), String(b)), alpha: a / 255 };
 }
 
 /**
@@ -532,7 +552,10 @@ function readIndentGuideColor(bg: string, fallback: string): string {
 		el => getComputedStyle(el).color,
 	);
 	const m = raw.match(/rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\s*\)/);
-	if (!m) return fallback;
+	if (!m) {
+		const c = canvasColor(raw); // e.g. oklch(... / 0.12) from color-mix()
+		return c ? mixColors(bg, c.hex, c.alpha) : fallback;
+	}
 	const alpha = m[4] === undefined ? 1 : parseFloat(m[4]);
 	if (alpha === 0) return fallback;
 	return mixColors(bg, toHex6(m[1], m[2], m[3]), alpha);
