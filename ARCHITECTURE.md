@@ -637,6 +637,10 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 
 解决方案：`color-utils.ts` 的 `normalizeRgbTriplet(raw, fallback)` 同时识别两种格式，统一转成 `"r, g, b"` 再使用。
 
+**callout 底色的透明度也要读主题的**（2026-11-03，Obsidian 1.15 回归检查时发现）："当前 Obsidian 主题"下 callout 底色原来写死成 `rgba(callout 色, 0.1)`，但主题可以直接改透明度（Lamplit 浅色模式是 0.12、深色是 0.10），也不一定走 `--callout-blend-factor`。现在 `readCalloutStyle()` 从同一个 `.callout[data-callout]` 探针顺带读 computed `background-color` 的 alpha。
+
+**现代颜色语法**：主题越来越多用 `color-mix(in oklch, …)` 之类的写法，computed 值是 `oklch(… / 0.12)`，不是 `rgb()`。`cssColorToHex()` 遇到解析不了的格式，退回 `canvasColor()`：在 1×1 canvas 上画出这个颜色再读像素，任何 CSS 颜色都能换成 sRGB + alpha。Lamplit 的缩进线就是这种写法，之前解析失败、退回了边框色。
+
 ### 8.9 表格：表头背景/文字色/边框色/列对齐
 
 **表头背景色**：`readTableHeaderVars()`（`engine.ts`）不能只读 `--table-header-background` 这个变量本身——有些主题定义了这个变量但实际渲染时并不使用它（背景是加在 `thead tr` 这一整行上，或者干脆加在 `<th>` 自己身上，因主题而异），变量值和真实视觉效果可能对不上。解决方案：往 `.markdown-preview-view` 里插入一个真实的 `<table><thead><tr><th>`，按 `th` 自身 → `tr` → `thead` 的优先级依次读 `getComputedStyle().backgroundColor`，取第一个非透明值——这样不管当前主题把背景画在哪一层，都能读到实际生效的颜色。
