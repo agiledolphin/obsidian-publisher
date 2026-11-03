@@ -13,7 +13,7 @@
  */
 
 import { App, MarkdownRenderer, Component } from 'obsidian';
-import { getStaticTheme, buildMermaidInit } from '../style/themes';
+import { getStaticTheme, buildMermaidInit, buildMermaidVars } from '../style/themes';
 import { rasterizeSvg } from '../utils/svg-raster';
 
 const MERMAID_BLOCK = /^```mermaid[ \t]*\r?\n([\s\S]*?)^```[ \t]*$/gm;
@@ -27,6 +27,8 @@ const SVG_PROPS = [
 	'text-anchor', 'dominant-baseline', 'alignment-baseline',
 	'display', 'visibility',
 	'stop-color', 'stop-opacity',
+	// Obsidian 1.15's Mermaid renderer (Pele) rounds corners through CSS, not attributes.
+	'rx', 'ry',
 ];
 
 /**
@@ -255,6 +257,9 @@ export async function processMermaid(markdown: string, app: App, theme?: string)
 
 	const staticTheme = theme ? getStaticTheme(theme) : undefined;
 	const textColorOverride = staticTheme?.textNormal;
+	if (staticTheme) {
+		for (const [name, value] of Object.entries(buildMermaidVars(staticTheme))) viewCtx.style.setProperty(name, value);
+	}
 	// Live theme: Mermaid's default theme in both modes, as Obsidian renders
 	// it (dark mode is Obsidian's CSS filter, applied in svgToPng).
 	const initDirective = staticTheme
