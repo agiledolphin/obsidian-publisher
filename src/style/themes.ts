@@ -1107,23 +1107,57 @@ function distinctColors(candidates: string[], count: number): string[] {
 	return candidates.slice(0, count);
 }
 
-/** Builds a Mermaid %%{init}%% directive that recolors diagrams to match a static theme. */
-export function buildMermaidInit(theme: StaticTheme): string {
+/** A static theme's diagram colors, shared by both ways of recoloring Mermaid. */
+function mermaidPalette(theme: StaticTheme) {
 	// What the diagram actually sits on: WeChat's white page for transparent themes.
 	const page = theme.transparentPage ? '#FFFFFF' : theme.bgPrimary;
 	const main = theme.diagramAccent ?? theme.calloutAccent.note;
-	const primary = mixColors(page, main, 0.25);
-	const secondary = mixColors(page, theme.calloutAccent.tip, 0.25);
-	const tertiary = mixColors(page, theme.accent, 0.25);
-	const clusterBg = mixColors(page, theme.textFaint, 0.15);
+	const c = theme.calloutAccent;
 	// Slices are opaque tints (so they match their legend swatches and keep
 	// text-colored labels readable), separated by page-colored gaps instead
 	// of Mermaid's default black outlines.
-	const c = theme.calloutAccent;
 	const pie = distinctColors(
 		[main, c.tip, c.info, c.todo, c.example, c.danger, c.abstract, c.question, c.bug, theme.accent, c.quote, ...theme.headings],
-		7,
+		8,
 	).map(color => mixColors(page, color, 0.6));
+	return {
+		page, main, pie,
+		primary: mixColors(page, main, 0.25),
+		secondary: mixColors(page, c.tip, 0.25),
+		tertiary: mixColors(page, theme.accent, 0.25),
+		clusterBg: mixColors(page, theme.textFaint, 0.15),
+	};
+}
+
+/**
+ * Obsidian 1.15+ draws Mermaid with its own renderer (Pele), which ignores
+ * %%{init}%% theme variables and reads these CSS variables instead (defaults
+ * in app.css map them to the Obsidian theme). Set on the render container,
+ * they override what the active Obsidian theme defines.
+ */
+export function buildMermaidVars(theme: StaticTheme): Record<string, string> {
+	const { page, main, pie, primary, clusterBg } = mermaidPalette(theme);
+	const vars: Record<string, string> = {
+		'--mermaid-background': page,
+		'--mermaid-text-color': theme.textNormal,
+		'--mermaid-muted-color': theme.textMuted,
+		'--mermaid-line-color': theme.textFaint,
+		'--mermaid-surface': primary,
+		'--mermaid-surface-alt': clusterBg,
+		'--mermaid-border-color': main,
+		'--mermaid-accent': theme.accent,
+		// Tinted like the pie colors: text on them stays theme.textNormal.
+		'--mermaid-critical': mixColors(page, theme.calloutAccent.danger, 0.6),
+		'--mermaid-error': mixColors(page, theme.calloutAccent.failure, 0.6),
+	};
+	pie.forEach((color, k) => { vars[`--mermaid-color-${k + 1}`] = color; });
+	return vars;
+}
+
+/** Builds a Mermaid %%{init}%% directive that recolors diagrams to match a static theme (Obsidian before 1.15). */
+export function buildMermaidInit(theme: StaticTheme): string {
+	const { page, main, primary, secondary, tertiary, clusterBg, pie: colors } = mermaidPalette(theme);
+	const pie = colors.slice(0, 7);
 	return (
 		'%%{init: {"theme":"base","themeVariables":{' +
 		`"background":"${page}",` +
