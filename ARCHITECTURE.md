@@ -841,6 +841,8 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 - Obsidian API 类型定义：https://github.com/obsidianmd/obsidian-api
 - markdown-it：https://github.com/markdown-it/markdown-it
 - highlight.js：https://highlightjs.org
+**最低 Obsidian 版本**：`manifest.json` 的 `minAppVersion` 是 1.14.5（2026-11-03 从 1.0.0 提上来，用户决定）。用到的 API 大多很早就有，最新的是 `workspace.revealLeaf` 在 1.7.2 起返回 Promise（旧版返回空值，`await` 也不报错）；真正决定能否正常工作的是行为依赖：Electron `remote`（勾选框截图）、阅读视图的 DOM 结构和 CSS 变量（探针读取）、Mermaid 渲染器（1.15 换成 Pele）。这些没法用 API 版本界定，所以把下限定在实际测过的最早版本：1.14.5 和 1.15.0 都测过。开发用的类型定义是 `obsidian` 1.10.3（`package.json` 写的是 `latest`）。`versions.json` 由 `version-bump.mjs` 在发版时按 `minAppVersion` 写入新版本，已发布版本的旧值保持不变。
+
 - 微信公众号开发文档：https://developers.weixin.qq.com/doc/subscription/guide/
 - 微信公众号 API 参考：https://developers.weixin.qq.com/doc/subscription/api/
 - 微信编辑器插件开发规范：https://developers.weixin.qq.com/doc/subscription/guide/product/plugin_spec.html
