@@ -71,11 +71,12 @@ export interface StaticTheme {
 	 * is the single most reliably-surviving pattern confirmed this session.
 	 * Optional `prefix`/`suffix` text (HTML) in `affixColor` and a monospace
 	 * font turn it into a terminal line, e.g. 深蓝's `❯ 标题▁`. `radius` rounds
-	 * the badge, e.g. 森林's leaf (two opposite corners).
+	 * the badge, e.g. 森林's leaf (two opposite corners). `border` frames it,
+	 * e.g. 包豪斯's heavy black outline.
 	 */
 	headingBar?: {
 		level: 1 | 2; bgColor: string; textColor: string;
-		prefix?: string; suffix?: string; affixColor?: string; mono?: boolean; radius?: string;
+		prefix?: string; suffix?: string; affixColor?: string; mono?: boolean; radius?: string; border?: string;
 	};
 	/**
 	 * Optional small icon + soft-highlighted text treatment for one heading
@@ -127,6 +128,8 @@ export interface StaticTheme {
 	 * underlined at all.
 	 */
 	noUnderline?: (1 | 2)[];
+	/** Optional CSS border for the H1 underline in place of the default 2px accent line, e.g. '4px solid #1A1A1A'. */
+	h1Underline?: string;
 	/** Optional override for **bold** text color; defaults to textNormal (inherited) when unset. */
 	boldColor?: string;
 	/**
@@ -477,6 +480,53 @@ const SAKURA: StaticTheme = {
 	transparentPage: true,
 };
 
+// ── 包豪斯 (Bauhaus) ─────────────────────────────────────────────────────
+// The three primaries plus black: pure red (0°, not 中国红's orange-leaning
+// 7°), Bauhaus blue, and yellow only as a fill (it's 1.6:1 on white), under
+// black text with a heavy black H1 rule. H2 is a poster frame: black text
+// on paper white inside a 3px black outline (a notch under the H1's 4px
+// rule, so H2 doesn't outweigh it), after a red circle, yellow
+// square and blue triangle (a solid black block was too heavy on a light
+// page — 22 of them cut an article apart). Callouts and code stick to
+// the same few colors, with ochre standing in for yellow text.
+
+const BAUHAUS: StaticTheme = {
+	id: 'bauhaus',
+	label: '包豪斯',
+	bgPrimary: '#FFFFFF',
+	textNormal: '#1A1A1A',
+	textMuted: '#555555',
+	textFaint: '#9A9A9A',
+	textItalic: '#333333',
+	linkColor: '#1F4E9C',
+	accent: '#C62828',
+	headings: ['#1A1A1A', '#1A1A1A', '#C62828', '#1F4E9C', '#555555', '#6E6E6E'],
+	highlightBg: '#F4C430',
+	codeBackground: '#F2F2F0',
+	tableHeaderColor: '#1A1A1A',
+	borderColor: '#D8D8D8',
+	diagramAccent: '#1F4E9C',
+	code: {
+		normal: '#1A1A1A', comment: '#6B6B6B', keyword: '#C62828', function: '#1F4E9C',
+		string: '#8A6700', value: '#163A78', tag: '#C62828', property: '#555555',
+		variable: '#5C5C5C', inline: '#C62828',
+	},
+	calloutAccent: {
+		note: '#1F4E9C', abstract: '#1A1A1A', info: '#1F4E9C', todo: '#8A6700',
+		tip: '#163A78', success: '#163A78', question: '#8A6700', warning: '#8A6700',
+		failure: '#C62828', danger: '#C62828', bug: '#C62828', example: '#1A1A1A', quote: '#5C5C5C',
+	},
+	headingBar: {
+		level: 2, bgColor: '#F4F1EA', textColor: '#1A1A1A', border: '3px solid #1A1A1A',
+		prefix: '<span style="color: #C62828;">●</span>&nbsp;<span style="color: #F4C430;">■</span>&nbsp;' +
+			'<span style="color: #1F4E9C;">▲</span>&nbsp;&nbsp;',
+	},
+	h1Underline: '4px solid #1A1A1A',
+	// Same colors as the matching callout types (info/quote/question/danger).
+	taskAccent: { inProgress: '#1F4E9C', rescheduled: '#5C5C5C', question: '#8A6700', important: '#C62828' },
+	transparentPage: true,
+};
+
 // ── 星云 (Nebula) ────────────────────────────────────────────────────────
 // Deep and vast: a deep-space blue-violet-black page (the one dark preset —
 // its light text needs this background, so it can't go transparent),
@@ -641,6 +691,7 @@ export const STATIC_THEMES: Record<string, StaticTheme> = {
 	'china-red': CHINA_RED,
 	'forest': FOREST,
 	'sakura': SAKURA,
+	'bauhaus': BAUHAUS,
 	'nebula': NEBULA,
 	'orange-heart': ORANGE_HEART,
 	'hardboiled-wonderland': HARDBOILED_WONDERLAND,
@@ -653,7 +704,7 @@ export const STATIC_THEMES: Record<string, StaticTheme> = {
  */
 export const STATIC_THEME_LIST: StaticTheme[] = [
 	HARDBOILED_WONDERLAND, ORANGE_HEART, CHINA_RED, MINIMAL_MONO, MINIMAL_MONO_2, PURPLE_MIST,
-	WARM_ALMOND, DEEP_BLUE, FOREST, SAKURA, NEBULA,
+	WARM_ALMOND, DEEP_BLUE, FOREST, SAKURA, BAUHAUS, NEBULA,
 ];
 
 /** id/label pairs for building a theme <select>, 'obsidian' first — shared by
@@ -845,7 +896,7 @@ export function buildStaticThemeMap(theme: StaticTheme): [RegExp, string][] {
 		);
 	}
 	if (theme.headingBar) {
-		const { level, bgColor, textColor, prefix, suffix, affixColor, mono, radius } = theme.headingBar;
+		const { level, bgColor, textColor, prefix, suffix, affixColor, mono, radius, border } = theme.headingBar;
 		const fontSize = level === 1 ? '22px' : '18px';
 		const margin = level === 1 ? '1.5em 0 0.8em 0' : '1.3em 0 0.6em 0';
 		const [openSource, closeSource] = level === 1
@@ -860,7 +911,8 @@ export function buildStaticThemeMap(theme: StaticTheme): [RegExp, string][] {
 			`display: inline-block; font-size: ${fontSize}; font-weight: 700; ` +
 			`color: ${textColor}; background-color: ${bgColor}; padding: 10px 16px; line-height: 1.3;` +
 			(mono ? ` font-family: 'SF Mono', Menlo, Consolas, 'Courier New', monospace;` : '') +
-			(radius ? ` border-radius: ${radius};` : '');
+			(radius ? ` border-radius: ${radius};` : '') +
+			(border ? ` border: ${border};` : '');
 		const affix = (text?: string) => text ? `<span style="color: ${affixColor ?? textColor};">${text}</span>` : '';
 		map.push(
 			[openSource, `<${tag} style="${headingStyle}"><span style="${barStyle}">${affix(prefix)}`],
@@ -958,6 +1010,10 @@ export function buildStaticThemeMap(theme: StaticTheme): [RegExp, string][] {
 			[openSource, `<${tag} style="${headingStyle}"><span style="${badgeStyle}">${iconHtml}<span style="${textStyle}">`],
 			[closeSource, `</span></span></${tag}>`],
 		);
+	}
+	if (theme.h1Underline) {
+		// Before the generic accent substitution below, which would claim the placeholder first.
+		map.push([/; border-bottom: 2px solid #7c3aed; padding-bottom: 0\.3em/g, `; border-bottom: ${theme.h1Underline}; padding-bottom: 0.3em`]);
 	}
 	if (theme.noUnderline) {
 		// Matched against the literal placeholder text (not theme.accent —
