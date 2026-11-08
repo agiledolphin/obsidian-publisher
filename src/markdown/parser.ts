@@ -20,7 +20,7 @@ import { obsidianWikiLinkPlugin } from './plugins/wikilink';
 import { obsidianHighlightPlugin } from './plugins/highlight-mark';
 import { obsidianTaskListPlugin } from './plugins/task-list';
 import { LIST_MARKER_CENTER } from '../style/task-icons';
-import { sizedImageStyle } from './preprocessor';
+import { sizedImageStyle, type Footnote } from './preprocessor';
 
 // Register highlight.js languages
 hljs.registerLanguage('javascript', javascript);
@@ -135,12 +135,20 @@ function applyHljsTheme(html: string): string {
 	});
 }
 
+// List rows (see the Lists section in the constructor). Placeholder #b0b0b1 = marker color.
+const MARKER_COL = 32; // marker column width; content starts here
+const MARKER_BASE = `flex-shrink: 0; width: ${MARKER_COL}px; box-sizing: border-box;`;
+const LIST_ROW_OPEN = `<section style="display: flex; align-items: baseline; font-size: 16px; line-height: 1.75; padding: 0.1em 0;">`;
+const orderedMarker = (n: number): string =>
+	`<span style="${MARKER_BASE} padding-right: 6px; text-align: right; color: #b0b0b1;">${n}.</span>`;
+
 export class MarkdownParser {
 	private md: MarkdownIt;
 	private insideDoneTask = false;
 	private listStack: { ordered: boolean; next: number }[] = [];
 	private itemTasks: (string | null)[] = [];
 	private insideLink = false;
+	private linkTags: string[] = []; // closing tag per open link: </a> or </span>
 
 	constructor() {
 		this.md = new MarkdownIt({
@@ -278,14 +286,22 @@ export class MarkdownParser {
 		};
 
 		// ── Links ─────────────────────────────────────────────────────
+		// WeChat article bodies only keep links to WeChat articles; it strips any
+		// other <a> on paste, along with the color set on it. So those stay
+		// links, and everything else is colored text, as the reader will see it.
 		md.renderer.rules['link_open'] = (tokens, idx) => {
 			this.insideLink = true;
 			const href = tokens[idx]?.attrGet('href') ?? '';
-			return `<a href="${href}" style="color: #576b95; text-decoration: none;">`;
+			if (/^https?:\/\/mp\.weixin\.qq\.com\//i.test(href)) {
+				this.linkTags.push('</a>');
+				return `<a href="${href}" style="color: #576b95; text-decoration: none;">`;
+			}
+			this.linkTags.push('</span>');
+			return `<span style="color: #576b95;">`;
 		};
 		md.renderer.rules['link_close'] = () => {
 			this.insideLink = false;
-			return '</a>';
+			return this.linkTags.pop() ?? '</a>';
 		};
 
 		// ── Tables ────────────────────────────────────────────────────
@@ -312,10 +328,9 @@ export class MarkdownParser {
 		// sits in its parent's content column and pulls back under the parent
 		// marker, where its left border draws the indent guide.
 		// Placeholders: #b0b0b1 = marker color, #c0c0c1 = guide color.
-		const MARKER_COL = 32;   // marker column width; content starts here
 		const MARKER_MID = LIST_MARKER_CENTER; // marker center, from the row's left edge
 		const GUIDE = MARKER_COL - MARKER_MID;
-		const markerBase = `flex-shrink: 0; width: ${MARKER_COL}px; box-sizing: border-box;`;
+		const markerBase = MARKER_BASE;
 		const centered = `${markerBase} padding-left: ${2 * MARKER_MID - MARKER_COL}px; text-align: center;`;
 
 		const openList = (ordered: boolean, start: number): string => {
@@ -359,7 +374,7 @@ export class MarkdownParser {
 				// Left-aligned: the checkbox image positions itself (task-icons.ts).
 				marker = `<span style="${markerBase} text-align: left;">${taskBox[task]}</span>`;
 			} else if (list.ordered) {
-				marker = `<span style="${markerBase} padding-right: 6px; text-align: right; color: #b0b0b1;">${list.next++}.</span>`;
+				marker = orderedMarker(list.next++);
 			} else {
 				marker = `<span style="${centered} color: #b0b0b1;">•</span>`;
 			}
@@ -367,7 +382,7 @@ export class MarkdownParser {
 			const struck = task === 'done' || task === 'cancelled';
 			if (struck) this.insideDoneTask = true;
 			return (
-				`<section style="display: flex; align-items: baseline; font-size: 16px; line-height: 1.75; padding: 0.1em 0;">` +
+				LIST_ROW_OPEN +
 				marker +
 				`<section style="flex: 1; min-width: 0;${struck ? ' color: #888888; text-decoration: line-through;' : ''}">`
 			);
@@ -398,6 +413,21 @@ export class MarkdownParser {
 		this.listStack = [];
 		this.itemTasks = [];
 		this.insideDoneTask = false;
+		this.linkTags = [];
 		return this.md.render(markdown);
+	}
+
+	/**
+	 * The closing note list, drawn like Obsidian's reading view: a rule, then
+	 * an ordered list (same rows as a Markdown ordered list, so wrapped lines
+	 * align with the text and the numbers take the list-marker color).
+	 */
+	renderFootnotes(notes: Footnote[]): string {
+		if (notes.length === 0) return '';
+		const rows = notes.map(({ n, text }) => {
+			const body = text.split('\n').map(line => this.md.renderInline(line)).join('<br>');
+			return `${LIST_ROW_OPEN}${orderedMarker(n)}<section style="flex: 1; min-width: 0;">${body}</section></section>`;
+		});
+		return `<hr style="border: none; border-top: 1px solid #e5e5e5; margin: 2em 0;"><section style="margin: 1em 0;">${rows.join('')}</section>`;
 	}
 }

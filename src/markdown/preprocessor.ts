@@ -258,16 +258,19 @@ function removeInlineTags(line: string): string {
  * Processes Obsidian/Pandoc-style footnotes for WeChat-compatible output.
  *
  * WeChat does not support anchor links, so footnote references are rendered
- * as plain styled superscripts and definitions are collected into a section
- * at the bottom of the document.
+ * as plain styled superscripts. Definitions are returned as `notes`, in
+ * reference order, for the parser to render as the closing note list
+ * (MarkdownParser.renderFootnotes).
  *
  * Syntax supported:
  *   [^label]        — inline reference
  *   [^label]: text  — definition, optionally followed by continuation lines
  *                     (non-empty lines that don't start a new [^label]:)
  */
-export function processFootnotes(markdown: string): string {
-	if (!/\[\^[^\]]+\]/.test(markdown)) return markdown;
+export interface Footnote { n: number; text: string }
+
+export function processFootnotes(markdown: string): { markdown: string; notes: Footnote[] } {
+	if (!/\[\^[^\]]+\]/.test(markdown)) return { markdown, notes: [] };
 
 	// Step 1: parse line by line to collect multi-line definitions.
 	const definitions = new Map<string, string>(); // label → full text
@@ -298,7 +301,7 @@ export function processFootnotes(markdown: string): string {
 		}
 	}
 
-	if (definitions.size === 0) return markdown;
+	if (definitions.size === 0) return { markdown, notes: [] };
 
 	let body = bodyLines.join('\n');
 
@@ -310,7 +313,7 @@ export function processFootnotes(markdown: string): string {
 		return '';
 	});
 
-	if (labelToNumber.size === 0) return markdown;
+	if (labelToNumber.size === 0) return { markdown, notes: [] };
 
 	// Step 3: replace references with styled superscripts (no links for WeChat).
 	body = body.replace(/\[\^([^\]]+)\]/g, (_: string, label: string) => {
@@ -322,17 +325,9 @@ export function processFootnotes(markdown: string): string {
 	// Collapse extra blank lines left by removed definition blocks.
 	body = body.replace(/\n{3,}/g, '\n\n').trimEnd();
 
-	// Step 4: append footnote section.
-	const items: string[] = [];
-	for (const [label, n] of labelToNumber) {
-		const raw = definitions.get(label) ?? '*(definition missing)*';
-		// Replace newlines within multi-line definitions with <br> so line breaks
-		// are preserved in the rendered output (markdown single \n is ignored).
-		const text = raw.replace(/\n/g, '<br>&nbsp;&nbsp;&nbsp;&nbsp;');
-		items.push(`**[${n}]** ${text}`);
-	}
-	const section = '\n\n---\n\n' + items.join('\n\n');
-	return body + section;
+	// Step 4: the definitions, in reference order.
+	const notes = [...labelToNumber].map(([label, n]) => ({ n, text: definitions.get(label) ?? '*(definition missing)*' }));
+	return { markdown: body, notes };
 }
 
 // ── List termination ───────────────────────────────────────────────────────

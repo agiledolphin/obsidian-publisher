@@ -87,7 +87,8 @@ export class ConvertController {
 		markdown = await processMermaid(markdown, this.app, this.settings.theme);
 
 		// 6. Process footnotes: [^label] refs → superscripts, definitions → bottom section
-		markdown = processFootnotes(markdown);
+		const footnotes = processFootnotes(markdown);
+		markdown = footnotes.markdown;
 
 		// 6b. Ensure lists are terminated by a blank line before following content.
 		// markdown-it applies CommonMark lazy-continuation which merges paragraphs
@@ -98,7 +99,7 @@ export class ConvertController {
 
 		// 7. Markdown → HTML (inline styles applied by parser rules)
 		setCalloutTheme(this.settings.theme);
-		const html = this.parser.render(markdown);
+		const html = this.parser.render(markdown) + this.parser.renderFootnotes(footnotes.notes);
 
 		logger.debug('HTML rendered, applying style engine…');
 

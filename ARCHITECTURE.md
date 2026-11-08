@@ -149,7 +149,7 @@ onunload()  → 插件禁用时调用，清理资源
 |------|------|
 | `preprocessEmbeds()` | 展开 `![[image.png]]` 和 `![[note.md]]`，使用 MetadataCache 解析链接路径；`|宽度` 由 `sizedImageStyle()` 输出 `width: Npx; max-width: 100%; height: auto`（Markdown 图片 `![alt|400](url)` 也走它，在 `parser.ts` 的 `image` 规则里解析，alt 文字在 `token.content`，`attrGet('alt')` 是空的）。只写 `max-width: Npx` 时，比 N 小的图不会放大，N 大于手机宽度时还会溢出 |
 | `removeTags()` | 移除 `#tag` 标签，保留代码块和标题内的标签 |
-| `processFootnotes()` | 将 `[^label]` 脚注转为微信兼容格式（上标引用 + 底部定义区，无锚链接） |
+| `processFootnotes()` | 将 `[^label]` 引用转为上标，返回按引用顺序编号的定义列表 `notes`，由 `MarkdownParser.renderFootnotes()` 渲染成文末注释（见 8.19） |
 
 **设计要点**：
 
@@ -751,6 +751,12 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 
 "当前 Obsidian 主题"第一次切换时屏幕灰白一下：见 8.6，勾选框改在隐藏窗口里截取。
 
+### 8.19 外部链接与脚注
+
+**外部链接不输出 `<a>`**：公众号正文只保留公众号文章（`mp.weixin.qq.com`）的链接，其他 `<a>` 粘贴时被编辑器去掉，写在 `<a>` 上的颜色也跟着丢，预览里是蓝色链接、微信里成了黑字，违背"预览 = 复制结果"。现在 `link_open` 只给 `mp.weixin.qq.com` 输出 `<a>`，其他链接输出 `<span style="color: #576b95;">`（链接色占位，主题替换），用 `linkTags` 栈记住每个链接该用哪个闭合标签。正文链接不自动转脚注（用户决定）。
+
+**脚注**：原来是在 Markdown 里拼一段"---"加"**[1]** 定义"的段落，编号和网址挤在一起，长网址折到第二行时顶到最左边（2026-11-08 用户反馈难看）。现在 `processFootnotes()` 只负责把引用换成上标、返回定义列表，`renderFootnotes()` 照 Obsidian 阅读视图画：一条分割线加一个有序列表，行结构和 Markdown 有序列表完全相同（`LIST_ROW_OPEN` + `orderedMarker()`，编号是列表标记色、正文字号，折行和内容列对齐）。中间试过一版 `[1]` 编号单列、14px 次要色，用户要求和 Obsidian 一致后改成现在这样。定义里的 Markdown 用 `md.renderInline()` 渲染，多行定义按行渲染再用 `<br>` 连接。不加"参考资料"之类的标题（用户决定）。
+
 ## 9. 已知限制与风险
 
 | 限制/风险 | 说明 | 应对 |
@@ -835,6 +841,8 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 
 无运行时 CSS 内联库（不使用 juice）。
 
+**最低 Obsidian 版本**：`manifest.json` 的 `minAppVersion` 是 1.14.5（2026-11-03 从 1.0.0 提上来，用户决定）。用到的 API 大多很早就有，最新的是 `workspace.revealLeaf` 在 1.7.2 起返回 Promise（旧版返回空值，`await` 也不报错）；真正决定能否正常工作的是行为依赖：Electron `remote`（勾选框截图）、阅读视图的 DOM 结构和 CSS 变量（探针读取）、Mermaid 渲染器（1.15 换成 Pele）。这些没法用 API 版本界定，所以把下限定在实际测过的最早版本：1.14.5 和 1.15.0 都测过。开发用的类型定义是 `obsidian` 1.10.3（`package.json` 写的是 `latest`）。`versions.json` 由 `version-bump.mjs` 在发版时按 `minAppVersion` 写入新版本，已发布版本的旧值保持不变。
+
 ---
 
 ## 附录：参考资料
@@ -844,8 +852,6 @@ note 展开时，嵌入内容中的 `$&`、`$'`、`$`` 等字符会被 `String.r
 - Obsidian API 类型定义：https://github.com/obsidianmd/obsidian-api
 - markdown-it：https://github.com/markdown-it/markdown-it
 - highlight.js：https://highlightjs.org
-**最低 Obsidian 版本**：`manifest.json` 的 `minAppVersion` 是 1.14.5（2026-11-03 从 1.0.0 提上来，用户决定）。用到的 API 大多很早就有，最新的是 `workspace.revealLeaf` 在 1.7.2 起返回 Promise（旧版返回空值，`await` 也不报错）；真正决定能否正常工作的是行为依赖：Electron `remote`（勾选框截图）、阅读视图的 DOM 结构和 CSS 变量（探针读取）、Mermaid 渲染器（1.15 换成 Pele）。这些没法用 API 版本界定，所以把下限定在实际测过的最早版本：1.14.5 和 1.15.0 都测过。开发用的类型定义是 `obsidian` 1.10.3（`package.json` 写的是 `latest`）。`versions.json` 由 `version-bump.mjs` 在发版时按 `minAppVersion` 写入新版本，已发布版本的旧值保持不变。
-
 - 微信公众号开发文档：https://developers.weixin.qq.com/doc/subscription/guide/
 - 微信公众号 API 参考：https://developers.weixin.qq.com/doc/subscription/api/
 - 微信编辑器插件开发规范：https://developers.weixin.qq.com/doc/subscription/guide/product/plugin_spec.html
