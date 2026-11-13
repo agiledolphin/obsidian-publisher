@@ -31,19 +31,6 @@ export class PublisherSettingTab extends PluginSettingTab {
 					});
 			});
 
-		new Setting(containerEl)
-			.setName('自定义 CSS')
-			.setDesc('在生成的 HTML 末尾追加自定义内联样式（高级用法）')
-			.addTextArea((text) =>
-				text
-					.setPlaceholder('/* 暂未实现，保留字段 */')
-					.setValue(this.plugin.settings.customCss)
-					.onChange(async (value) => {
-						this.plugin.settings.customCss = value;
-						await this.plugin.saveSettings();
-					})
-			);
-
 		// ── 图片设置 ──────────────────────────────────────────────────
 		new Setting(containerEl).setName('图片设置').setHeading();
 

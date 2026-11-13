@@ -8,6 +8,7 @@ import { preprocessEmbeds, removeTags, removeComments, processFootnotes, fixList
 import { processMath, setMathTextColor } from './markdown/math';
 import { processMermaid } from './markdown/mermaid';
 import { setCalloutTheme } from './markdown/plugins/callout';
+import { setWikiLinkMode } from './markdown/plugins/wikilink';
 import { getStaticTheme } from './style/themes';
 import { logger } from './utils/logger';
 import { rasterizeSvgImages, padSmallPngs } from './utils/svg-raster';
@@ -99,6 +100,7 @@ export class ConvertController {
 
 		// 7. Markdown → HTML (inline styles applied by parser rules)
 		setCalloutTheme(this.settings.theme);
+		setWikiLinkMode(this.settings.wikiLinkMode);
 		const html = this.parser.render(markdown) + this.parser.renderFootnotes(footnotes.notes);
 
 		logger.debug('HTML rendered, applying style engine…');

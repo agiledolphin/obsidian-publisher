@@ -4,6 +4,7 @@ import type { LiveTaskIcons } from './live-task-icons';
 import { logger } from '../utils/logger';
 import { toHex6, mixColors } from './color-utils';
 import { getStaticTheme, buildStaticThemeMap, type ThemeName } from './themes';
+import { DEFAULT_HIGHLIGHT_COLORS, type HighlightColor } from '../markdown/plugins/highlight-mark';
 
 export type { ThemeName };
 
@@ -18,6 +19,7 @@ export interface ObsidianVars {
 	textFaint:       string;
 	textHighlightBg:     string;
 	textHighlightFg:     string;
+	coloredHighlights:   Record<HighlightColor, { bg: string; fg: string }>;
 	accent:      string;
 	linkColor:   string;
 	fontText:    string;
@@ -539,6 +541,58 @@ function applyLiveCodeTokens(html: string, v: ObsidianVars): string {
 	});
 }
 
+const HIGHLIGHT_COLOR_KEYS: readonly HighlightColor[] = ['red', 'orange', 'yellow', 'green', 'blue', 'purple'];
+
+/** Probes Obsidian's reading-view <mark data-highlight="..."> for each colored highlight tint. */
+function readColoredHighlights(fallbackFg: string): Record<HighlightColor, { bg: string; fg: string }> {
+	const container =
+		document.querySelector('.markdown-preview-view .markdown-rendered') ??
+		document.querySelector('.markdown-preview-section') ??
+		document.querySelector('.markdown-preview-view');
+	const parent = container ?? document.body;
+	const p = document.createElement('p');
+	p.classList.add('publisher-offscreen');
+	const marks = new Map<HighlightColor, HTMLElement>();
+	for (const color of HIGHLIGHT_COLOR_KEYS) {
+		const mark = document.createElement('mark');
+		mark.setAttribute('data-highlight', color);
+		mark.textContent = 'X';
+		p.appendChild(mark);
+		marks.set(color, mark);
+	}
+	parent.appendChild(p);
+	const result = {} as Record<HighlightColor, { bg: string; fg: string }>;
+	try {
+		for (const color of HIGHLIGHT_COLOR_KEYS) {
+			const cs = getComputedStyle(marks.get(color)!);
+			const bg = (!container && (!cs.backgroundColor || cs.backgroundColor === 'rgba(0, 0, 0, 0)'))
+				? DEFAULT_HIGHLIGHT_COLORS[color]
+				: (cs.backgroundColor || DEFAULT_HIGHLIGHT_COLORS[color]);
+			result[color] = { bg, fg: cs.color || fallbackFg };
+		}
+	} finally {
+		parent.removeChild(p);
+	}
+	return result;
+}
+
+/** Applies the live theme's probed colors to <mark data-highlight="..."> elements. */
+function applyLiveColoredHighlights(
+	html: string,
+	highlights: Record<HighlightColor, { bg: string; fg: string }>,
+): string {
+	return html.replace(
+		/<mark data-highlight="(red|orange|yellow|green|blue|purple)" style="([^"]*)"/g,
+		(_m, color: HighlightColor, style: string) => {
+			const { bg, fg } = highlights[color];
+			const updated = style
+				.replace(/(^|;\s*)background-color:\s*[^;]+;/, `$1background-color: ${bg};`)
+				.replace(/(^|;\s*)color:\s*[^;]+;/, `$1color: ${fg};`);
+			return `<mark style="${updated}"`;
+		},
+	);
+}
+
 // ── Public API ──────────────────────────────────────────────────────────────
 
 /** Read the live Obsidian theme colors, correctly resolving nested CSS variables. */
@@ -893,12 +947,14 @@ export function readObsidianVars(): ObsidianVars {
 		listMarker:       '',
 		indentGuide:      '',
 		delColor:         '',
+		coloredHighlights: {} as Record<HighlightColor, { bg: string; fg: string }>,
 		fontSizes:        readFontSizes(),
 		table:            null,
 	};
 	vars.listMarker  = readComputedColor('--list-marker-color', vars.textFaint);
 	vars.indentGuide = readIndentGuideColor(vars.bgPrimary, vars.bgBorder);
 	vars.delColor    = readDelColor(vars.textFaint);
+	vars.coloredHighlights = readColoredHighlights(vars.textNormal);
 	vars.table       = readTableMetrics(vars.bgPrimary);
 	logger.debug('readObsidianVars →', JSON.stringify(vars));
 	return vars;
@@ -1011,6 +1067,8 @@ export class StyleEngine {
 			[/color: #9c27b0; line-height/g, `color: ${v.calloutExample}; line-height`],
 			[/color: #607d8b; line-height/g, `color: ${v.calloutQuote}; line-height`],
 			[/color: #00bcd4; line-height/g, `color: ${v.calloutAbstract}; line-height`],
+			// ── Code block base text (before heading/text colors are substituted) ─
+			[/color: #24292f/g,                   `color: ${v.codeNormal}`],
 			// ── Headings: per-level size + color, remove decorative borders ────
 			// Match font-size+color uniquely per heading level (before generic replacement).
 			[/font-size: 24px; color: #1a1a1a/g, `font-size: ${s.h1}; color: ${v.h1Color}`],
@@ -1020,7 +1078,7 @@ export class StyleEngine {
 			[/font-size: 15px; color: #1a1a1a/g, `font-size: ${s.h5}; color: ${v.h5Color}`],
 			[/font-size: 14px; color: #1a1a1a/g, `font-size: ${s.h6}; color: ${v.h6Color}`],
 			// ── Code and table sizes (before their color placeholders are replaced) ─
-			[/font-size: 14px; color: #c7254e/g,                `font-size: ${s.inlineCode}; color: #c7254e`],
+			[/font-size: 14px; color: (#c7254e|inherit)/g,      `font-size: ${s.inlineCode}; color: $1`],
 			[/overflow-x: auto; font-size: 14px/g,              `overflow-x: auto; font-size: ${s.codeBlock}`],
 			[/font-size: 14px; background: none/g,              `font-size: ${s.codeBlock}; background: none`],
 			[/(?<=<table[^>]*?)font-size: 15px/g,               `font-size: ${s.table}; line-height: ${v.table?.lineHeight ?? '1.75'}`],
@@ -1061,16 +1119,9 @@ export class StyleEngine {
 			// ── Table header background + text color ───────────────────────────
 			[/background-color: #f2f2f2/g,        `background-color: ${v.tableHeaderBg}`],
 			[/color: #2d3748/g,                   `color: ${v.tableHeaderColor}`],
-			// ── Code syntax token colors (HLJS GitHub light → Obsidian theme) ─
-			[/color: #24292f/g,                   `color: ${v.codeNormal}`],
-			[/color: #6e7781/g,                   `color: ${v.codeComment}`],
-			[/color: #cf222e/g,                   `color: ${v.codeKeyword}`],
-			[/color: #8250df/g,                   `color: ${v.codeFunction}`],
-			[/color: #0a3069/g,                   `color: ${v.codeString}`],
-			[/color: #0550ae/g,                   `color: ${v.codeValue}`],
-			[/color: #116329/g,                   `color: ${v.codeTag}`],
-			[/color: #953800/g,                   `color: ${v.codeProperty}`],
-			[/color: #b45309/g,                   `color: ${v.codeVariable}`],
+			// HLJS syntax tokens (including bash flags) are already recolored in a
+			// single pass by applyLiveCodeTokens() above; generic hex replacements
+			// here would clobber theme colors (e.g. headings) that match them.
 			// ── Inline code ────────────────────────────────────────────────────
 			[/color: #c7254e/g,                   `color: ${v.codeInline}`],
 			// ── Main background ────────────────────────────────────────────────
@@ -1087,7 +1138,7 @@ export class StyleEngine {
 			[/line-height: 1\.75/g,                           `line-height: ${v.lineHeight}`],
 		];
 		const cells = v.table ? applyLiveTableCells(html, v.table) : html;
-		return this.applyMap(applyLiveCodeTokens(cells, v), map);
+		return applyLiveColoredHighlights(this.applyMap(applyLiveCodeTokens(cells, v), map), v.coloredHighlights);
 	}
 
 	private applyMap(html: string, map: [RegExp, string][]): string {

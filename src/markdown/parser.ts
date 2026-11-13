@@ -414,7 +414,7 @@ export class MarkdownParser {
 		this.itemTasks = [];
 		this.insideDoneTask = false;
 		this.linkTags = [];
-		return this.md.render(markdown);
+		return styleMarkChildren(this.md.render(markdown));
 	}
 
 	/**
@@ -430,4 +430,19 @@ export class MarkdownParser {
 		});
 		return `<hr style="border: none; border-top: 1px solid #e5e5e5; margin: 2em 0;"><section style="margin: 1em 0;">${rows.join('')}</section>`;
 	}
+}
+
+/**
+ * Links and inline code inside <mark> inherit the highlight's text color
+ * (with underline for links, transparent background for code), matching
+ * Obsidian's reading view.
+ */
+function styleMarkChildren(html: string): string {
+	return html.replace(/(<mark\b[^>]*>)([\s\S]*?)(<\/mark>)/g, (_m, open: string, inner: string, close: string) => {
+		const styled = inner
+			.replace(/<span style="color: (?:#576b95|#666);">/g, '<span style="color: inherit; text-decoration: underline;">')
+			.replace(/(<a\b[^>]*style=")color: #576b95; text-decoration: none;/g, '$1color: inherit; text-decoration: underline;')
+			.replace(/(<code\b[^>]*style=")background-color: #f0f0f0;([^"]*?)color: #c7254e;/g, '$1background-color: transparent;$2color: inherit;');
+		return `${open}${styled}${close}`;
+	});
 }
