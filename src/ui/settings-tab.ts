@@ -50,8 +50,8 @@ export class PublisherSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('图片处理方式')
 			.setDesc(
-				'base64：将本地图片嵌入 HTML（推荐，粘贴后微信可识别）；' +
-				'跳过：保留原始路径（本地路径在公众号中无法显示）'
+				'base64：将本地和外链图片转为 Base64 嵌入 HTML（推荐，避免公众号抓取外链失败）；' +
+				'跳过：保留原始路径或外链（本地路径在公众号中无法显示）'
 			)
 			.addDropdown((drop) =>
 				drop

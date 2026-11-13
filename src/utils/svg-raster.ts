@@ -89,7 +89,48 @@ export function padSmallPngs(html: string): string {
 
 // ── SVG → PNG for <img> tags ────────────────────────────────────────────────
 
-const SVG_IMG_RE = /<img([^>]*?)src="data:image\/svg\+xml,([^"]+)"([^>]*)>/g;
+const SVG_IMG_RE = /<img([^>]*?)src="data:image\/svg\+xml(;base64)?,([^"]+)"([^>]*)>/g;
+
+function hasTransparency(ctx: CanvasRenderingContext2D, w: number, h: number): boolean {
+	const data = ctx.getImageData(0, 0, w, h).data;
+	for (let i = 3; i < data.length; i += 4) {
+		if ((data[i] ?? 255) < 255) return true;
+	}
+	return false;
+}
+
+/**
+ * Converts a non-WeChat-native raster image buffer (e.g. WebP, BMP, TIFF)
+ * to a PNG or JPEG data URL. Large opaque images are encoded as JPEG to
+ * avoid multi-megabyte PNGs that WeChat rejects or times out on.
+ */
+export function rasterBufferToPng(buffer: ArrayBuffer, mime: string): Promise<string | null> {
+	const url = URL.createObjectURL(new Blob([buffer], { type: mime }));
+	return new Promise((resolve) => {
+		const img = new Image();
+		img.onload = () => {
+			const canvas = document.createElement('canvas');
+			canvas.width = img.naturalWidth || img.width || 1;
+			canvas.height = img.naturalHeight || img.height || 1;
+			const ctx = canvas.getContext('2d');
+			if (!ctx) { URL.revokeObjectURL(url); resolve(null); return; }
+			ctx.drawImage(img, 0, 0);
+			URL.revokeObjectURL(url);
+			try {
+				const png = canvas.toDataURL('image/png');
+				if (png.length > 512 * 1024 && !hasTransparency(ctx, canvas.width, canvas.height)) {
+					resolve(canvas.toDataURL('image/jpeg', 0.92));
+				} else {
+					resolve(png);
+				}
+			} catch {
+				resolve(null);
+			}
+		};
+		img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+		img.src = url;
+	});
+}
 
 /** Display size of an <img>: inline style px first, then width/height attributes, then the SVG's own. */
 function displaySize(attrs: string, svg: string): { w: number; h: number } {
@@ -116,8 +157,8 @@ function withSize(svg: string, w: number, h: number): string {
  * WeChat shows SVG data-URI <img>s in the editor right after paste, but drops
  * them when the draft is saved — its server re-hosts inline images and only
  * accepts raster formats. Rasterize every such <img> (heading flags/icons,
- * callout icons) to PNG at the same display size. Falls back to the original
- * SVG if rasterizing fails.
+ * callout icons, embedded .svg files) to PNG at the same display size. Falls
+ * back to the original SVG if rasterizing fails.
  */
 export async function rasterizeSvgImages(html: string): Promise<string> {
 	const matches = [...html.matchAll(SVG_IMG_RE)];
@@ -125,10 +166,12 @@ export async function rasterizeSvgImages(html: string): Promise<string> {
 
 	const cache = new Map<string, Promise<string | null>>();
 	const pngs = await Promise.all(matches.map((m) => {
-		const [, before = '', encoded = '', after = ''] = m;
-		const svg = decodeURIComponent(encoded);
+		const [, before = '', b64Flag = '', encoded = '', after = ''] = m;
+		const svg = b64Flag
+			? new TextDecoder().decode(Uint8Array.from(atob(encoded), c => c.charCodeAt(0)))
+			: decodeURIComponent(encoded);
 		const { w, h } = displaySize(before + after, svg);
-		const key = `${w}x${h}:${encoded}`;
+		const key = `${w}x${h}:${b64Flag}:${encoded}`;
 		let png = cache.get(key);
 		if (!png) {
 			png = rasterizeSvg(withSize(svg, w, h), w, h);
@@ -138,7 +181,7 @@ export async function rasterizeSvgImages(html: string): Promise<string> {
 	}));
 
 	let i = 0;
-	return html.replace(SVG_IMG_RE, (full, before: string, _encoded: string, after: string) => {
+	return html.replace(SVG_IMG_RE, (full, before: string, _b64Flag: string, _encoded: string, after: string) => {
 		const png = pngs[i++];
 		return png ? `<img${before}src="${png}"${after}>` : full;
 	});

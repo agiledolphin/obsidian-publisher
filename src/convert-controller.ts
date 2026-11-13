@@ -111,8 +111,8 @@ export class ConvertController {
 		const taskIcons = this.settings.theme === 'obsidian' ? await captureLiveTaskIcons() : null;
 		let styledHtml = this.styleEngine.process(html, vars, taskIcons);
 
-		// 9. Embed local images as base64 data URLs. After theming: the engine's
-		//    regexes would otherwise scan every byte of every embedded image.
+		// 9. Embed local and remote images as base64 data URLs. After theming:
+		//    the engine's regexes would otherwise scan every byte of every image.
 		if (this.settings.imageMode === 'base64') {
 			const fileDir = file.parent?.path ?? '';
 			styledHtml = await this.embedder.embedImages(styledHtml, fileDir);

@@ -9,8 +9,10 @@ export const VIEW_TYPE_PUBLISHER_PREVIEW = 'publisher-preview-view';
 export class PublisherPreviewView extends ItemView {
 	private currentFile: TFile | null = null;
 	private previewEl!: HTMLElement;
+	private copyBtn!: HTMLButtonElement;
 	private currentHtml = '';
 	private refreshRun = 0;
+	private pendingRefresh: Promise<void> | null = null;
 
 	constructor(leaf: WorkspaceLeaf, private plugin: ObsidianPublisher) {
 		super(leaf);
@@ -59,16 +61,22 @@ export class PublisherPreviewView extends ItemView {
 
 		toolbar.createDiv({ cls: 'publisher-view-spacer' });
 
-		const copyBtn = toolbar.createEl('button', {
+		this.copyBtn = toolbar.createEl('button', {
 			text: '复制到剪贴板',
 			cls: 'publisher-btn-primary publisher-view-copy-btn',
 		});
-		copyBtn.addEventListener('click', () => {
-			if (!this.currentHtml) return;
-			// Same HTML as the copy command — what the preview shows.
-			copyRichText(this.currentHtml)
-				.then(() => new Notice('✅ 已复制！请到公众号编辑器中粘贴。'))
-				.catch(() => new Notice('❌ 复制失败，请检查浏览器权限。'));
+		this.copyBtn.addEventListener('click', () => {
+			void (async () => {
+				if (this.pendingRefresh) await this.pendingRefresh;
+				if (!this.currentHtml) return;
+				// Same HTML as the copy command — what the preview shows.
+				try {
+					await copyRichText(this.currentHtml);
+					new Notice('✅ 已复制！请到公众号编辑器中粘贴。');
+				} catch {
+					new Notice('❌ 复制失败，请检查浏览器权限。');
+				}
+			})();
 		});
 
 		// ── Preview area ─────────────────────────────────────────────────
@@ -97,19 +105,30 @@ export class PublisherPreviewView extends ItemView {
 	async refresh(file: TFile): Promise<void> {
 		this.currentFile = file;
 		const run = ++this.refreshRun;
+		if (this.copyBtn) this.copyBtn.textContent = '转换中…';
 
-		// The old preview stays up until the new one is ready, so switching
-		// themes doesn't blank the panel or lose the scroll position.
-		try {
-			const html = await this.plugin.controller.convert(file);
-			if (run !== this.refreshRun) return; // superseded by a newer refresh
-			this.currentHtml = html;
-			applyPreviewContent(this.previewEl, html);
-		} catch (e) {
-			if (run !== this.refreshRun) return;
-			this.currentHtml = '';
-			this.previewEl.empty();
-			this.previewEl.createEl('p', { text: `❌ 渲染失败：${(e as Error).message}` });
-		}
+		const task = (async () => {
+			// The old preview stays up until the new one is ready, so switching
+			// themes doesn't blank the panel or lose the scroll position.
+			try {
+				const html = await this.plugin.controller.convert(file);
+				if (run !== this.refreshRun) return; // superseded by a newer refresh
+				this.currentHtml = html;
+				applyPreviewContent(this.previewEl, html);
+			} catch (e) {
+				if (run !== this.refreshRun) return;
+				this.currentHtml = '';
+				this.previewEl.empty();
+				this.previewEl.createEl('p', { text: `❌ 渲染失败：${(e as Error).message}` });
+			} finally {
+				if (run === this.refreshRun) {
+					this.pendingRefresh = null;
+					if (this.copyBtn) this.copyBtn.textContent = '复制到剪贴板';
+				}
+			}
+		})();
+
+		this.pendingRefresh = task;
+		await task;
 	}
 }
