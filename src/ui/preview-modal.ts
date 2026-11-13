@@ -35,6 +35,8 @@ class SourceModal extends Modal {
 export class PreviewModal extends Modal {
 	private renderRun = 0;
 	private previewEl!: HTMLElement;
+	private copyBtn!: HTMLButtonElement;
+	private pendingRender: Promise<void> | null = null;
 
 	/** `html` is the file's converted output, ready before opening so the modal never shows half-built. */
 	constructor(app: App, private plugin: ObsidianPublisher, private file: TFile, private html: string) {
@@ -45,16 +47,28 @@ export class PreviewModal extends Modal {
 	/** Reconverts the file for the current theme setting and re-renders the preview. */
 	private async renderContent(): Promise<void> {
 		const run = ++this.renderRun;
-		let html: string;
-		try {
-			html = await this.plugin.controller.convert(this.file);
-		} catch (e) {
-			if (run === this.renderRun) new Notice(`❌ 预览失败：${(e as Error).message}`);
-			return;
-		}
-		if (run !== this.renderRun) return; // superseded by a newer theme switch
-		this.html = html;
-		applyPreviewContent(this.previewEl, html);
+		if (this.copyBtn) this.copyBtn.textContent = '转换中…';
+
+		const task = (async () => {
+			let html: string;
+			try {
+				html = await this.plugin.controller.convert(this.file);
+			} catch (e) {
+				if (run === this.renderRun) new Notice(`❌ 预览失败：${(e as Error).message}`);
+				return;
+			} finally {
+				if (run === this.renderRun) {
+					this.pendingRender = null;
+					if (this.copyBtn) this.copyBtn.textContent = '复制到剪贴板';
+				}
+			}
+			if (run !== this.renderRun) return; // superseded by a newer theme switch
+			this.html = html;
+			applyPreviewContent(this.previewEl, html);
+		})();
+
+		this.pendingRender = task;
+		await task;
 	}
 
 	/** Attaches drag-to-move behaviour to the modal, using handle as the grab target. */
@@ -136,18 +150,22 @@ export class PreviewModal extends Modal {
 		});
 		sourceBtn.addEventListener('click', () => new SourceModal(this.app, this.html).open());
 
-		const copyBtn = toolbar.createEl('button', {
+		this.copyBtn = toolbar.createEl('button', {
 			text: '复制到剪贴板',
 			cls: 'publisher-btn-primary',
 		});
-		copyBtn.addEventListener('click', () => {
-			// Same HTML as the copy command — what the preview shows.
-			copyRichText(this.html)
-				.then(() => {
+		this.copyBtn.addEventListener('click', () => {
+			void (async () => {
+				if (this.pendingRender) await this.pendingRender;
+				// Same HTML as the copy command — what the preview shows.
+				try {
+					await copyRichText(this.html);
 					new Notice('✅ 已复制！请到公众号编辑器中粘贴。');
 					this.close();
-				})
-				.catch(() => new Notice('❌ 复制失败，请检查浏览器权限。'));
+				} catch {
+					new Notice('❌ 复制失败，请检查浏览器权限。');
+				}
+			})();
 		});
 
 		applyPreviewContent(this.previewEl, this.html);
